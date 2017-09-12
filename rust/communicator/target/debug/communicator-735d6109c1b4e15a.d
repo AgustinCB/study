@@ -1,0 +1,1 @@
+/home/agustin/study/rust/communicator/target/debug/communicator-735d6109c1b4e15a: /home/agustin/study/rust/communicator/src/network/mod.rs /home/agustin/study/rust/communicator/src/network/server.rs /home/agustin/study/rust/communicator/src/lib.rs /home/agustin/study/rust/communicator/src/client.rs
