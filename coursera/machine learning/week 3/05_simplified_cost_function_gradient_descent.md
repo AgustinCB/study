@@ -32,7 +32,7 @@ cost(h(x), y) = -y log(h(x)) - (1-y) log(1-h(x)) = 0 log(h(x)) - log(1-h(x)) = -
 Then, we have that:
 
 ```
-J(\theta) = 1/m sum(1, m, cost(h(x), y)) = -1/m sum(1, m, yi * log(h(xi)) + (1-yi) * log(1-h(xi)))
+J(\theta) = 1/m sum(1, m, cost(h(x), y)) = -1/m sum(1, m, yi * log(h(xi)) - (1-yi) * log(1-h(xi)))
 ```
 
 Why to choose this while there could have been other functions? This cost function could be derived from statistics using the principle of likelihood estimation, which is an idea for how to effitienly find parameters for models and it also has the nice property that is convex.
