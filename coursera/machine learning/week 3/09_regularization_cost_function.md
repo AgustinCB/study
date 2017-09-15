@@ -23,7 +23,7 @@ In the example of the housing problem, we may have a hundred features. In this c
 So we will modify the cost function to shrink all of our parameters:
 
 ```
-J(\theta) = 1/2m sum(1,m, (h(x) - y) ^2 + \alpha sum(1, m, \lambda ^ 2))
+J(\theta) = 1/2m sum(1,m, (h(x) - y) ^2) + \lambda sum(1, m, \theta ^ 2)
 ```
 
 As you can see, we aren't including \theta0 in the regularization, thi is by convention. The term in the right is the regularization term and \lambda hwere is the regularization parameter, which controls the tradeoff of fiting the data well and at the same time keeping the parameters small and the hypothesis simple.
