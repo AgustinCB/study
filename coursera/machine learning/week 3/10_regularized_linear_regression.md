@@ -5,7 +5,7 @@ For linear regression, we had previously worked in two algorithms: One using gra
 As we previously discussed, our new cost function is:
 
 ```
-J(\theta) = 1/2m sum(1, m, (h(x) - y)^2) + \lambda sum(1,n,\theta^2)
+J(\theta) = 1/2m sum(1, m, (h(x) - y)^2) + \lambda/(2m) sum(1,n,\theta^2)
 ```
 
 Previously, we were using gradient descent for the previous cost function. With this new cost function, we will have something like this:

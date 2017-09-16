@@ -4,7 +4,7 @@ using Optim
 using Plots
 using StatPlots
 
-function plotDecisionBoundary(θ::Array{Float64, 1}, X::Matrix, y::DataArrays.DataArray{Float64, 1}, labels::Array{String, 1}, atext::Array{String, 1})
+function plotDecisionBoundary(θ::Array{Float64, 1}, X::Matrix, y::DataArrays.DataArray{Float64, 1}, labels::Array{String, 2}, atext::Array{String, 2})
     if size(X, 2) <= 3
         # Get 2 points to define a line
         plot_x = [minimum(X[:, 2])-2; maximum(X[:, 2])+2]
@@ -104,7 +104,7 @@ Plot Data:
 - Set the labels to Microchip 1 and Microchip 2
 =#
 
-data = readdlm("ex2data1.txt", ',')
+data = readdlm("ex2data2.txt", ',')
 df = DataFrame(microchip1 = data[:, 1], microchip2 = data[:, 2], passed = data[:, 3])
 scatter(df, :microchip1, :microchip2, group = :passed, xlabel = "Microchip 1", ylabel = "Microchip 2", label = ["y = 0 " " y = 1 "], markershape=[:xcross :cross])
 gui()
@@ -113,22 +113,60 @@ function mapFeature(X::Matrix, m::Int64)
     out = Matrix(m, 0)
     degree = 6
     for i in 1:6
-        for j in 0:j
-            out = hcat((X[:,1].^(i-j)).*(X[:,2].^j), out)
+        for j in 0:i
+            out = hcat(out, (X[:,1].^(i-j)).*(X[:,2].^j))
         end
     end
     return hcat(ones(m, 1), out)
 end
 
-n = size(data)[2]
-m = length(df[:exam1])
-X = mapFeature([df[1] df[2]], m)
-y = df[n]
+m = size(data,1)
+X = mapFeature(data[:, 1:2], m)
+n = size(X,2)
+y = data[:,size(data,2)]
 θ = zeros(n)
 λ = 1
 
-```
-J(\theta) = 1/2m sum(1, m, (h(x) - y)^2 + \lambda sum(1,n,\theta^2))
-```
-J(θ) = (1/m) * sum(-y'*log.(sigmoid(X * θ)) - (1-y)'*log.(1-sigmoid(X*θ))) + λ sum(θ .^ 2)
-jdev(θ, j) = (1/m) * sum((sigmoid(X * θ) - y) .* X[:, j])
+J(θ) = (1/m) * sum(-y'*log.(sigmoid(X * θ)) - (1-y)'*log.(1-sigmoid(X*θ))) + λ/(2 * m) * sum(θ[2:end] .^ 2)
+jdev(θ, j) = (1/m) * sum((sigmoid(X * θ) - y) .* X[:, j]) + (j == 1 ? 0 : (λ/m * θ[j]))
+
+@test J(θ) - 0.693 < 1e-3
+@test jdev(θ, 1) - 0.0085 < 1e-4
+println(jdev(θ, 2))
+@test jdev(θ, 2) - 0.0188 < 1e-4
+@test jdev(θ, 3) - 0.0001 < 1e-4
+@test jdev(θ, 4) - 0.0503 < 1e-4
+@test jdev(θ, 5) - 0.0115 < 1e-4
+
+test_theta = ones(size(X,2),1)
+λ = 10
+
+@test J(test_theta) - 3.16 < 1e-2
+@test jdev(test_theta, 1) - 0.3460 < 1e-4
+@test jdev(test_theta, 2) - 0.1614 < 1e-4
+@test jdev(test_theta, 3) - 0.1948 < 1e-4
+@test jdev(test_theta, 4) - 0.2269 < 1e-4
+@test jdev(test_theta, 5) - 0.0922 < 1e-4
+
+#=
+Regularization and accuracies
+Run the previous algorithm through the optimization process for different lambdas:
+(1, 10, 100)
+
+And see how it varies.
+=#
+
+function g!(storage, θ)
+   for i in 1:length(θ)
+       storage[i] = jdev(θ, i)
+   end
+end
+
+for i in [1 10 100]
+    λ = i
+    res = optimize(J, g!, zeros(n, 1), LBFGS())
+    θ = Optim.minimizer(res)
+    p = [i > 0.5 ? 1 : 0 for i in sigmoid(X * θ)]
+
+    println("Accuracy: ", mean(convert.(Float64, p .== y)) * 100)
+end
