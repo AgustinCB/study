@@ -60,6 +60,7 @@ X = read(file, "X")
 y = read(file, "y")[:, 1]
 
 classifiers = oneVsAll(X, y, num_labels, 0.1)
+
 println(classifiers)
 
 #=
@@ -76,5 +77,23 @@ function predictOneVsAll(classifiers::Array{Array{Float64, 1}, 1}, X::Matrix)
 end
 
 pred = predictOneVsAll(classifiers, X)
+
+println(mean(convert.(Float64, pred .== y)) * 100)
+
+#=
+Part 4: Let's do the same, but with Neural networks
+=#
+
+file = matopen("ex3weights.mat")
+
+function predict(θ1::Matrix, θ2::Matrix, X::Matrix)
+    a1 = [ones(size(X, 1)) X]
+    a2 = sigmoid.(a1 * θ1')
+    a2 = [ones(size(a2, 1)) a2]
+    a3 = sigmoid.(a2 * θ2')
+    return [indmax(a3[i, :]) for i in 1:size(a3, 1)]
+end
+
+pred = predict(read(file, "Theta1"), read(file, "Theta2"), X)
 
 println(mean(convert.(Float64, pred .== y)) * 100)
