@@ -48,7 +48,7 @@ For the hidden layers in the network:
 \delta[3] = (\Theta[3])'\delta[4] .* g'(z[3])
 \delta[2] = (\Theta[2])'\delta[3] .* g'(z[2])
 
-g(x) = x .* (1 - x)
+g'(x) = x .* (1 - x)
 ```
 
 There's no delta term for the first layer, since its the input and doesn't have any error.
