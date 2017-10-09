@@ -1,4 +1,5 @@
 using Base.Test
+using Distributions
 using MAT
 using Optim
 
@@ -77,4 +78,22 @@ J = nnCostFunction1(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, �
 @test abs(J - 0.383770) < 1e-6
 
 #=
-Forth step, 
+Forth step, create the derivative of the sigmoid function
+=#
+
+g(z) = sigmoid(z) .* (1 .- sigmoid(z))
+
+#=
+Fifth step, create a function to randomly initialize the weights
+=#
+
+randInitializeWeights(x::Int32, y::Int32) = rand(Uniform(-0.1, 0.1), x, y)
+
+Θ1 = randInitializeWeights(input_layer_size, hidden_layer_size)
+Θ2 = randInitializeWeights(hidden_layer_size, num_labels)
+
+Θ = [Θ1[:]; Θ2[:]]
+
+#=
+Implement backpropagation and check with numerical descent that the derivatives are similar
+=#
