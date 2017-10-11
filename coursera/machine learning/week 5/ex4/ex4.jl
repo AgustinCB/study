@@ -21,6 +21,7 @@ file = matopen("ex4data1.mat")
 
 X = read(file, "X")
 y = read(file, "y")[:]
+m = size(X, 1)
 
 #=
 Second create the nnCostFunction
@@ -132,10 +133,9 @@ function nnDerivativeFunction(Θ::Array{Float64, 1}, input_layer_size::Int64, hi
         a2 = [1; sigmoid(z2)]
         z3 = Θ2 * a2
         a3 = sigmoid(z3)
-        h = a3
 
         δ3 = a3 - output[t, :]
-        δ2 = (Θ2' * δ3) .* g(a2)
+        δ2 = (Θ2' * δ3) .* [1; g(z2)]
         δ2 = δ2[2:end]
 
         Θ1_grad = Θ1_grad + δ2 * a1'
@@ -148,23 +148,47 @@ function nnDerivativeFunction(Θ::Array{Float64, 1}, input_layer_size::Int64, hi
 end
 
 J(Θ) = nnCostFunction1(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
-derivative = nnDerivativeFunction(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
-computed_derivative = computeNumericalGradient(J, Θ)
-n = norm(computed_derivative - derivative) / norm(computed_derivative + derivative)
+#Commented because is expensive
+#derivative = nnDerivativeFunction(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
+#computed_derivative = computeNumericalGradient(J, Θ)
+#n = norm(computed_derivative - derivative) / norm(computed_derivative + derivative)
 
-println(n)
-@test n < 0.02
+#@test n < 1e-9
 
 #=
 Now run using regularization
 =#
 
-λ = 3
+λ = 3.0
 J(Θ) = nnCostFunction1(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
-derivative = nnDerivativeFunction(prev_Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
-computed_derivative = computeNumericalGradient(J, prev_Θ)
-n = norm(computed_derivative - derivative) / norm(computed_derivative + derivative)
-res = nnCostFunction1(prev_Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
+#Commented because is expensive
+#derivative = nnDerivativeFunction(prev_Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
+#computed_derivative = computeNumericalGradient(J, prev_Θ)
+#n = norm(computed_derivative - derivative) / norm(computed_derivative + derivative)
 
-println(n)
-@test n < 0.02
+#@test n < 1e-7
+
+#=
+And now, let's train the NN
+=#
+
+function g!(storage, Θ)
+    res = nnDerivativeFunction(Θ, input_layer_size, hidden_layer_size, num_labels, X, y, λ)
+    for i in 1:length(Θ)
+        storage[i] = res[i]
+    end
+    storage
+end
+res = optimize(J, g!, Θ, LBFGS())
+opt = Optim.minimizer(res)[:, 1]
+    
+Θ1 = reshape(opt[1:(hidden_layer_size * (input_layer_size + 1))], hidden_layer_size, (input_layer_size + 1))    
+Θ2 = reshape(opt[1+(hidden_layer_size * (input_layer_size + 1)):end], num_labels, (hidden_layer_size + 1))
+
+#=
+Once trained, predict
+=#
+
+h = sigmoid([ones(m) sigmoid([ones(m) X] * Θ1')] * Θ2')
+
+println(h[1:5, :])
