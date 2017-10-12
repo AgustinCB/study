@@ -190,5 +190,9 @@ Once trained, predict
 =#
 
 h = sigmoid([ones(m) sigmoid([ones(m) X] * Θ1')] * Θ2')
+output = zeros(m)
+for i in 1:m
+    output[i] = indmax(h[i, :])
+end
 
-println(h[1:5, :])
+@test mean([convert(Float64,i) for i in (output .== y)]) > 0.95
