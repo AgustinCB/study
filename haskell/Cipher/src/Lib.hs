@@ -4,6 +4,7 @@ module Cipher(
   vigenere) where
 
 import Data.Char
+import Text.Read
 
 integerOrd = toInteger.ord
 integerChr = chr.fromIntegral
@@ -39,3 +40,21 @@ vigenere key phrase = go key phrase 0
       | isUpper c = (integerOrd c) - upperBase
       | otherwise = 0
     getChar key step = key !! ((fromInteger step) `mod` (length key))
+
+doCaesar :: IO()
+doCaesar = do
+  putStrLn "Introduce the phrase to encrypt"
+  phrase <- getLine
+  putStrLn "Introduce the number of steps to shift"
+  stepsLine <- getLine
+  case readMaybe stepsLine of
+    Nothing -> putStrLn "Invalid number!"
+    Just steps -> putStrLn ("Result: " ++ caesar steps phrase)
+
+doVigenere :: IO()
+doVigenere = do
+  putStrLn "Introduce the phrase to encrypt"
+  phrase <- getLine
+  putStrLn "Introduce the key"
+  key <- getLine
+  putStrLn ("Result: " ++ vigenere key phrase)
