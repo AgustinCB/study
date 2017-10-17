@@ -35,7 +35,6 @@ function oneVsAll(X::Matrix, y::Array{Float64, 1}, num_classes::Int64, λ::Float
     n = size(X, 2)
 
     function getClassifier(class::Int64)
-        println("CLASSIFIER ", class)
         out = convert.(UInt8, y .== class)
         costFunc(θ) = J(θ, X, out, m, λ)
         grad(θ, j) = jdev(θ, X, out, m, λ, j)
