@@ -1,5 +1,8 @@
 {-# LANGUAGE InstanceSigs #-}
 
+import Control.Monad.Trans.Class
+import Control.Monad (liftM, liftM2)
+
 newtype StateT s m a = StateT { runStateT :: s -> m (a,s) }
 
 instance (Functor m) => Functor (StateT s m) where
@@ -16,10 +19,10 @@ instance (Monad m) => Applicative (StateT s m) where
   (<*>) :: StateT s m (a -> b)
         -> StateT s m a
         -> StateT s m b
-  (StateT smfab) <*> (StateT sma) = StateT $ \s -> do
-    a <- fmap fst $ sma s
-    f <- fmap fst $ smfab s
-    return (f a, s)
+  (StateT smfab) <*> (StateT sma) = StateT $ \s -> liftM2 (,)  (fa s) (pure s)
+    where fa s = (f s) <*> (a s)
+          a s = fmap fst $ sma s
+          f s = fmap fst $ smfab s
 
 instance (Monad m) => Monad (StateT s m) where
   return = pure
@@ -30,3 +33,7 @@ instance (Monad m) => Monad (StateT s m) where
   (StateT sma) >>= f = StateT $ \s -> do
     as <- sma s
     runStateT (f $ fst as) s
+
+instance MonadTrans (StateT s) where
+  lift :: (Monad m) => m a -> StateT s m a
+  lift ma = StateT $ \s -> liftM2 (,) ma (pure s)
