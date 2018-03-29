@@ -20,3 +20,11 @@ A proof of that is that also the system time slightly goes up when the user time
 It started with 8.6G of free memory. As I started the mem program, it dropped to 7.5G, which kinda makes sense, it's approximately the size we are allocating.
 
 Similarly, when I stopped the mem program, the free memory went up to 8.6G again. Repeating the experiment gave the same results, which confirms that the world is a beautiful place where things make sense.
+
+3. We’ll next look at the swap columns (si and so), which indicate how much swapping is taking place to and from the disk. Of course, to activate these, you’ll need to run mem with large amounts of memory. First, examine how much free memory is on your Linux system (for example, by typing cat /proc/meminfo; type man proc for details on the /proc file system and the types of information you can find there). One of the first entries in /proc/meminfo is the total amount of memory in your system. Let’s assume it’s something like 8 GB of memory; if so, start by running mem 4000 (about 4 GB) and watching the swap in/out columns. Do they ever give non-zero values? Then, try with 5000, 6000, etc. What happens to these values as the program enters the second loop (and beyond), as compared to the first loop? How much data (total) are swapped in and out during the second, third, and subsequent loops? (do the numbers make sense?)
+
+I have 40gb of memory, which makes tests difficult.
+
+Using 10GB of memory, causes no swap (and a segmentation fault :)). Same for using 20GB. Same for using 30GB. Testing the limits, though, seems to cause segmentation faults and not the use of swap memory.
+
+After some fiddling, I found out that I actually didn't include any swap memory in the laptop, because well, I have 40GB. So I guess my results make sense!
