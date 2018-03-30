@@ -28,3 +28,7 @@ I have 40gb of memory, which makes tests difficult.
 Using 10GB of memory, causes no swap (and a segmentation fault :)). Same for using 20GB. Same for using 30GB. Testing the limits, though, seems to cause segmentation faults and not the use of swap memory.
 
 After some fiddling, I found out that I actually didn't include any swap memory in the laptop, because well, I have 40GB. So I guess my results make sense!
+
+4. Do the same experiments as above, but now watch the other statistics (such as CPU utilization, and block I/O statistics). How do they change when mem is running?
+
+Both the block output and the usage spike with big amounts of memory. Before segfaulting, the block input also spikes, slightly.
