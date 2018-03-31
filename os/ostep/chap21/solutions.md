@@ -32,3 +32,9 @@ After some fiddling, I found out that I actually didn't include any swap memory 
 4. Do the same experiments as above, but now watch the other statistics (such as CPU utilization, and block I/O statistics). How do they change when mem is running?
 
 Both the block output and the usage spike with big amounts of memory. Before segfaulting, the block input also spikes, slightly.
+
+5. Now let’s examine performance. Pick an input for mem that comfortably fits in memory (say 4000 if the amount of memory on the system is 8 GB). How long does loop 0 take (and subsequent loops 1, 2, etc.)? Now pick a size comfortably beyond the size of memory (say 12000 again assuming 8 GB of memory). How long do the loops take here? How do the bandwidth numbers compare? How different is performance when constantly swapping versus fitting everything comfortably in memory? Can you make a graph, with the size of memory used by mem on the x-axis, and the bandwidth of accessing said memory on the y-axis? Finally, how does the performance of the first loop compare to that of subsequent loops, for both the case where everything fits in memory and where it doesn’t?
+
+No swap memory. Bandwidth for when I have enough memory is close to 6k MB/s. When I go over my free memory, however, I just get a segfault.
+
+However, I'd expect bandwidth to decrease as I start swapping. Disk access is more expensive in time than memory.
