@@ -38,3 +38,7 @@ Both the block output and the usage spike with big amounts of memory. Before seg
 No swap memory. Bandwidth for when I have enough memory is close to 6k MB/s. When I go over my free memory, however, I just get a segfault.
 
 However, I'd expect bandwidth to decrease as I start swapping. Disk access is more expensive in time than memory.
+
+6. Swap space isn’t infinite. You can use the tool swapon with the -s flag to see how much swap space is available. What happens if you try to run mem with increasingly large values, beyond what seems to be available in swap? At what point does the memory allocation fail?
+
+`swapon -s` returns nothing. Expected I guess. As of what happens when you run out of it: A segfault. It usually happens as soon as you run out of memory (memory being memory+swap).
