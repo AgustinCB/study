@@ -42,3 +42,7 @@ However, I'd expect bandwidth to decrease as I start swapping. Disk access is mo
 6. Swap space isn’t infinite. You can use the tool swapon with the -s flag to see how much swap space is available. What happens if you try to run mem with increasingly large values, beyond what seems to be available in swap? At what point does the memory allocation fail?
 
 `swapon -s` returns nothing. Expected I guess. As of what happens when you run out of it: A segfault. It usually happens as soon as you run out of memory (memory being memory+swap).
+
+7. Finally, if you’re advanced, you can configure your system to use different swap devices using swapon and swapoff. Read the man pages for details. If you have access to different hardware, see how the performance of swapping changes when swapping to a classic hard drive, a flash-based SSD, and even a RAID array. How much can swapping performance be improved via newer devices? How close can you get to in-memory performance?
+
+Configuring a swap device gives me approximately the same number of extra RAM before start segfaulting. It's slower than ram by one to two orders of magnitude (I have an ssd disk).
