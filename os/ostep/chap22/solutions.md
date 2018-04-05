@@ -78,4 +78,30 @@ Access: 6  Hit/Miss?  State of Memory? -> Miss, memory [8,7,6], lastin replaced:
 Access: 3  Hit/Miss?  State of Memory? -> Miss, memory [7,6,3], lastin replaced: 8
 Access: 6  Hit/Miss?  State of Memory? -> Hit, memory [7,6,3], lastin replaced: -
 Access: 6  Hit/Miss?  State of Memory? -> Hit, memory [7,6,3], lastin replaced: -
+
+./paging-policy.py -s 0 -n 10 -a -1 -p LRU
+ARG addresses -1
+ARG addressfile 
+ARG numaddrs 10
+ARG policy LRU
+ARG clockbits 2
+ARG cachesize 3
+ARG maxpage 10
+ARG seed 0
+ARG notrace False
+
+Assuming a replacement policy of LRU, and a cache of size 3 pages,
+figure out whether each of the following page references hit or miss
+in the page cache.
+
+Access: 8  Hit/Miss?  State of Memory? -> Miss, memory [6], lastin replaced: -
+Access: 7  Hit/Miss?  State of Memory? -> Miss, memory [6,7], lastin replaced: -
+Access: 4  Hit/Miss?  State of Memory? -> Miss, memory [6,7,4], lastin replaced: -
+Access: 2  Hit/Miss?  State of Memory? -> Miss, memory [7,4,2], lastin replaced: 6
+Access: 5  Hit/Miss?  State of Memory? -> Miss, memory [4,2,5], lastin replaced: 7
+Access: 4  Hit/Miss?  State of Memory? -> Hit, memory [2,5,4], lastin replaced: -
+Access: 7  Hit/Miss?  State of Memory? -> Miss, memory [5,4,7], lastin replaced: 2
+Access: 3  Hit/Miss?  State of Memory? -> Miss, memory [4,7,3], lastin replaced: 5
+Access: 4  Hit/Miss?  State of Memory? -> Hit, memory [7,3,4], lastin replaced: -
+Access: 5  Hit/Miss?  State of Memory? -> Miss, memory [3,4,5], lastin replaced: 7
 ```
