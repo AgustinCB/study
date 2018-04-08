@@ -182,4 +182,30 @@ Access: 7  Hit/Miss?  State of Memory? -> Hit, memory [7,4,5], Right replaced: -
 Access: 3  Hit/Miss?  State of Memory? -> Miss, memory [4,5,3], Right replaced: 7
 Access: 4  Hit/Miss?  State of Memory? -> Hit, memory [4,5,3], Right replaced: -
 Access: 5  Hit/Miss?  State of Memory? -> Hit, memory [4,5,3], Right replaced: -
+
+./paging-policy.py -s 1 -n 10 -a -1 -p OPT
+ARG addresses -1
+ARG addressfile 
+ARG numaddrs 10
+ARG policy OPT
+ARG clockbits 2
+ARG cachesize 3
+ARG maxpage 10
+ARG seed 1
+ARG notrace False
+
+Assuming a replacement policy of OPT, and a cache of size 3 pages,
+figure out whether each of the following page references hit or miss
+in the page cache.
+
+Access: 1  Hit/Miss?  State of Memory? -> Miss, memory [1], Right replaced: -
+Access: 8  Hit/Miss?  State of Memory? -> Miss, memory [1,8], Right replaced: -
+Access: 7  Hit/Miss?  State of Memory? -> Miss, memory [1,8,7], Right replaced: -
+Access: 2  Hit/Miss?  State of Memory? -> Miss, memory [8,7,2], Right replaced: 1
+Access: 4  Hit/Miss?  State of Memory? -> Miss, memory [8,7,4], Right replaced: 2
+Access: 4  Hit/Miss?  State of Memory? -> Hit, memory [8,7,4], Right replaced: -
+Access: 6  Hit/Miss?  State of Memory? -> Miss, memory [7,4,6], Right replaced: 8
+Access: 7  Hit/Miss?  State of Memory? -> Hit, memory [7,4,6], Right replaced: -
+Access: 0  Hit/Miss?  State of Memory? -> Miss, memory [4,6,0], Right replaced: 7
+Access: 0  Hit/Miss?  State of Memory? -> Hit, memory [4,6,0], Right replaced: -
 ```
