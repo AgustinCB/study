@@ -235,3 +235,69 @@ Access: 3  Hit/Miss?  State of Memory? -> Miss, memory [7,6,3], Right replaced: 
 Access: 6  Hit/Miss?  State of Memory? -> Hit, memory [7,6,3], Right replaced: -
 Access: 6  Hit/Miss?  State of Memory? -> Hit, memory [7,6,3], Right replaced: -
 ```
+
+2. For a cache of size 5, generate worst-case address reference streams for each of the following policies: FIFO, LRU, and MRU (worst-case reference streams cause the most misses possible. For the worst case reference streams, how much bigger of a cache is needed to improve performance dramatically and approach OPT?
+
+Doing it for FIFO is relatively easy: Generate an stream from 1 to C+1 where C is the cache size:
+
+```
+./paging-policy.py --cachesize=5 -a 1,2,3,4,5,6,1,2,3,4,5,6 -p FIFO -c
+ARG addresses 1,2,3,4,5,6,1,2,3,4,5,6
+ARG addressfile 
+ARG numaddrs 10
+ARG policy FIFO
+ARG clockbits 2
+ARG cachesize 5
+ARG maxpage 10
+ARG seed 0
+ARG notrace False
+
+Solving...
+
+Access: 1  MISS FirstIn ->          [1] <- Lastin  Replaced:- [Hits:0 Misses:1]
+Access: 2  MISS FirstIn ->       [1, 2] <- Lastin  Replaced:- [Hits:0 Misses:2]
+Access: 3  MISS FirstIn ->    [1, 2, 3] <- Lastin  Replaced:- [Hits:0 Misses:3]
+Access: 4  MISS FirstIn -> [1, 2, 3, 4] <- Lastin  Replaced:- [Hits:0 Misses:4]
+Access: 5  MISS FirstIn -> [1, 2, 3, 4, 5] <- Lastin  Replaced:- [Hits:0 Misses:5]
+Access: 6  MISS FirstIn -> [2, 3, 4, 5, 6] <- Lastin  Replaced:1 [Hits:0 Misses:6]
+Access: 1  MISS FirstIn -> [3, 4, 5, 6, 1] <- Lastin  Replaced:2 [Hits:0 Misses:7]
+Access: 2  MISS FirstIn -> [4, 5, 6, 1, 2] <- Lastin  Replaced:3 [Hits:0 Misses:8]
+Access: 3  MISS FirstIn -> [5, 6, 1, 2, 3] <- Lastin  Replaced:4 [Hits:0 Misses:9]
+Access: 4  MISS FirstIn -> [6, 1, 2, 3, 4] <- Lastin  Replaced:5 [Hits:0 Misses:10]
+Access: 5  MISS FirstIn -> [1, 2, 3, 4, 5] <- Lastin  Replaced:6 [Hits:0 Misses:11]
+Access: 6  MISS FirstIn -> [2, 3, 4, 5, 6] <- Lastin  Replaced:1 [Hits:0 Misses:12]
+
+FINALSTATS hits 0   misses 12   hitrate 0.00
+```
+
+You can do something similar with LRU and it will give the same results, since the difference between the two methods appears only in hits. For MRU you have to generate C+1 different address, and then change from C to C+1:
+
+```
+./paging-policy.py --cachesize=5 -a 1,2,3,4,5,6,5,6,5,6 -p MRU -c
+ARG addresses 1,2,3,4,5,6,5,6,5,6
+ARG addressfile 
+ARG numaddrs 10
+ARG policy MRU
+ARG clockbits 2
+ARG cachesize 5
+ARG maxpage 10
+ARG seed 0
+ARG notrace False
+
+Solving...
+
+Access: 1  MISS LRU ->          [1] <- MRU Replaced:- [Hits:0 Misses:1]
+Access: 2  MISS LRU ->       [1, 2] <- MRU Replaced:- [Hits:0 Misses:2]
+Access: 3  MISS LRU ->    [1, 2, 3] <- MRU Replaced:- [Hits:0 Misses:3]
+Access: 4  MISS LRU -> [1, 2, 3, 4] <- MRU Replaced:- [Hits:0 Misses:4]
+Access: 5  MISS LRU -> [1, 2, 3, 4, 5] <- MRU Replaced:- [Hits:0 Misses:5]
+Access: 6  MISS LRU -> [1, 2, 3, 4, 6] <- MRU Replaced:5 [Hits:0 Misses:6]
+Access: 5  MISS LRU -> [1, 2, 3, 4, 5] <- MRU Replaced:6 [Hits:0 Misses:7]
+Access: 6  MISS LRU -> [1, 2, 3, 4, 6] <- MRU Replaced:5 [Hits:0 Misses:8]
+Access: 5  MISS LRU -> [1, 2, 3, 4, 5] <- MRU Replaced:6 [Hits:0 Misses:9]
+Access: 6  MISS LRU -> [1, 2, 3, 4, 6] <- MRU Replaced:5 [Hits:0 Misses:10]
+
+FINALSTATS hits 0   misses 10   hitrate 0.00
+```
+
+In all cases, increasing it by one will make them approach OPT.
