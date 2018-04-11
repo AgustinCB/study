@@ -301,3 +301,11 @@ FINALSTATS hits 0   misses 10   hitrate 0.00
 ```
 
 In all cases, increasing it by one will make them approach OPT.
+
+3. Generate a random trace (use python or perl). How would you expect the different policies to perform on such a trace?
+
+The trace generated is: 3, 6, 1, 3, 1, 4, 8, 9, 10, 6.
+
+With that trace, FIFO and LRU will need at least a three sized cache to start having hits. And a seven sized cache to have the biggest amount of hits. For OPT it will be enough with two.
+
+For MRU, the first with two you will already have two out of the three possible hits. And you will need seven to have the maximum.
