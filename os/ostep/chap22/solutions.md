@@ -309,3 +309,18 @@ The trace generated is: 3, 6, 1, 3, 1, 4, 8, 9, 10, 6.
 With that trace, FIFO and LRU will need at least a three sized cache to start having hits. And a seven sized cache to have the biggest amount of hits. For OPT it will be enough with two.
 
 For MRU, the first with two you will already have two out of the three possible hits. And you will need seven to have the maximum.
+
+4. Now generate a trace with some locality. How can you generate such a trace? How does LRU perform on it? How much better than RAND is LRU? How does CLOCK do? How about CLOCK with different numbers of clock bits?
+
+I generated it this way:
+
+```
+>>> l = [1,1,1,2,2,2,3,3,3,4,5,6,7,8,9]
+>>> from random import *
+>>> [choice(l) for i in range(10)]
+[2, 3, 7, 3, 1, 2, 6, 1, 2, 8]
+```
+
+With a cache size of three, LRU has a fairly good performance: 30% hitrate. The hitrate of RAND goes between 10-30%.
+
+CLOCK has a 20% hitrae. It doesn't vary with the number of clock bits.
