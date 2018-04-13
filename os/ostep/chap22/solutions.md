@@ -324,3 +324,6 @@ I generated it this way:
 With a cache size of three, LRU has a fairly good performance: 30% hitrate. The hitrate of RAND goes between 10-30%.
 
 CLOCK has a 20% hitrae. It doesn't vary with the number of clock bits.
+
+5. Use a program like valgrind to instrument a real application and generate a virtual page reference stream. For example, running valgrind --tool=lackey --trace-mem=yes ls will output a nearly-complete reference trace of every instruction and data reference made by the program ls. To make this useful for the simulator above, you’ll have to first transform each virtual memory reference into a virtual page-number reference (done by masking off the offset and shifting the resulting bits downward). How big of a cache is needed for your application trace in order to satisfy a large fraction of requests? Plot a graph of its working set as the size of the cache increases.
+
