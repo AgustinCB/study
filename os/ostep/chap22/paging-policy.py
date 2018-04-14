@@ -77,7 +77,7 @@ addrList = []
 if addressFile != '':
     fd = open(addressFile)
     for line in fd:
-        addrList.append(int(line))
+        addrList.append(int(line, 16))
     fd.close()
 else:
     if addresses == '-1':
