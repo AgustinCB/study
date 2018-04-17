@@ -10,3 +10,53 @@ I was able to imagine them relative to the initial value. I wasn't sure at which
    -1   1002 jgte .top
    -1   1003 hal
 ```
+
+2. Now run the same code but with these flags: `./x86.py -p loop.s -t 2 -i 100 -a dx=3,dx=3 -R dx` This specifies two threads, and initializes each %dx register to 3. What values will %dx see? Run with the -c flag to see the answers. Does the presence of multiple threads affect anything about your calculations? Is there a race condition in this code?
+
+There's anything special to keep in mind when calculating, nor race condition. The only trick is to know that every thread's register values are separated and they shouldn't interefer with each other.
+
+```
+ARG seed 0
+ARG numthreads 2
+ARG program loop.s
+ARG interrupt frequency 100
+ARG interrupt randomness False
+ARG argv dx=3,dx=3
+ARG load address 1000
+ARG memsize 128
+ARG memtrace 
+ARG regtrace dx
+ARG cctrace False
+ARG printstats False
+ARG verbose False
+
+   dx          Thread 0                Thread 1         
+    3   
+    2   1000 sub  $1,%dx
+    2   1001 test $0,%dx
+    2   1002 jgte .top
+    1   1000 sub  $1,%dx
+    1   1001 test $0,%dx
+    1   1002 jgte .top
+    0   1000 sub  $1,%dx
+    0   1001 test $0,%dx
+    0   1002 jgte .top
+   -1   1000 sub  $1,%dx
+   -1   1001 test $0,%dx
+   -1   1002 jgte .top
+   -1   1003 halt
+    3   ----- Halt;Switch -----  ----- Halt;Switch -----  
+    2                            1000 sub  $1,%dx
+    2                            1001 test $0,%dx
+    2                            1002 jgte .top
+    1                            1000 sub  $1,%dx
+    1                            1001 test $0,%dx
+    1                            1002 jgte .top
+    0                            1000 sub  $1,%dx
+    0                            1001 test $0,%dx
+    0                            1002 jgte .top
+   -1                            1000 sub  $1,%dx
+   -1                            1001 test $0,%dx
+   -1                            1002 jgte .top
+   -1                            1003 halt
+```
