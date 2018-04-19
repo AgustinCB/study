@@ -109,3 +109,18 @@ Kinda.
 ```
 
 It doesn't change the behaviour of each thread, but it jumps more often from one to another.
+
+4. Next we’ll examine a different program (looping-race-nolock.s). This program accesses a shared variable located at memory address 2000; we’ll call this variable value for simplicity. Run it with a single thread and make sure you understand what it does, like this: `./x86.py -p looping-race-nolock.s -t 1 -M 2000`. What value is found in value (i.e., at memory address 2000) throughout the run? Use -c to check your answer.
+
+
+```
+ 2000          Thread 0         
+    0
+    0   1000 mov 2000, %ax
+    0   1001 add $1, %ax
+    1   1002 mov %ax, 2000
+    1   1003 sub  $1, %bx
+    1   1004 test $0, %bx
+    1   1005 jgt .top
+    1   1006 halt
+```
