@@ -124,3 +124,7 @@ It doesn't change the behaviour of each thread, but it jumps more often from one
     1   1005 jgt .top
     1   1006 halt
 ```
+
+5. Now run with multiple iterations and threads: `./x86.py -p looping-race-nolock.s -t 2 -a bx=3 -M 2000` Do you understand why the code in each thread loops three times? What will the final value of value be?
+
+Yeah, because the register bx contains the number of iterations and registers aren't shared across threads, but they have their own values (both initialized at zero). The final value would be 6.
