@@ -128,3 +128,7 @@ It doesn't change the behaviour of each thread, but it jumps more often from one
 5. Now run with multiple iterations and threads: `./x86.py -p looping-race-nolock.s -t 2 -a bx=3 -M 2000` Do you understand why the code in each thread loops three times? What will the final value of value be?
 
 Yeah, because the register bx contains the number of iterations and registers aren't shared across threads, but they have their own values (both initialized at zero). The final value would be 6.
+
+6. Now run with random interrupt intervals: `./x86.py -p looping-race-nolock.s -t 2 -M 2000 -i 4 -r -s 0`. Then change the random seed, setting -s 1, then -s 2, etc. Can you tell, just by looking at the thread interleaving, what the final value of value will be? Does the exact location of the interrupt matter? Where can it safely occur? Where does an interrupt cause trouble? In other words, where is the critical section exactly?
+
+Yes, I can tell just by looking at the thread intervaling what the final value will be, although it's hard to follow because the place matter a lot. If the interruption happens before the value is put back in memory, two threads may increase the same value at the same time, reducing the total value expected at the end. The problem would be interrupting in 1001.
