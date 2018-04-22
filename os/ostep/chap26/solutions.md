@@ -132,3 +132,7 @@ Yeah, because the register bx contains the number of iterations and registers ar
 6. Now run with random interrupt intervals: `./x86.py -p looping-race-nolock.s -t 2 -M 2000 -i 4 -r -s 0`. Then change the random seed, setting -s 1, then -s 2, etc. Can you tell, just by looking at the thread interleaving, what the final value of value will be? Does the exact location of the interrupt matter? Where can it safely occur? Where does an interrupt cause trouble? In other words, where is the critical section exactly?
 
 Yes, I can tell just by looking at the thread intervaling what the final value will be, although it's hard to follow because the place matter a lot. If the interruption happens before the value is put back in memory, two threads may increase the same value at the same time, reducing the total value expected at the end. The problem would be interrupting in 1001.
+
+7. Now use a fixed interrupt interval to explore the program further. Run: `./x86.py -p looping-race-nolock.s -a bx=1 -t 2 -M 2000 -i 1`. See if you can guess what the final value of the shared variable value will be. What about when you change -i 2, -i 3, etc.? For which interrupt intervals does the program give the “correct” final answer?
+
+With `-i 1` the final value is 1. With 2 will be one too. With 3, it will then be the correct answer (2).
