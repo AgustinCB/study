@@ -136,3 +136,7 @@ Yes, I can tell just by looking at the thread intervaling what the final value w
 7. Now use a fixed interrupt interval to explore the program further. Run: `./x86.py -p looping-race-nolock.s -a bx=1 -t 2 -M 2000 -i 1`. See if you can guess what the final value of the shared variable value will be. What about when you change -i 2, -i 3, etc.? For which interrupt intervals does the program give the “correct” final answer?
 
 With `-i 1` the final value is 1. With 2 will be one too. With 3, it will then be the correct answer (2).
+
+8. Now run the same code for more loops (e.g., set -a bx=100). What interrupt intervals, set with the -i flag, lead to a “correct” outcome? Which intervals lead to surprising results?
+
+It works similar to exercise 7. Intervals that are multiple of three lead to a correct outcome. The rest, lead to incorrect outcome.
