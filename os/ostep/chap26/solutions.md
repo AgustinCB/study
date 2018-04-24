@@ -140,3 +140,21 @@ With `-i 1` the final value is 1. With 2 will be one too. With 3, it will then b
 8. Now run the same code for more loops (e.g., set -a bx=100). What interrupt intervals, set with the -i flag, lead to a “correct” outcome? Which intervals lead to surprising results?
 
 It works similar to exercise 7. Intervals that are multiple of three lead to a correct outcome. The rest, lead to incorrect outcome.
+
+9. We’ll examine one last program in this homework (wait-for-me.s). Run the code like this: `./x86.py -p wait-for-me.s -a ax=1,ax=0 -R ax -M 2000` This sets the %ax register to 1 for thread 0, and 0 for thread 1, and watches the value of %ax and memory location 2000 throughout the run. How should the code behave? How is the value at location 2000 being used by the threads? What will its final value be?
+
+```
+ 2000      ax          Thread 0                Thread 1         
+    0       1
+    0       1   1000 test $1, %ax
+    0       1   1001 je .signaller
+    1       1   1006 mov  $1, 2000
+    1       1    1007 halt
+    1       0   ----- Halt;Switch -----  ----- Halt;Switch -----  
+    1       0                            1000 test $1, %ax
+    1       0                            1001 je .signaller
+    1       0                            1002 mov  2000, %cx
+    1       0                            1003 test $1, %cx
+    1       0                            1004 jne .waiter
+    1       0                            1005 halt
+```
