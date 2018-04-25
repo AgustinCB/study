@@ -158,3 +158,72 @@ It works similar to exercise 7. Intervals that are multiple of three lead to a c
     1       0                            1004 jne .waiter
     1       0                            1005 halt
 ```
+
+10. Now switch the inputs: `./x86.py -p wait-for-me.s -a ax=0,ax=1 -R ax -M 2000`. How do the threads behave? What is thread 0 doing? How would changing the interrupt interval (e.g., -i 1000, or perhaps to use random intervals) change the trace outcome? Is the program efficiently using the CPU?
+
+```
+ 2000      ax          Thread 0                Thread 1         
+    0       0   
+    0       0   1000 test $1, %ax
+    0       0   1001 je .signaller
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       0   1002 mov  2000, %cx
+    0       0   1003 test $1, %cx
+    0       0   1004 jne .waiter
+    0       1   ------ Interrupt ------  ------ Interrupt ------  
+    0       1                            1000 test $1, %ax
+    0       1                            1001 je .signaller
+    1       1                            1006 mov  $1, 2000
+    1       1                            1007 halt
+    1       0   ----- Halt;Switch -----  ----- Halt;Switch -----  
+    1       0   1002 mov  2000, %cx
+    1       0   1003 test $1, %cx
+    1       0   1004 jne .waiter
+    1       0   1005 halt
+```
+
+The program spends most of the time waiting for the first thread to appear. It's a very poor use of memory. An smaller interrupt would make the program more efficient, while a bigger one would have the opposite effect.
