@@ -66,3 +66,7 @@ It also tells me that it's a data race problem, it spots the two threads that ar
 Commenting line 8 reports no error.
 
 Same for using locks.
+
+3. Now let’s look at main-deadlock.c. Examine the code. This code has a problem known as deadlock (which we discuss in much more depth in a forthcoming chapter). Can you see what problem it might have?
+
+Yes. Suppose thread 1 arrives to line 10, gets the lock and then there's a context switch to thread 2. Now thread 2 arrives to line 13, gets the other lock and goes to wait for the first lock. Thread 1, on the other hand, is waiting for the lock that thread 2 just got. There'll be waiting forever.
