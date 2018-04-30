@@ -70,3 +70,82 @@ Same for using locks.
 3. Now let’s look at main-deadlock.c. Examine the code. This code has a problem known as deadlock (which we discuss in much more depth in a forthcoming chapter). Can you see what problem it might have?
 
 Yes. Suppose thread 1 arrives to line 10, gets the lock and then there's a context switch to thread 2. Now thread 2 arrives to line 13, gets the other lock and goes to wait for the first lock. Thread 1, on the other hand, is waiting for the lock that thread 2 just got. There'll be waiting forever.
+
+4. Now run helgrind on this code. What does helgrind report?
+
+It says this:
+
+```
+==1684== ---Thread-Announcement------------------------------------------
+==1684== 
+==1684== Thread #3 was created
+==1684==    at 0x5153E6E: clone (in /usr/lib/libc-2.26.so)
+==1684==    by 0x4E45DE2: create_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x4E47865: pthread_create@@GLIBC_2.2.5 (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x4C33E97: pthread_create_WRK (hg_intercepts.c:427)
+==1684==    by 0x108C64: Pthread_create (mythreads.h:51)
+==1684==    by 0x108D99: main (main-deadlock.c:24)
+==1684== 
+==1684== ----------------------------------------------------------------
+==1684== 
+==1684== Thread #3: lock order "0x30A0A0 before 0x30A0E0" violated
+==1684== 
+==1684== Observed (incorrect) order is: acquisition of lock at 0x30A0E0
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108D16: worker (main-deadlock.c:13)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684== 
+==1684==  followed by a later acquisition of lock at 0x30A0A0
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108D22: worker (main-deadlock.c:14)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684== 
+==1684== Required order was established by acquisition of lock at 0x30A0A0
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108CFC: worker (main-deadlock.c:10)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684== 
+==1684==  followed by a later acquisition of lock at 0x30A0E0
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108D08: worker (main-deadlock.c:11)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684== 
+==1684==  Lock at 0x30A0A0 was first observed
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108CFC: worker (main-deadlock.c:10)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684==  Address 0x30a0a0 is 0 bytes inside data symbol "m1"
+==1684== 
+==1684==  Lock at 0x30A0E0 was first observed
+==1684==    at 0x4C314AC: mutex_lock_WRK (hg_intercepts.c:912)
+==1684==    by 0x108AE7: Pthread_mutex_lock (mythreads.h:23)
+==1684==    by 0x108D08: worker (main-deadlock.c:11)
+==1684==    by 0x4C34096: mythread_wrapper (hg_intercepts.c:389)
+==1684==    by 0x4E4708B: start_thread (in /usr/lib/libpthread-2.26.so)
+==1684==    by 0x5153E7E: clone (in /usr/lib/libc-2.26.so)
+==1684==  Address 0x30a0e0 is 0 bytes inside data symbol "m2"
+==1684== 
+==1684== 
+==1684== 
+==1684== For counts of detected and suppressed errors, rerun with: -v
+==1684== Use --history-level=approx or =none to gain increased speed, at
+==1684== the cost of reduced accuracy of conflicting-access information
+==1684== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 7 from 7
+```
+
+It basically is complaining for not following an expected lock order. Fair enough, it's not.
