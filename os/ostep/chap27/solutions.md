@@ -145,7 +145,11 @@ It says this:
 ==1684== For counts of detected and suppressed errors, rerun with: -v
 ==1684== Use --history-level=approx or =none to gain increased speed, at
 ==1684== the cost of reduced accuracy of conflicting-access information
-==1684== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 7 from 7
+==1684== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 7 from 7)
 ```
 
 It basically is complaining for not following an expected lock order. Fair enough, it's not.
+
+5. Now run helgrind on main-deadlock-global.c. Examine the code; does it have the same problem that main-deadlock.c has? Should helgrind be reporting the same error? What does this tell you about tools like helgrind?
+
+No, it doesn't have the same problem. The use of an extra lock to ensure the whole section is thread safe removes the chance of a deadlock. However, helgrind reports the same error. This makes evident the limitations of the tool, which can't probably report with complete accuracy all cases and decides to take a conservative approach (i.e. when it can't distinguish if a case is wrong or not, assume it's wrong).
