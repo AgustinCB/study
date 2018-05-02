@@ -153,3 +153,7 @@ It basically is complaining for not following an expected lock order. Fair enoug
 5. Now run helgrind on main-deadlock-global.c. Examine the code; does it have the same problem that main-deadlock.c has? Should helgrind be reporting the same error? What does this tell you about tools like helgrind?
 
 No, it doesn't have the same problem. The use of an extra lock to ensure the whole section is thread safe removes the chance of a deadlock. However, helgrind reports the same error. This makes evident the limitations of the tool, which can't probably report with complete accuracy all cases and decides to take a conservative approach (i.e. when it can't distinguish if a case is wrong or not, assume it's wrong).
+
+6. Let’s next look at main-signal.c. This code uses a variable (done) to signal that the child is done and that the parent can now continue. Why is this code inefficient? (what does the parent end up spending its time doing, particularly if the child thread takes a long time to complete?)
+
+The parent spends a lot of CPU time in the loop doing nothing and wasting resources. It'd be better to use something like semaphores.
