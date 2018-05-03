@@ -157,3 +157,7 @@ No, it doesn't have the same problem. The use of an extra lock to ensure the who
 6. Let’s next look at main-signal.c. This code uses a variable (done) to signal that the child is done and that the parent can now continue. Why is this code inefficient? (what does the parent end up spending its time doing, particularly if the child thread takes a long time to complete?)
 
 The parent spends a lot of CPU time in the loop doing nothing and wasting resources. It'd be better to use something like semaphores.
+
+7. Now run helgrind on this program. What does it report? Is the code correct?
+
+helgrind thinks that there's a data race in place, which is kinda weird. It also thinks that there's a data race around the printf function, possibly because the order isn't consistent across runs. The data race around done is wrong, the code is technically correct. The data race around the printf function is technically right, although I'd argue is also irrelevant.
