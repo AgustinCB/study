@@ -160,4 +160,8 @@ The parent spends a lot of CPU time in the loop doing nothing and wasting resour
 
 7. Now run helgrind on this program. What does it report? Is the code correct?
 
-helgrind thinks that there's a data race in place, which is kinda weird. It also thinks that there's a data race around the printf function, possibly because the order isn't consistent across runs. The data race around done is wrong, the code is technically correct. The data race around the printf function is technically right, although I'd argue is also irrelevant.
+helgrind thinks that there's a data race in place, which is kinda weird. It also thinks that there's a data race around the printf function, possibly because the order isn't consistent across runs. The data race around done is wrong, the code is technically correct. The data race around the printf function is also a false positive.
+
+8. Now look at a slightly modified version of the code, which is found in main-signal-cv.c. This version uses a condition variable to do the signaling (and associated lock). Why is this code preferred to the previous version? Is it correctness, or performance, or both?
+
+`main-signal-cv` is strictly better. There are performance reasons: We don't waste cpu cycles (THEY DON'T GROW IN TREES, PEOPLE). Also because of correctness. And it makes helgrind happy.
