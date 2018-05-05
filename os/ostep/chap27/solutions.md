@@ -165,3 +165,7 @@ helgrind thinks that there's a data race in place, which is kinda weird. It also
 8. Now look at a slightly modified version of the code, which is found in main-signal-cv.c. This version uses a condition variable to do the signaling (and associated lock). Why is this code preferred to the previous version? Is it correctness, or performance, or both?
 
 `main-signal-cv` is strictly better. There are performance reasons: We don't waste cpu cycles (THEY DON'T GROW IN TREES, PEOPLE). Also because of correctness. And it makes helgrind happy.
+
+9. Once again run helgrind on main-signal-cv. Does it report any errors?
+
+Nop, helgrind is happy as a clown with `main-signal-cv`.
