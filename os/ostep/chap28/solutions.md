@@ -38,3 +38,7 @@ Yeah, it does behave as expected.
     0     2      -1     2                            1010 jgt .top
     0     2      -1     2                            1011 halt
 ```
+
+3. Change the value of the register %bx with the -a flag (e.g., -a bx=2,bx=2 if you are running just two threads). What does the code do? How does it change your answer for the question above?
+
+Doesn't change my answer. With two, all it does is adding more iterations. My answer would probably change at the point in which the number of iterations is big enough to be able to interrupt one thread before it halts.
