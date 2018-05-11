@@ -42,3 +42,9 @@ Yeah, it does behave as expected.
 3. Change the value of the register %bx with the -a flag (e.g., -a bx=2,bx=2 if you are running just two threads). What does the code do? How does it change your answer for the question above?
 
 Doesn't change my answer. With two, all it does is adding more iterations. My answer would probably change at the point in which the number of iterations is big enough to be able to interrupt one thread before it halts.
+
+4. Set bx to a high value for each thread, and then use the -i flag to generate different interrupt frequencies; what values lead to a bad outcomes? Which lead to good outcomes?
+
+First, `-i` has to be smaller than `bx` * n, where n is the number of instructions in the program. The smaller `-i`, you're more likely to screw things up by interruptingin the wrong place. The problem is in the step `mov flag, %ax` in particular. If you interrupt in such a way that two threads access that at the same time, you have a problem. Such a problem can happen if the program jumps just after `jne  .acquire` and before setting one to flag. Then that hacky lock is overruled.
+
+You can achieve that by setting bx for both threads to five and the `-i` to five too. Then the total you get in count is 9 instead of 10 because of this race condition.
