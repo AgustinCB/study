@@ -48,3 +48,13 @@ Doesn't change my answer. With two, all it does is adding more iterations. My an
 First, `-i` has to be smaller than `bx` * n, where n is the number of instructions in the program. The smaller `-i`, you're more likely to screw things up by interruptingin the wrong place. The problem is in the step `mov flag, %ax` in particular. If you interrupt in such a way that two threads access that at the same time, you have a problem. Such a problem can happen if the program jumps just after `jne  .acquire` and before setting one to flag. Then that hacky lock is overruled.
 
 You can achieve that by setting bx for both threads to five and the `-i` to five too. Then the total you get in count is 9 instead of 10 because of this race condition.
+
+5. Now let’s look at the program test-and-set.s. First, try to understand the code, which uses the xchg instruction to build a simple locking primitive. How is the lock acquire written? How about lock release?
+
+The problem with the previous code is that we required two mov related with flag to check the mutex and an interruption in hte middle could mess things up.
+
+By using xchg, that problem is solved: We set ax to 1 and then exchange with `mutex`. If after that ax is set 0, it means that the lock was free and we acquired it (because the previous value of mutex was zero), so we can keep going.
+
+However, if the lock wasn't free, xchg would return back 1 to ax, in which case we'd just try again. Easy and for all the family.
+
+The release of the lock is simpler because it just needs one operation (mov 0, mutex) that is guaranteed to be atomic. So nothing fancy needed.
