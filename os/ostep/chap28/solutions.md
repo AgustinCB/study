@@ -58,3 +58,9 @@ By using xchg, that problem is solved: We set ax to 1 and then exchange with `mu
 However, if the lock wasn't free, xchg would return back 1 to ax, in which case we'd just try again. Easy and for all the family.
 
 The release of the lock is simpler because it just needs one operation (mov 0, mutex) that is guaranteed to be atomic. So nothing fancy needed.
+
+6. Now run the code, changing the value of the interrupt interval (-i) again, and making sure to loop for a number of times. Does the code always work as expected? Does it sometimes lead to an inefficient use of the CPU? How could you quantify that?
+
+Yeah, it's consistently correct, as I expected in the previous answer. But it's true that's also inefficient, depending on the value of -i. It seems like the minimum is 112 instructions, but if you switch in the correct moment you can end up doing about 150 instructions, of which about 40 is just seeing we can get the lock.
+
+I'd measure it as the proportion of instructions spent spinning in the acquire loop instead of doing something useful.
