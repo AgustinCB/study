@@ -64,3 +64,7 @@ The release of the lock is simpler because it just needs one operation (mov 0, m
 Yeah, it's consistently correct, as I expected in the previous answer. But it's true that's also inefficient, depending on the value of -i. It seems like the minimum is 112 instructions, but if you switch in the correct moment you can end up doing about 150 instructions, of which about 40 is just seeing we can get the lock.
 
 I'd measure it as the proportion of instructions spent spinning in the acquire loop instead of doing something useful.
+
+7. Use the -P flag to generate specific tests of the locking code. For example, run a schedule that grabs the lock in the first thread, but then tries to acquire it in the second. Does the right thing happen? What else should you test?
+
+Yes, it keeps working at expected. Another good test to run would be to check that there's no way to mess up the release of the lock.
