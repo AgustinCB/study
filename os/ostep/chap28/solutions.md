@@ -68,3 +68,18 @@ I'd measure it as the proportion of instructions spent spinning in the acquire l
 7. Use the -P flag to generate specific tests of the locking code. For example, run a schedule that grabs the lock in the first thread, but then tries to acquire it in the second. Does the right thing happen? What else should you test?
 
 Yes, it keeps working at expected. Another good test to run would be to check that there's no way to mess up the release of the lock.
+
+8. Now let’s look at the code in peterson.s, which implements Peterson’s algorithm (mentioned in a sidebar in the text). Study the code and see if you can make sense of it.
+
+First it defines some variables.
+
+Then it loads the address of the flag array into a register (fx). Assuming bx is the id of the thread (and that there's two threads and their ids can be 0 or 1), put the id of the other thread in cx.
+
+Set flag[self] = 1 and move the id of the other thread to the variable turn.
+
+Then move the flag of the other thread to ax and enter the critical section if it isn't hold.
+If it isn't, move turn to ax and check if it's still the other threads turn, if so, go ahead in keep try again if the other thread's hold isn't hold. If not, move into the critical section.
+
+Finally, set your flag to zero and move the turn to the other thread.
+
+It will work well that combination of two flags plus a turn variable.
