@@ -83,3 +83,11 @@ If it isn't, move turn to ax and check if it's still the other threads turn, if 
 Finally, set your flag to zero and move the turn to the other thread.
 
 It will work well that combination of two flags plus a turn variable.
+
+9. Now run the code with different values of -i. What kinds of different behavior do you see? Make sure to set the thread IDs appropriately (using -a bx=0,bx=1 for example) as the code assumes it.
+
+Past 15 as -i, the result is consistent: Executes each thread in turns, finishes in 30 instructions and with the expected result.
+
+With numbers smaller than 15, the number of instructions is bigger. With 5, for example, is about 54, spending a lot of time waiting to get a turn (more than 44% of cpu time).
+
+Other than that, the result is consistently what you'd expect.
