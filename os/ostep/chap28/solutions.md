@@ -91,3 +91,7 @@ Past 15 as -i, the result is consistent: Executes each thread in turns, finishes
 With numbers smaller than 15, the number of instructions is bigger. With 5, for example, is about 54, spending a lot of time waiting to get a turn (more than 44% of cpu time).
 
 Other than that, the result is consistently what you'd expect.
+
+10. Can you control the scheduling (with the -P flag) to “prove” that the code works? What are the different cases you should show hold? Think about mutual exclusion and deadlock avoidance.
+
+Yes, I can. I could arrange the values so that the interruption happens in the places right after memory is being moved to registers and check that the sky didn't break. For example, when moving the turn or count variables. It works.
