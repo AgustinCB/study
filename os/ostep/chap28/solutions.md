@@ -95,3 +95,7 @@ Other than that, the result is consistently what you'd expect.
 10. Can you control the scheduling (with the -P flag) to “prove” that the code works? What are the different cases you should show hold? Think about mutual exclusion and deadlock avoidance.
 
 Yes, I can. I could arrange the values so that the interruption happens in the places right after memory is being moved to registers and check that the sky didn't break. For example, when moving the turn or count variables. It works.
+
+11. Now study the code for the ticket lock in ticket.s. Does it match the code in the chapter?
+
+Yes, it works as stated in the chapter.
