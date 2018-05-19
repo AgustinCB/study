@@ -99,3 +99,11 @@ Yes, I can. I could arrange the values so that the interruption happens in the p
 11. Now study the code for the ticket lock in ticket.s. Does it match the code in the chapter?
 
 Yes, it works as stated in the chapter.
+
+12. Now run the code, with the following flags: -a bx=1000,bx=1000 (this flag sets each thread to loop through the critical 1000 times). Watch what happens over time; do the threads spend much time spinning waiting for the lock?
+
+YES. With the default interruption, it does 99463 instructions. Then I decided to do an optimal interruption (i.e. the number of instructions in the program before the halt): 26002 instructions. That means that it spent approximately 75% of it's cpu time spinning. Terrible, terrible.
+
+13. How does the code behave as you add more threads?
+
+With five threads, the default interruption value yields 249148 instructions, while the optimal 65005, approximately the same ratio. I decided to make a little graph:

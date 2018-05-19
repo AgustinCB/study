@@ -1,0 +1,9 @@
+#!/bin/bash
+set -euo pipefail
+
+for i in $(seq 1 100); do
+  bxs=`printf 'bx=1000,%.0s' {1..$i}`
+  OPT=`./x86.py -p ticket.s -M ticket,turn,count -R ax,bx,cx -i 13 -a "${bxs::-1}" -t $i -c -S | grep "STATS:: Instructions" | awk '{print $3}'`
+  BAD=`./x86.py -p ticket.s -M ticket,turn,count -R ax,bx,cx -a "${bxs::-1}" -t $i -c -S | grep "STATS:: Instructions" | awk '{print $3}'`
+  echo "$i $OPT $BAD"
+done
