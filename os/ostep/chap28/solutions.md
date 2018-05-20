@@ -106,4 +106,4 @@ YES. With the default interruption, it does 99463 instructions. Then I decided t
 
 13. How does the code behave as you add more threads?
 
-With five threads, the default interruption value yields 249148 instructions, while the optimal 65005, approximately the same ratio. I decided to make a little graph:
+With five threads, the default interruption value yields 249148 instructions, while the optimal 65005, approximately the same ratio. I decided to make a little graph and it shows that the ratio of suboptimal time in cpu stays approximately the same after passing the ideal number of instructions before an interruption. Always about 75%. Which is terrible, by the way.
