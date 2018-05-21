@@ -107,3 +107,11 @@ YES. With the default interruption, it does 99463 instructions. Then I decided t
 13. How does the code behave as you add more threads?
 
 With five threads, the default interruption value yields 249148 instructions, while the optimal 65005, approximately the same ratio. I decided to make a little graph and it shows that the ratio of suboptimal time in cpu stays approximately the same after passing the ideal number of instructions before an interruption. Always about 75%. Which is terrible, by the way.
+
+14. Now examine yield.s, in which we pretend that a yield instruction enables one thread to yield control of the CPU to another (realistically, this would be an OS primitive, but for the simplicity of simulation, we assume there is an instruction that does the task). Find a scenario where test-and-set.s wastes cycles spinning, but yield.s does not. How many instructions are saved? In what scenarios do these savings arise?
+
+Suppose that before on entering of the `acquire` section in both programs, the lock is held and the number of instructions left is x, where x >> 5. In the test-and-set.s case, we would just go over and over again to the `acquire` section, wasting cpu time. In the yield.s case, however, we would pass control to the other cpu, wasting less cpu cycles.
+
+15. Finally, examine test-and-test-and-set.s. What does this lock do? What kind of savings does it introduce as compared to test-and-set.s?
+
+It just adds a test before to make sure that before the xchg instruction, the mutex is available. Because atomic instructions (such as xchg) are expensive, this kind of approach reduce the save some cpu time by increasing the chances that you will use it only when there's a high chance of success.
