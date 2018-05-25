@@ -22,9 +22,11 @@ int get(counter_t *c) {
 }
 
 int main(int argc, char *argv[]) {
+    counter_t counter;
     struct timeval tpBefore;
     struct timeval tpAfter;
-    int threads = atoi(argv[1])
+    int threads = atoi(argv[1]);
+    init(&counter);
     gettimeofday(&tpBefore, NULL);
     for (int t = 0; t < threads; t++) {
         switch(fork()) {
@@ -33,9 +35,13 @@ int main(int argc, char *argv[]) {
             exit(1);
             break;
         case 0: // Child
+            return count(counter, 100);
         default: // Parent
         }
 
     }
+    while(wait(NULL)>0) ;
     gettimeofday(&tpAfter, NULL);
+    long int total = tpAfter.tv_usec - tpBefore.tv_usec;
+    printf("Time taken: %d\n", total);
 }
