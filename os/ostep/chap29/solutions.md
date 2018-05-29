@@ -4,6 +4,8 @@ The smallest interval is microseconds.
 
 2. Now, build a simple concurrent counter and measure how long it takes to increment the counter many times as the number of threads increases. How many CPUs are available on the system you are using? Does this number impact your measurements at all?
 
+My system has 8 CPUs. This means that as long as the number of threads created is below or equals to eight, I'd get the same performance as if I were running one thread. In my case, that's about 450-500 microseconds. As soon as I ask for 9 threads, the time bumps up to 1614 microseconds.
+
 3. Next, build a version of the sloppy counter. Once again, measure its
 performance as the number of threads varies, as well as the threshold.
 Do the numbers match what you see in the chapter?
