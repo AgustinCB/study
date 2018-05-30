@@ -55,5 +55,5 @@ int main(int argc, char *argv[]) {
     gettimeofday(&tpAfter, NULL);
     long int total = tpAfter.tv_usec - tpBefore.tv_usec;
     printf("Count: %d\n", get(&counter));
-    printf("Time taken: %d\n microseconds", total);
+    printf("Time taken: %d microseconds\n", total);
 }
