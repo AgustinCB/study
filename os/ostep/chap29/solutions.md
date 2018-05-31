@@ -10,11 +10,9 @@ My system has 8 CPUs. This means that as long as the number of threads created i
 
 Yeah, they do.
 
-4. Build a version of a linked list that uses hand-over-hand locking
-[MS04], as cited in the chapter. You should read the paper first
-to understand how it works, and then implement it. Measure its
-performance. When does a hand-over-hand list work better than a
-standard list as shown in the chapter?
+4. Build a version of a linked list that uses hand-over-hand locking [MS04], as cited in the chapter. You should read the paper first to understand how it works, and then implement it. Measure its performance. When does a hand-over-hand list work better than a standard list as shown in the chapter?
+
+It's good because it reduces lock granularity, but it also reduces concurrency, as insertions and deletions in disjoint parts may delay each other.
 
 5. Pick your favorite interesting data structure, such as a B-tree or
 other slightly more interested structure. Implement it, and start
