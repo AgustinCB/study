@@ -6,38 +6,36 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-typedef struct __counter_t {
+typedef struct __l_node {
     int value;
     pthread_mutex_t lock;
-} counter_t;
+    __l_node *next;
+} l_node;
 
-void init(counter_t *c) {
-    c->value = 0;
-    Pthread_mutex_init(&c->lock, NULL);
+void init(l_node *node, int value) {
+    node->value = value;
+    Pthread_mutex_init(&node->lock, NULL);
+    node->next = NULL;
 }
 
-void increment(counter_t *c) {
-    Pthread_mutex_lock(&c->lock);
-    c->value++;
-    Pthread_mutex_unlock(&c->lock);
+l_node* find_last(l_node* from) {
+    l_node *curr = from;
+    while (curr->next != NULL) curr = curr->next;
+    return curr;
 }
 
-void decrement(counter_t *c) {
-    Pthread_mutex_lock(&c->lock);
-    c->value--;
-    Pthread_mutex_unlock(&c->lock);
+void add(l_node *prev, l_node *new) {
+    if (prev->next != NULL) {
+        if (new->next == NULL) new->next = prev->next;
+        else find_last(new)->next = prev->next;
+    }
+    prev->next = new;
 }
 
-int get(counter_t *c) {
-    Pthread_mutex_lock(&c->lock);
-    int v = c->value;
-    Pthread_mutex_unlock(&c->lock);
-    return v;
-}
-
-void count(counter_t *c, int limit) {
-    if (get(c) >= limit) return;
-    increment(c);
+l_node* find(int value, l_node* head) {
+    l_node *curr = head;
+    while (curr != NULL && curr->value != value) curr = curr->next;
+    return curr;
 }
 
 int main(int argc, char *argv[]) {
