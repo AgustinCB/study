@@ -9,7 +9,7 @@
 typedef struct __l_node {
     int value;
     pthread_mutex_t lock;
-    __l_node *next;
+    struct __l_node *next;
 } l_node;
 
 void init(l_node *node, int value) {
@@ -39,20 +39,22 @@ l_node* find(int value, l_node* head) {
 }
 
 int main(int argc, char *argv[]) {
-    counter_t counter;
+    l_node head;
     struct timeval tpBefore;
     struct timeval tpAfter;
     int threads = atoi(argv[1]);
-    init(&counter);
+    init(&head, -1);
     gettimeofday(&tpBefore, NULL);
     for (int t = 0; t < threads; t++) {
+        l_node next;
         switch(fork()) {
         case -1:
             fprintf(stderr, "ERROR FORKING");
             exit(1);
             break;
         case 0: // Child
-            count(&counter, 100);
+            init(&next, 0);
+            add(&head, &next);
             return 0;
         default: // Parent
             ;
@@ -62,6 +64,5 @@ int main(int argc, char *argv[]) {
     while(wait(NULL)>0) ;
     gettimeofday(&tpAfter, NULL);
     long int total = tpAfter.tv_usec - tpBefore.tv_usec;
-    printf("Count: %d\n", get(&counter));
     printf("Time taken: %d microseconds\n", total);
 }
