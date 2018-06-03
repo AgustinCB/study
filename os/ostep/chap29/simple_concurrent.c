@@ -6,55 +6,55 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-typedef struct __l_node {
+typedef struct __counter_t {
     int value;
     pthread_mutex_t lock;
-    struct __l_node *next;
-} l_node;
+} counter_t;
 
-void init(l_node *node, int value) {
-    node->value = value;
-    Pthread_mutex_init(&node->lock, NULL);
-    node->next = NULL;
+void init(counter_t *c) {
+    c->value = 0;
+    Pthread_mutex_init(&c->lock, NULL);
 }
 
-l_node* find_last(l_node* from) {
-    l_node *curr = from;
-    while (curr->next != NULL) curr = curr->next;
-    return curr;
+void increment(counter_t *c) {
+    Pthread_mutex_lock(&c->lock);
+    c->value++;
+    Pthread_mutex_unlock(&c->lock);
 }
 
-void add(l_node *prev, l_node *new) {
-    if (prev->next != NULL) {
-        if (new->next == NULL) new->next = prev->next;
-        else find_last(new)->next = prev->next;
-    }
-    prev->next = new;
+void decrement(counter_t *c) {
+    Pthread_mutex_lock(&c->lock);
+    c->value--;
+    Pthread_mutex_unlock(&c->lock);
 }
 
-l_node* find(int value, l_node* head) {
-    l_node *curr = head;
-    while (curr != NULL && curr->value != value) curr = curr->next;
-    return curr;
+int get(counter_t *c) {
+    Pthread_mutex_lock(&c->lock);
+    int v = c->value;
+    Pthread_mutex_unlock(&c->lock);
+    return v;
+}
+
+void count(counter_t *c, int limit) {
+    if (get(c) >= limit) return;
+    increment(c);
 }
 
 int main(int argc, char *argv[]) {
-    l_node head;
+    counter_t counter;
     struct timeval tpBefore;
     struct timeval tpAfter;
     int threads = atoi(argv[1]);
-    init(&head, -1);
+    init(&counter);
     gettimeofday(&tpBefore, NULL);
     for (int t = 0; t < threads; t++) {
-        l_node next;
         switch(fork()) {
         case -1:
             fprintf(stderr, "ERROR FORKING");
             exit(1);
             break;
         case 0: // Child
-            init(&next, 0);
-            add(&head, &next);
+            count(&counter, 100);
             return 0;
         default: // Parent
             ;
@@ -64,5 +64,6 @@ int main(int argc, char *argv[]) {
     while(wait(NULL)>0) ;
     gettimeofday(&tpAfter, NULL);
     long int total = tpAfter.tv_usec - tpBefore.tv_usec;
+    printf("Count: %d\n", get(&counter));
     printf("Time taken: %d microseconds\n", total);
 }
