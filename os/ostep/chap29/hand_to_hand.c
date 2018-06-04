@@ -20,7 +20,15 @@ void init(l_node *node, int value) {
 
 l_node* find_last(l_node* from) {
     l_node *curr = from;
-    while (curr->next != NULL) curr = curr->next;
+    l_node *next = NULL;
+    Pthread_mutex_lock(&curr->lock);
+    while (curr->next != NULL) {
+        next = curr->next;
+        Pthread_mutex_unlock(&curr->lock);
+        curr = next;
+        Pthread_mutex_lock(&curr->lock);
+    }
+    Pthread_mutex_unlock(&curr->lock);
     return curr;
 }
 
@@ -36,7 +44,15 @@ void add(l_node *prev, l_node *new) {
 
 l_node* find(int value, l_node* head) {
     l_node *curr = head;
-    while (curr != NULL && curr->value != value) curr = curr->next;
+    l_node *next = NULL;
+    Pthread_mutex_lock(&curr->lock);
+    while (curr != NULL && curr->value != value) {
+        next = curr->next;
+        Pthread_mutex_unlock(&curr->lock);
+        curr = next;
+        Pthread_mutex_lock(&curr->lock);
+    }
+    Pthread_mutex_unlock(&curr->lock);
     return curr;
 }
 
