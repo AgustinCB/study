@@ -14,10 +14,9 @@ Yeah, they do.
 
 It's good because it reduces lock granularity, but it also reduces concurrency, as insertions and deletions in disjoint parts may delay each other.
 
-5. Pick your favorite interesting data structure, such as a B-tree or
-other slightly more interested structure. Implement it, and start
-with a simple locking strategy such as a single lock. Measure its
-performance as the number of concurrent threads increases.
+5. Pick your favorite interesting data structure, such as a B-tree or other slightly more interested structure. Implement it, and start with a simple locking strategy such as a single lock. Measure its performance as the number of concurrent threads increases.
+
+I'll do a hashmap for strings as keys.
 
 6. Finally, think of a more interesting locking strategy for this favorite
 data structure of yours. Implement it, and measure its performance.
