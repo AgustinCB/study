@@ -45,6 +45,12 @@ void init(map *a, unsigned char length) {
     a->values = (key_value_pair_array*) malloc(sizeof(key_value_pair_array) * length);
 }
 
+void increase_kv_array_capacity(key_value_pair_array *a) {
+    a->capacity *= 2;
+    key_value_pair *new_content = (key_value_pair*) realloc(a->content, sizeof(key_value_pair) * a->capacity);
+    a->content = new_content;
+}
+
 maybe_int get(map a, char* key) {
     key_value_pair_array possibilities = a.values[hash(key)];
     maybe_int result;
@@ -61,4 +67,16 @@ maybe_int get(map a, char* key) {
 
     init_maybe_int(&result, false, 0);
     return result;
+}
+
+void set(map a, char* key, int value) {
+    key_value_pair_array possibilities = a.values[hash(key)];
+    key_value_pair new;
+    new.value = value;
+    new.key = key;
+    if (possibilities.length >= possibilities.capacity) {
+        increase_kv_array_capacity(&possibilities);
+    }
+    possibilities.content[possibilities.length] = new;
+    possibilities.length++;
 }
