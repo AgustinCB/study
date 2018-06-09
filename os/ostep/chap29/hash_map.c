@@ -80,3 +80,18 @@ void set(map a, char* key, int value) {
     possibilities.content[possibilities.length] = new;
     possibilities.length++;
 }
+
+void del(map a, char* key) {
+    key_value_pair_array possibilities = a.values[hash(key)];
+    if (possibilities.length == 0) return;
+    int i;
+    for (i = 0; i < possibilities.length; i++) {
+        if (strcmp(possibilities.content[i].key, key) == 0) {
+            free(&possibilities.content[i]);
+            break;
+        }
+    }
+    for (int j = i + 1; j < possibilities.length; j++) {
+        possibilities.content[j-1] = possibilities.content[j];
+    }
+}
