@@ -29,6 +29,20 @@ typedef struct __maybe_int {
     int value;
 } maybe_int;
 
+unsigned int hash(const char *key, unsigned char length) {
+    int i;
+    unsigned int result = 0;
+    for (i = 0; key[i] != '\0'; i++) {
+        result += key[i++];
+        result += result << 10;
+        result ^= result >> 6;
+    }
+    result += key[i++];
+    result += result << 10;
+    result ^= result >> 6;
+    return result % length;
+}
+
 void init_maybe_int(maybe_int *r, bool defined, int value) {
     r->defined = defined;
     r->value = value;
@@ -52,7 +66,7 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
 }
 
 maybe_int get(map a, char* key) {
-    key_value_pair_array possibilities = a.values[hash(key)];
+    key_value_pair_array possibilities = a.values[hash(key, a.length)];
     maybe_int result;
     if (possibilities.length == 0) {
         init_maybe_int(&result, false, 0);
@@ -70,7 +84,7 @@ maybe_int get(map a, char* key) {
 }
 
 void set(map a, char* key, int value) {
-    key_value_pair_array possibilities = a.values[hash(key)];
+    key_value_pair_array possibilities = a.values[hash(key, a.length)];
     key_value_pair new;
     new.value = value;
     new.key = key;
@@ -82,7 +96,7 @@ void set(map a, char* key, int value) {
 }
 
 void del(map a, char* key) {
-    key_value_pair_array possibilities = a.values[hash(key)];
+    key_value_pair_array possibilities = a.values[hash(key, a.length)];
     if (possibilities.length == 0) return;
     int i;
     for (i = 0; i < possibilities.length; i++) {
