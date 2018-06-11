@@ -43,7 +43,7 @@ unsigned int hash(const char *key, unsigned char length) {
     return result % length;
 }
 
-void init_maybe_int(maybe_int *r, bool defined, int value) {
+void init_maybe_int(maybe_int *r, const bool defined, const int value) {
     r->defined = defined;
     r->value = value;
 }
@@ -54,7 +54,7 @@ void init_kv_array(key_value_pair_array *a) {
     a->content = (key_value_pair*) malloc(sizeof(key_value_pair) * a->capacity);
 }
 
-void init(map *a, unsigned char length) {
+void init(map *a, const unsigned char length) {
     a->length = length;
     a->values = (key_value_pair_array*) malloc(sizeof(key_value_pair_array) * length);
 }
@@ -65,7 +65,7 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
     a->content = new_content;
 }
 
-maybe_int get(map a, char* key) {
+maybe_int get(map a, const char* key) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
     maybe_int result;
     if (possibilities.length == 0) {
@@ -83,11 +83,13 @@ maybe_int get(map a, char* key) {
     return result;
 }
 
-void set(map a, char* key, int value) {
+void set(map a, const char* key, const int value) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
     key_value_pair new;
     new.value = value;
-    new.key = key;
+    const int length = strlen(key);
+    new.key = (char*) malloc(sizeof(char) * length);
+    strncpy(new.key, key, length);
     if (possibilities.length >= possibilities.capacity) {
         increase_kv_array_capacity(&possibilities);
     }
@@ -95,12 +97,13 @@ void set(map a, char* key, int value) {
     possibilities.length++;
 }
 
-void del(map a, char* key) {
+void del(map a, const char* key) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
     if (possibilities.length == 0) return;
     int i;
     for (i = 0; i < possibilities.length; i++) {
         if (strcmp(possibilities.content[i].key, key) == 0) {
+            free(possibilities.content[i].key);
             free(&possibilities.content[i]);
             break;
         }
