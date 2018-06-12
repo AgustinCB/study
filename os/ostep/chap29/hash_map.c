@@ -21,7 +21,7 @@ typedef struct __key_value_pair_array {
 
 typedef struct __map {
     key_value_pair_array *values;
-    unsigned char length;
+    size_t length;
 } map;
 
 typedef struct __maybe_int {
@@ -29,7 +29,7 @@ typedef struct __maybe_int {
     int value;
 } maybe_int;
 
-unsigned int hash(const char *key, unsigned char length) {
+unsigned int hash(const char *key, size_t length) {
     int i;
     unsigned int result = 0;
     for (i = 0; key[i] != '\0'; i++) {
@@ -54,7 +54,7 @@ void init_kv_array(key_value_pair_array *a) {
     a->content = (key_value_pair*) malloc(sizeof(key_value_pair) * a->capacity);
 }
 
-void init(map *a, const unsigned char length) {
+void init(map *a, const size_t length) {
     a->length = length;
     a->values = (key_value_pair_array*) malloc(sizeof(key_value_pair_array) * length);
 }
@@ -85,6 +85,7 @@ maybe_int get(map a, const char* key) {
 
 void set(map a, const char* key, const int value) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
+    printf("HASH CALCULATED\n");
     key_value_pair new;
     new.value = value;
     const int length = strlen(key);
@@ -111,4 +112,20 @@ void del(map a, const char* key) {
     for (int j = i + 1; j < possibilities.length; j++) {
         possibilities.content[j-1] = possibilities.content[j];
     }
+}
+
+int main () {
+    map a;
+    init(&a, 1024);
+    printf("Setting\n");
+    set(a, "uno", 1);
+    set(a, "two", 2);
+    printf("Getting\n");
+    printf("For uno: %d\n", get(a, "uno").value);
+    printf("For two: %d\n", get(a, "two").value);
+    printf("Deleting\n");
+    del(a, "uno");
+    del(a, "two");
+    printf("Is uno set: %d\n", (int) get(a, "uno").defined);
+    printf("Is two set: %d\n", (int) get(a, "two").defined);
 }
