@@ -57,6 +57,7 @@ void init_kv_array(key_value_pair_array *a) {
 void init(map *a, const size_t length) {
     a->length = length;
     a->values = (key_value_pair_array*) malloc(sizeof(key_value_pair_array) * length);
+    for (int i=0; i < length; i++) init_kv_array(&(a->values[i]));
 }
 
 void increase_kv_array_capacity(key_value_pair_array *a) {
@@ -67,9 +68,7 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
 
 maybe_int get(map a, const char* key) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
-    printf("HASH CALCULATED %d\n", hash(key, a.length));
     maybe_int result;
-    printf("POSS LENGTH %d\n", possibilities.length);
     if (possibilities.length == 0) {
         init_maybe_int(&result, false, 0);
         return result;
@@ -87,7 +86,6 @@ maybe_int get(map a, const char* key) {
 
 void set(map a, const char* key, const int value) {
     key_value_pair_array possibilities = a.values[hash(key, a.length)];
-    printf("HASH CALCULATED %d\n", hash(key, a.length));
     key_value_pair *new = (key_value_pair*) malloc(sizeof(key_value_pair));
     new->value = value;
     const int length = strlen(key);
@@ -97,7 +95,6 @@ void set(map a, const char* key, const int value) {
         increase_kv_array_capacity(&possibilities);
     }
     possibilities.content[possibilities.length] = *new;
-    printf("THING SET %d\n", possibilities.content[possibilities.length].value);
     possibilities.length++;
     a.values[hash(key, a.length)] = possibilities;
 }
@@ -123,6 +120,7 @@ int main () {
     init(&a, 1024);
     printf("Setting\n");
     set(a, "uno", 1);
+    set(a, "two", 1);
     set(a, "two", 2);
     printf("Getting\n");
     printf("For uno: %d\n", get(a, "uno").value);
