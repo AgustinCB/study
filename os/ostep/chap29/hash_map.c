@@ -89,13 +89,15 @@ void set(map a, const char* key, const int value) {
     key_value_pair *new = (key_value_pair*) malloc(sizeof(key_value_pair));
     new->value = value;
     const int length = strlen(key);
+    int i=0;
     new->key = (char*) malloc(sizeof(char) * length);
     strncpy(new->key, key, length);
     if (possibilities.length >= possibilities.capacity) {
         increase_kv_array_capacity(&possibilities);
     }
-    possibilities.content[possibilities.length] = *new;
-    possibilities.length++;
+    while (i < possibilities.length && strcmp(possibilities.content[i].key, key) != 0) i++; 
+    possibilities.content[i] = *new;
+    if (i >= possibilities.length) possibilities.length++;
     a.values[hash(key, a.length)] = possibilities;
 }
 
