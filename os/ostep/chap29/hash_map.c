@@ -67,7 +67,7 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
 }
 
 maybe_int get(map a, const char* key) {
-    key_value_pair_array possibilities = a.values[hash(key, a.length)];
+    const key_value_pair_array possibilities = a.values[hash(key, a.length)];
     maybe_int result;
     if (possibilities.length == 0) {
         init_maybe_int(&result, false, 0);
@@ -85,20 +85,20 @@ maybe_int get(map a, const char* key) {
 }
 
 void set(map a, const char* key, const int value) {
-    key_value_pair_array possibilities = a.values[hash(key, a.length)];
-    key_value_pair *new = (key_value_pair*) malloc(sizeof(key_value_pair));
+    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
+    int i=0;
+    while (i < possibilities->length && strcmp(possibilities->content[i].key, key) != 0) i++; 
+    if (i >= possibilities->length) {
+        if (possibilities->length >= possibilities->capacity) {
+            increase_kv_array_capacity(possibilities);
+        }
+        possibilities->length++;
+    }
+    key_value_pair *new = &(possibilities->content[i]);
     new->value = value;
     const int length = strlen(key);
-    int i=0;
     new->key = (char*) malloc(sizeof(char) * length);
     strncpy(new->key, key, length);
-    if (possibilities.length >= possibilities.capacity) {
-        increase_kv_array_capacity(&possibilities);
-    }
-    while (i < possibilities.length && strcmp(possibilities.content[i].key, key) != 0) i++; 
-    possibilities.content[i] = *new;
-    if (i >= possibilities.length) possibilities.length++;
-    a.values[hash(key, a.length)] = possibilities;
 }
 
 void del(map a, const char* key) {
