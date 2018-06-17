@@ -64,6 +64,9 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
     a->capacity *= 2;
     key_value_pair *new_content = (key_value_pair*) realloc(a->content, sizeof(key_value_pair) * a->capacity);
     a->content = new_content;
+    for (int i=a->length; i < a->capacity; i++) {
+        a->content[i].key = NULL;
+    }
 }
 
 maybe_int get(map a, const char* key) {
@@ -74,7 +77,7 @@ maybe_int get(map a, const char* key) {
         return result;
     }
     for (int i = 0; i < possibilities.capacity; i++) {
-        if (strcmp(possibilities.content[i].key, key) == 0) {
+        if (possibilities.content[i].key != NULL && strncmp(possibilities.content[i].key, key, strlen(possibilities.content[i].key)) == 0) {
             init_maybe_int(&result, true, possibilities.content[i].value);
             return result;
         }
@@ -87,6 +90,7 @@ maybe_int get(map a, const char* key) {
 void set(map a, const char* key, const int value) {
     key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
     int i=0;
+    const int length = strlen(key);
     while (i < possibilities->length && strcmp(possibilities->content[i].key, key) != 0) i++; 
     if (i >= possibilities->length) {
         if (possibilities->length >= possibilities->capacity) {
@@ -96,25 +100,25 @@ void set(map a, const char* key, const int value) {
     }
     key_value_pair *new = &(possibilities->content[i]);
     new->value = value;
-    const int length = strlen(key);
     new->key = (char*) malloc(sizeof(char) * length);
     strncpy(new->key, key, length);
 }
 
 void del(map a, const char* key) {
-    key_value_pair_array possibilities = a.values[hash(key, a.length)];
-    if (possibilities.length == 0) return;
+    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
+    if (possibilities->length == 0) return;
     int i;
-    for (i = 0; i < possibilities.length; i++) {
-        if (strcmp(possibilities.content[i].key, key) == 0) {
-            free(possibilities.content[i].key);
-            free(&possibilities.content[i]);
+    for (i = 0; i < possibilities->length; i++) {
+        if (possibilities->content[i].key != NULL && strcmp(possibilities->content[i].key, key) == 0) {
+            free(possibilities->content[i].key);
+            possibilities->content[i].key = NULL;
             break;
         }
     }
-    for (int j = i + 1; j < possibilities.length; j++) {
-        possibilities.content[j-1] = possibilities.content[j];
+    for (int j = i + 1; j < possibilities->length; j++) {
+        possibilities->content[j-1] = possibilities->content[j];
     }
+    possibilities->length -= 1;
 }
 
 int main () {
