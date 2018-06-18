@@ -29,6 +29,10 @@ typedef struct __maybe_int {
     int value;
 } maybe_int;
 
+void free_hash(map *a) {
+    for (int i=0; i<a->length; i++) ;
+}
+
 unsigned int hash(const char *key, size_t length) {
     int i;
     unsigned int result = 0;
@@ -72,12 +76,16 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
 maybe_int get(map a, const char* key) {
     const key_value_pair_array possibilities = a.values[hash(key, a.length)];
     maybe_int result;
+    int key_length = strlen(key);
     if (possibilities.length == 0) {
         init_maybe_int(&result, false, 0);
         return result;
     }
     for (int i = 0; i < possibilities.capacity; i++) {
-        if (possibilities.content[i].key != NULL && strncmp(possibilities.content[i].key, key, strlen(possibilities.content[i].key)) == 0) {
+        int l = strlen(possibilities.content[i].key);
+        if (possibilities.content[i].key != NULL &&
+            l == key_length &&
+            strncmp(possibilities.content[i].key, key, l) == 0) {
             init_maybe_int(&result, true, possibilities.content[i].value);
             return result;
         }
@@ -91,7 +99,10 @@ void set(map a, const char* key, const int value) {
     key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
     int i=0;
     const int length = strlen(key);
-    while (i < possibilities->length && strcmp(possibilities->content[i].key, key) != 0) i++; 
+    while (i < possibilities->length &&
+           length == strlen(possibilities->content[i].key) &&
+           strncmp(possibilities->content[i].key, key, length) != 0)
+        i++;
     if (i >= possibilities->length) {
         if (possibilities->length >= possibilities->capacity) {
             increase_kv_array_capacity(possibilities);
@@ -100,8 +111,8 @@ void set(map a, const char* key, const int value) {
     }
     key_value_pair *new = &(possibilities->content[i]);
     new->value = value;
-    new->key = (char*) malloc(sizeof(char) * length);
-    strncpy(new->key, key, length);
+    new->key = (char*) malloc(sizeof(char) * (length+1));
+    strncat(new->key, key, length);
 }
 
 void del(map a, const char* key) {
@@ -136,4 +147,5 @@ int main () {
     del(a, "two");
     printf("Is uno set: %d\n", (int) get(a, "uno").defined);
     printf("Is two set: %d\n", (int) get(a, "two").defined);
+    free_hash(&a);
 }
