@@ -30,7 +30,13 @@ typedef struct __maybe_int {
 } maybe_int;
 
 void free_hash(map *a) {
-    for (int i=0; i<a->length; i++) ;
+    for (int i=0; i<a->length; i++) {
+        for (int j=0; j<a->values[i].length; j++) {
+            free(a->values[i].content[j].key);
+        }
+        free(a->values[i].content);
+    }
+    free(a->values);
 }
 
 unsigned int hash(const char *key, size_t length) {
@@ -66,8 +72,10 @@ void init(map *a, const size_t length) {
 
 void increase_kv_array_capacity(key_value_pair_array *a) {
     a->capacity *= 2;
+    key_value_pair *prev = a->content;
     key_value_pair *new_content = (key_value_pair*) realloc(a->content, sizeof(key_value_pair) * a->capacity);
     a->content = new_content;
+    free(prev);
     for (int i=a->length; i < a->capacity; i++) {
         a->content[i].key = NULL;
     }
