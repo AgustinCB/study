@@ -19,8 +19,8 @@ void init_node(node *n, const char* value, const node* next) {
         n->length = 0;
     }
     n->value = (char*) malloc(sizeof(char) * (n->length+1));
+    n->value[0] = '\0';
     strncat(n->value, value, n->length);
-    n->next = next;
 }
 
 void free_node(node *n) {
@@ -28,14 +28,14 @@ void free_node(node *n) {
     free(n);
 }
 
-node* find_last(const node *head) {
+node* find_last(node *head) {
     if (head == NULL) return NULL;
     node *tmp = head;
     while (tmp->next != NULL) tmp = tmp->next;
     return tmp;
 }
 
-node* find(const node *head, const char *value) {
+node* find(node *head, const char *value) {
     if (head == NULL) return NULL;
     node *tmp = head;
     int l = strlen(value);
@@ -45,7 +45,7 @@ node* find(const node *head, const char *value) {
     return tmp;
 }
 
-node* find_prev(const node *head, const char *value) {
+node* find_prev(node *head, const char *value) {
     if (head == NULL) return NULL;
     node *tmp = head;
     node *prev = NULL;
@@ -64,6 +64,7 @@ void add_to_list(node *head, const char *value) {
     if (tail != NULL) {
         node *new_node = malloc(sizeof(node));
         init_node(new_node, value, NULL);
+        new_node->next = NULL;
         tail->next = new_node;
     }
 }
@@ -87,6 +88,7 @@ int main() {
     node *head = (node*) malloc(sizeof(node));
     printf("INITING\n");
     init_node(head, "uno", NULL);
+    head->next = NULL;
     printf("ADDING\n");
     add_to_list(head, "two");
     add_to_list(head, "three");
