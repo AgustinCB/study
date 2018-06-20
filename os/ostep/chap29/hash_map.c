@@ -115,11 +115,17 @@ void set(map a, const char* key, const int value) {
         if (possibilities->length >= possibilities->capacity) {
             increase_kv_array_capacity(possibilities);
         }
-        possibilities->length++;
     }
     key_value_pair *new = &(possibilities->content[i]);
     new->value = value;
+    char *prev = new->key;
     new->key = (char*) malloc(sizeof(char) * (length+1));
+    new->key[0] = '\0';
+    if (i < possibilities->length) {
+        free(prev);
+    } else {
+        possibilities->length++;
+    }
     strncat(new->key, key, length);
 }
 
