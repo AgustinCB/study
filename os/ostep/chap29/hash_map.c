@@ -17,6 +17,7 @@ typedef struct __key_value_pair_array {
     key_value_pair *content;
     unsigned int length;
     unsigned int capacity;
+    pthread_mutex_t lock;
 } key_value_pair_array;
 
 typedef struct __map {
@@ -62,6 +63,7 @@ void init_kv_array(key_value_pair_array *a) {
     a->length = 0;
     a->capacity = 1;
     a->content = (key_value_pair*) malloc(sizeof(key_value_pair) * a->capacity);
+    Pthread_mutex_init(&a->lock, NULL);
 }
 
 void init(map *a, const size_t length) {
@@ -82,10 +84,12 @@ void increase_kv_array_capacity(key_value_pair_array *a) {
 }
 
 maybe_int get(map a, const char* key) {
-    const key_value_pair_array possibilities = a.values[hash(key, a.length)];
     maybe_int result;
     int key_length = strlen(key);
+    key_value_pair_array possibilities = a.values[hash(key, a.length)];
+    Pthread_mutex_lock(&possibilities.lock);
     if (possibilities.length == 0) {
+        Pthread_mutex_unlock(&possibilities.lock);
         init_maybe_int(&result, false, 0);
         return result;
     }
@@ -95,18 +99,21 @@ maybe_int get(map a, const char* key) {
             l == key_length &&
             strncmp(possibilities.content[i].key, key, l) == 0) {
             init_maybe_int(&result, true, possibilities.content[i].value);
+            Pthread_mutex_unlock(&possibilities.lock);
             return result;
         }
     }
 
+    Pthread_mutex_unlock(&possibilities.lock);
     init_maybe_int(&result, false, 0);
     return result;
 }
 
 void set(map a, const char* key, const int value) {
-    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
     int i=0;
     const int length = strlen(key);
+    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
+    Pthread_mutex_lock(&possibilities->lock);
     while (i < possibilities->length &&
            length == strlen(possibilities->content[i].key) &&
            strncmp(possibilities->content[i].key, key, length) != 0)
@@ -126,13 +133,15 @@ void set(map a, const char* key, const int value) {
     } else {
         possibilities->length++;
     }
+    Pthread_mutex_unlock(&possibilities->lock);
     strncat(new->key, key, length);
 }
 
 void del(map a, const char* key) {
-    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
-    if (possibilities->length == 0) return;
     int i;
+    key_value_pair_array *possibilities = &(a.values[hash(key, a.length)]);
+    Pthread_mutex_lock(&possibilities->lock);
+    if (possibilities->length == 0) return;
     for (i = 0; i < possibilities->length; i++) {
         if (possibilities->content[i].key != NULL && strcmp(possibilities->content[i].key, key) == 0) {
             free(possibilities->content[i].key);
@@ -144,6 +153,7 @@ void del(map a, const char* key) {
         possibilities->content[j-1] = possibilities->content[j];
     }
     possibilities->length -= 1;
+    Pthread_mutex_unlock(&possibilities->lock);
 }
 
 int main () {
