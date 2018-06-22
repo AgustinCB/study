@@ -156,20 +156,26 @@ void del(map a, const char* key) {
     Pthread_mutex_unlock(&possibilities->lock);
 }
 
-int main () {
+int main (int argc, char* argv[]) {
     map a;
+    int threads = atoi(argv[1]);
     init(&a, 1024);
-    printf("Setting\n");
-    set(a, "uno", 1);
-    set(a, "two", 1);
-    set(a, "two", 2);
-    printf("Getting\n");
-    printf("For uno: %d\n", get(a, "uno").value);
-    printf("For two: %d\n", get(a, "two").value);
-    printf("Deleting\n");
-    del(a, "uno");
-    del(a, "two");
-    printf("Is uno set: %d\n", (int) get(a, "uno").defined);
-    printf("Is two set: %d\n", (int) get(a, "two").defined);
+    for (int t = 0; t < threads; t++) {
+        char k[10];
+        switch(fork()) {
+        case -1:
+            fprintf(stderr, "ERROR FORKING");
+            exit(1);
+            break;
+        case 0: // Child
+            snprintf(k, 10, "%d", t);
+            set(a, k, 1);
+            del(a, k);
+            return 0;
+        default: // Parent
+            ;
+        }
+
+    }
     free_hash(&a);
 }
