@@ -21,3 +21,5 @@ I'll do a hashmap for strings as keys.
 6. Finally, think of a more interesting locking strategy for this favorite
 data structure of yours. Implement it, and measure its performance.
 How does it compare to the straightforward locking approach?
+
+Setting a "hand-to-hand-like" algorithm makes it really fast. The function is almost constant with respect to the threads, given that the capacity of the hash list is close to the number of threads.
