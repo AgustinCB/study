@@ -8,3 +8,7 @@ Yeah, I do.
 It doesn't change much with the addition of only buffer size.
 
 I'd predict it to be full and almost full most of the time.
+
+3. If possible, run the code on different systems (e.g., a Mac and Linux). Do you see different behavior across these systems?
+
+Ran it in Linux and Windows. Noticed no difference.
