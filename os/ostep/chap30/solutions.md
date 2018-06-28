@@ -12,3 +12,7 @@ I'd predict it to be full and almost full most of the time.
 3. If possible, run the code on different systems (e.g., a Mac and Linux). Do you see different behavior across these systems?
 
 Ran it in Linux and Windows. Noticed no difference.
+
+4. Let’s look at some timings of different runs. How long do you think the following execution, with one producer, three consumers, a single-entry shared buffer, and each consumer pausing at point c3 for a second, will take?
+
+I think it'd take approximately `l` seconds.
