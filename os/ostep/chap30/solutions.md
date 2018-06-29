@@ -15,4 +15,8 @@ Ran it in Linux and Windows. Noticed no difference.
 
 4. Let’s look at some timings of different runs. How long do you think the following execution, with one producer, three consumers, a single-entry shared buffer, and each consumer pausing at point c3 for a second, will take?
 
-I think it'd take approximately `l` seconds.
+I think it'd take approximately `l + c - 1` seconds.
+
+5. Now change the size of the shared buffer to 3 (-m 3). Will this make any difference in the total time?
+
+No, it won't.
