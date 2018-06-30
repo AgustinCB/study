@@ -20,3 +20,7 @@ I think it'd take approximately `l + c - 1` seconds.
 5. Now change the size of the shared buffer to 3 (-m 3). Will this make any difference in the total time?
 
 No, it won't.
+
+6. Now change the location of the sleep to c6 (this models a consumer taking something off the queue and then doing something with it for a while), again using a single-entry buffer. What time do you predict in this case?
+
+Roughly l/2.
