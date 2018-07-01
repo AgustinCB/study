@@ -24,3 +24,8 @@ No, it won't.
 6. Now change the location of the sleep to c6 (this models a consumer taking something off the queue and then doing something with it for a while), again using a single-entry buffer. What time do you predict in this case?
 
 Roughly l/2.
+
+7. Finally, change the buffer size to 3 again (-m 3). What time do you
+predict now?
+
+Same time, it's not a function of buffer size.
