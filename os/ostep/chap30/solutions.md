@@ -33,3 +33,7 @@ Same time, it's not a function of buffer size.
 8. Now let’s look at main-one-cv-while.c. Can you configure a sleep string, assuming a single producer, one consumer, and a buffer of size 1, to cause a problem with this code?
 
 No, I'll need another consumer to cause a problem.
+
+9. Now change the number of consumers to two. Can you construct sleep strings for the producer and the consumers so as to cause a problem in the code?
+
+Yes, indeed!
