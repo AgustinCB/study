@@ -43,3 +43,5 @@ Yes, indeed!
 With only one consumer, no.
 
 11. Finally, examine main-two-cvs-while-extra-unlock.c. What problem arises when you release the lock before doing a put or a get? Can you reliably cause such a problem to happen, given the sleep strings? What bad thing can happen?
+
+If you release the lock before doing that, and right at that moment there's a context a switch to another process that actually gets to the put or get, then the first one will be left in a messed up scenario.
