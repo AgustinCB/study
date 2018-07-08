@@ -1,0 +1,93 @@
+class ListNode {
+  init(value, next) {
+    this.value = value;
+    this.next = next;
+  }
+}
+
+class List {
+  init() {
+    this.length = 0;
+    this.head = null;
+    this.tail = null;
+  }
+
+  add(element) {
+    var node = ListNode(element, null)
+    if (this.head == null) {
+      this.head = node;
+      this.tail = node;
+    } else {
+      this.tail.next = node;
+      this.tail = node;
+    }
+    this.length = this.length + 1;
+  }
+
+  set(index, element) {
+    if (index >= this.length) return null;
+    var current = this.head;
+
+    for (var i = 0; i < index; i++) {
+      current = current.next;
+    }
+
+    var result = current.value;
+    current.value = element;
+    return result
+  }
+
+  get(index) {
+    if (index >= this.length) return null;
+    var result = null;
+    var current = this.head;
+
+    for (var i = 0; i < index; i++) {
+      if (current == null) return null;
+      current = current.next;
+    }
+
+    return current.value;
+  }
+}
+
+class EmptySpace {
+  toString() {
+    return ' ';
+  }
+}
+
+class UserCheck {
+  init(isCircle) {
+    this.isCircle = isCircle;
+  }
+  toString() {
+    if (this.isCircle) {
+      return 'O';
+    } else {
+      return 'X';
+    }
+  }
+}
+
+class Game {
+  init() {
+    this.board = List();
+    for (var i = 0; i < 9; i++) {
+      this.board.add(EmptySpace());
+    }
+  }
+
+  set(index, isCircle) {
+    var element = UserCheck(isCircle);
+    this.board.set(index, isCircle);
+  }
+
+  toString() {
+    var result = '';
+    for (var i = 0; i < 9; i++) {
+      result = result + this.board.get(i).toString();
+      if ((i+1) % 3 == 0) result = result + '\n';
+    }
+  }
+}
