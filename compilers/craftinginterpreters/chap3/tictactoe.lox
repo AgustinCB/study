@@ -83,6 +83,23 @@ class Game {
     this.board.set(index, isCircle);
   }
 
+  isCompleted() {
+    var winnerByRows = isThereAWinnerByRows();
+    if (winnerByRows != null) return winnerByRows;
+    var winnerByCols = isThereAWinnerByCols();
+    if (winnerByCols != null) return winnerByCols;
+    var winnerByDiag = isThereAWinnerByDiag();
+    if (winnerByDiag != null) return winnerByDiag;
+    return isTie();
+  }
+
+  isTie() {
+    for (var i = 0; i < 9; i++) {
+      if (this.board.get(i).toString() == ' ') return false;
+    }
+    return true;
+  }
+
   toString() {
     var result = '';
     for (var i = 0; i < 9; i++) {
