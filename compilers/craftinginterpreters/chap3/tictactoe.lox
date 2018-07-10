@@ -84,13 +84,57 @@ class Game {
   }
 
   isCompleted() {
-    var winnerByRows = isThereAWinnerByRows();
+    var winnerByRows = this.isThereAWinnerByRows();
     if (winnerByRows != null) return winnerByRows;
-    var winnerByCols = isThereAWinnerByCols();
+    var winnerByCols = this.isThereAWinnerByCols();
     if (winnerByCols != null) return winnerByCols;
-    var winnerByDiag = isThereAWinnerByDiag();
+    var winnerByDiag = this.isThereAWinnerByDiag();
     if (winnerByDiag != null) return winnerByDiag;
-    return isTie();
+    return this.isTie();
+  }
+
+  isThereAWinnerByRows() {
+    for (var i = 0; i < 3; i++) {
+      var first = this.board.get(i * 3 + 0);
+      var second = this.board.get(i * 3 + 1);
+      var third = this.board.get(i * 3 + 2);
+      if (first.toString() != ' ' &&
+          first.toString() == second.toString() &&
+          first.toString() == third.toString())
+          return first.toString();
+    }
+    return null;
+  }
+
+  isThereAWinnerByCols() {
+    for (var i = 0; i < 3; i++) {
+      var first = this.board.get(0 * 3 + i);
+      var second = this.board.get(1 * 3 + i);
+      var third = this.board.get(2 * 3 + i);
+      if (first.toString() != ' ' &&
+          first.toString() == second.toString() &&
+          first.toString() == third.toString())
+          return first.toString();
+    }
+    return null;
+  }
+
+  isThereAWinnerByDiag() {
+    var first = this.board.get(0);
+    var second = this.board.get(4);
+    var third = this.board.get(8);
+    if (first.toString() != ' ' &&
+        first.toString() == second.toString() &&
+        first.toString() == third.toString())
+        return first.toString();
+    first = this.board.get(2);
+    second = this.board.get(4);
+    third = this.board.get(6);
+    if (first.toString() != ' ' &&
+        first.toString() == second.toString() &&
+        first.toString() == third.toString())
+        return first.toString();
+    return null;
   }
 
   isTie() {
