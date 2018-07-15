@@ -6,14 +6,18 @@ usage = "usage: hlox [script]"
 parse :: [String] -> IO()
 parse []      = runRepl
 parse ["-h"]  = print usage
-parse [file]  = runFile
+parse [file]  = runFile file
 parse _       = print usage
 
-runRepl :: IO()
-runRepl = print "THIS IS A REPL"
+run :: String -> IO()
+run s = print s
 
-runFile :: IO()
-runFile = print "THIS IS A FILE"
+runRepl :: IO()
+runRepl = sequence_ takeInput
+  where takeInput = (getLine >>= run) : takeInput
+
+runFile :: String -> IO()
+runFile f = readFile f >>= run
 
 main :: IO ()
 main = getArgs >>= parse
