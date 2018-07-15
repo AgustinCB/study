@@ -1,20 +1,24 @@
 import System.Environment
+import System.IO
 
 usage :: String
 usage = "usage: hlox [script]"
 
 parse :: [String] -> IO()
 parse []      = runRepl
-parse ["-h"]  = print usage
+parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
-parse _       = print usage
+parse _       = putStrLn usage
 
 run :: String -> IO()
-run s = print s
+run s = putStrLn s
+
+getUserInput :: IO String
+getUserInput = putStr "> " >> hFlush stdout >> getLine
 
 runRepl :: IO()
 runRepl = sequence_ takeInput
-  where takeInput = (getLine >>= run) : takeInput
+  where takeInput = (getUserInput >>= run) : takeInput
 
 runFile :: String -> IO()
 runFile f = readFile f >>= run
