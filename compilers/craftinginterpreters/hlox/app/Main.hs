@@ -1,3 +1,4 @@
+import Hlox
 import System.Environment
 import System.IO
 
@@ -13,12 +14,12 @@ parse _       = putStrLn usage
 run :: String -> IO()
 run s = putStrLn s
 
-getUserInput :: IO String
-getUserInput = putStr "> " >> hFlush stdout >> getLine
-
 runRepl :: IO()
-runRepl = sequence_ takeInput
-  where takeInput = (getUserInput >>= run) : takeInput
+runRepl = sequence_ processInput
+  where processInput :: [IO()]
+        processInput = (getUserInput >>= run) : processInput
+        getUserInput :: IO String
+        getUserInput = putStr "> " >> hFlush stdout >> getLine
 
 runFile :: String -> IO()
 runFile f = readFile f >>= run

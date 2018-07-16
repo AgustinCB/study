@@ -22,6 +22,17 @@
   (major1) == 4 && (major2) == 10 && (minor) <= 1)
 #endif /* MIN_VERSION_base */
 
+/* package hlox-0.1.0.0 */
+#ifndef VERSION_hlox
+#define VERSION_hlox "0.1.0.0"
+#endif /* VERSION_hlox */
+#ifndef MIN_VERSION_hlox
+#define MIN_VERSION_hlox(major1,major2,minor) (\
+  (major1) <  0 || \
+  (major1) == 0 && (major2) <  1 || \
+  (major1) == 0 && (major2) == 1 && (minor) <= 0)
+#endif /* MIN_VERSION_hlox */
+
 /* tool cpphs-1.20.8 */
 #ifndef TOOL_VERSION_cpphs
 #define TOOL_VERSION_cpphs "1.20.8"
