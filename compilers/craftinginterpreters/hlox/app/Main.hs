@@ -2,12 +2,6 @@ import Hlox
 import System.Environment
 import System.IO
 
-report :: SourceCodeLocation -> String -> IO()
-report loc msg = hPutStrLn stderr $ (show loc) ++ msg
-
-error :: Int -> String -> IO()
-error line msg = report (mkSourceCodeLocation Nothing line) msg
-
 usage :: String
 usage = "usage: hlox [script]"
 
@@ -17,8 +11,11 @@ parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
 parse _       = putStrLn usage
 
+getOutcome :: String -> ProgramOutcome
+getOutcome m = Success m
+
 run :: String -> IO()
-run s = putStrLn s
+run s = putStrLn (show (getOutcome s))
 
 runRepl :: IO()
 runRepl = sequence_ processInput
