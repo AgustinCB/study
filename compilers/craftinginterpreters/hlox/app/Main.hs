@@ -1,5 +1,6 @@
 import Hlox
 import System.Environment
+import System.Exit
 import System.IO
 
 usage :: String
@@ -15,7 +16,10 @@ getOutcome :: String -> ProgramOutcome
 getOutcome m = Success m
 
 run :: String -> IO()
-run s = putStrLn (show (getOutcome s))
+run s = handleOutcome (getOutcome s)
+  where handleOutcome :: ProgramOutcome -> IO()
+        handleOutcome o@(Success _) = putStrLn (show o)
+        handleOutcome o@(Error _ _) = die (show o)
 
 runRepl :: IO()
 runRepl = sequence_ processInput
