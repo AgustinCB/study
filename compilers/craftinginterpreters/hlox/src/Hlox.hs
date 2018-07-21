@@ -15,7 +15,7 @@ instance Show ProgramOutcome where
 
 -- Language specs
 
-data HloxTokenKeyword =
+data TokenKeywordType =
   LeftParen |
   RightParen |
   LeftBrace |
@@ -51,7 +51,9 @@ data HloxTokenKeyword =
   TrueKeyword |
   Var |
   While
-data HloxTokenLiteral a =
+data TokenLiteralType a =
   Identifier String |
   StringLiteral String |
   Number a
+data TokenType a = TokenKeywordType | TokenLiteralType a
+data Token = Token { tokenType :: TokenType, lexeme :: String, location :: SourceCodeLocation }
