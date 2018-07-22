@@ -57,3 +57,12 @@ data TokenLiteralType a =
   Number a
 data TokenType a = TokenKeywordType | TokenLiteralType a
 data Token = Token { tokenType :: TokenType, lexeme :: String, location :: SourceCodeLocation }
+
+scanTokens :: String -> [Token]
+scanTokens s = scanTokens' s 1
+  where
+    scanTokens' :: String -> Int -> [Token]
+    scanTokens' "" _ = []
+    scanTokens' "" l =
+      let (token, rest, line) = scanToken s l
+      in token : scanTokens' rest line
