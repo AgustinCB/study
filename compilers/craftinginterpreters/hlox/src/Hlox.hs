@@ -56,12 +56,22 @@ data TokenLiteralType a =
   StringLiteral String |
   Number a
 data TokenType a = TokenKeywordType | TokenLiteralType a
-data Token = Token { tokenType :: TokenType, lexeme :: String, location :: SourceCodeLocation }
+data Token a = Token { tokenType :: TokenType a, lexeme :: String, tokenLocation :: SourceCodeLocation }
 
-scanTokens :: String -> [Token]
+type TokenResult a = (Token a, String, Int)
+
+createToken :: (Num a) => Char -> String -> Int -> TokenResult a
+createToken nextChar rest line
+  | nextChar == '('   = (Token LeftParen (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
+  | nextChar == '\n'  = createToken rest (line + 1)
+
+scanToken :: (Num a) => String -> Int -> TokenResult a
+scanToken s l = createToken (head s) (tail s) l
+
+scanTokens :: (Num a) => String -> [Token a]
 scanTokens s = scanTokens' s 1
   where
-    scanTokens' :: String -> Int -> [Token]
+    scanTokens' :: (Num a) => String -> Int -> [Token a]
     scanTokens' "" _ = []
     scanTokens' "" l =
       let (token, rest, line) = scanToken s l
