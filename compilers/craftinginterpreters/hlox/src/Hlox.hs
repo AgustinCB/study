@@ -1,19 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
--- Program results
-
-data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int }
-data ProgramOutcome = Error { location :: SourceCodeLocation, msg :: String } | Success String
-
-instance Show SourceCodeLocation where
-  show (SourceCodeLocation (Just file) line) = "[line " ++ (show line) ++ "] Error in " ++ file ++ ": "
-  show (SourceCodeLocation Nothing line) = "[line " ++ (show line) ++ "] Error: "
-
-instance Show ProgramOutcome where
-  show (Error location msg) = (show location) ++ msg
-  show (Success result) = result
-
 -- Language specs
 
 data TokenType a =
@@ -55,14 +42,36 @@ data TokenType a =
   Identifier String |
   StringLiteral String |
   Number a
-data Token a = Token { tokenType :: TokenType a, lexeme :: String, tokenLocation :: SourceCodeLocation }
+data Token a = Token { tokenType :: TokenType a, lexeme :: String, tokenLocation :: SourceCodeLocation } deriving Show
 
 type TokenResult a = (Token a, String, Int)
+
+-- Program results
+
+data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int }
+data ParseOutcome = Error { location :: SourceCodeLocation, msg :: String } | Success [Token]
+
+instance Show SourceCodeLocation where
+  show (SourceCodeLocation (Just file) line) = "[line " ++ (show line) ++ "] Error in " ++ file ++ ": "
+  show (SourceCodeLocation Nothing line) = "[line " ++ (show line) ++ "] Error: "
+
+instance Show ParseOutcome where
+  show (Error location msg) = (show location) ++ msg
+  show (Success []) = ""
+  show (Success t:rest) = (show Token) ++ " " ++ (show (Success rest))
 
 createToken :: (Num a) => Char -> String -> Int -> TokenResult a
 createToken nextChar rest line
   | nextChar == '('   = oneCharToken LeftParen
   | nextChar == ')'   = oneCharToken RightParen
+  | nextChar == '{'   = oneCharToken LeftBrace
+  | nextChar == '}'   = oneCharToken RightBrace
+  | nextChar == ','   = oneCharToken Comma
+  | nextChar == '.'   = oneCharToken Dot
+  | nextChar == '-'   = oneCharToken Minus
+  | nextChar == '+'   = oneCharToken Plus
+  | nextChar == ';'   = oneCharToken Semicolon
+  | nextChar == '*'   = oneCharToken Star
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   where
     oneCharToken :: TokenType a -> TokenResult a

@@ -12,12 +12,12 @@ parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
 parse _       = putStrLn usage
 
-getOutcome :: String -> ProgramOutcome
+getOutcome :: String -> ParseOutcome
 getOutcome m = Success m
 
 run :: String -> IO()
 run s = handleOutcome (getOutcome s)
-  where handleOutcome :: ProgramOutcome -> IO()
+  where handleOutcome :: ParseOutcome -> IO()
         handleOutcome o@(Success _) = putStrLn (show o)
         handleOutcome o@(Error _ _) = die (show o)
 
