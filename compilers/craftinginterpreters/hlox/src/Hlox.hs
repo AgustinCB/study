@@ -56,23 +56,24 @@ data ParseOutcome a = Error { location :: SourceCodeLocation, msg :: String } | 
 
 
 instance Show a => Show (ParseOutcome a) where
-  show (Error (SourceCodeLocation (Just file) line)) = "[line " ++ (show line) ++ "] Error in " ++ file ++ ": "
-  show (Error (SourceCodeLocation Nothing line)) = "[line " ++ (show line) ++ "] Error: "
-  show (Success []) = ""
-  show (Success t:rest) = (show Token) ++ " " ++ (show (Success rest))
+  show (Error (SourceCodeLocation (Just file) line) msg) =
+    "[line " ++ (show line) ++ "] Error in " ++ file ++ ": " ++ msg
+  show (Error (SourceCodeLocation Nothing line) msg) =
+    "[line " ++ (show line) ++ "] Error: " ++ msg
+  show (Success ts) = (show ts)
 
 createToken :: (Num a) => Char -> String -> Int -> Either SourceCodeLocation (TokenResult a)
 createToken nextChar rest line
-  | nextChar == '('   = oneCharToken $ Right LeftParen
-  | nextChar == ')'   = oneCharToken $ Right RightParen
-  | nextChar == '{'   = oneCharToken $ Right LeftBrace
-  | nextChar == '}'   = oneCharToken $ Right RightBrace
-  | nextChar == ','   = oneCharToken $ Right Comma
-  | nextChar == '.'   = oneCharToken $ Right Dot
-  | nextChar == '-'   = oneCharToken $ Right Minus
-  | nextChar == '+'   = oneCharToken $ Right Plus
-  | nextChar == ';'   = oneCharToken $ Right Semicolon
-  | nextChar == '*'   = oneCharToken $ Right Star
+  | nextChar == '('   = Right $ oneCharToken LeftParen
+  | nextChar == ')'   = Right $ oneCharToken RightParen
+  | nextChar == '{'   = Right $ oneCharToken LeftBrace
+  | nextChar == '}'   = Right $ oneCharToken RightBrace
+  | nextChar == ','   = Right $ oneCharToken Comma
+  | nextChar == '.'   = Right $ oneCharToken Dot
+  | nextChar == '-'   = Right $ oneCharToken Minus
+  | nextChar == '+'   = Right $ oneCharToken Plus
+  | nextChar == ';'   = Right $ oneCharToken Semicolon
+  | nextChar == '*'   = Right $ oneCharToken Star
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
@@ -88,5 +89,5 @@ scanTokens s = scanTokens' s 1
     scanTokens' :: (Num a) => String -> Int -> ParseOutcome a
     scanTokens' "" _ = Success []
     scanTokens' s l = case r of Left s@(SourceCodeLocation _ _) -> Error s "Unexpected character"
-                                Right (token, rest, line) -> token : scanTokens' rest line
+                                Right (token, rest, line) -> Success $ token : scanTokens' rest line
       where r = scanToken s l
