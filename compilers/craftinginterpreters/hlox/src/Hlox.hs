@@ -52,15 +52,14 @@ type TokenResult a = (Token a, String, Int)
 -- Program results
 
 data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int } deriving Show
-data ParseOutcome a = Error { location :: SourceCodeLocation, msg :: String } | Success [Token a]
+data ProgramError = ProgramError { location :: SourceCodeLocation, msg :: String }
+type ParseOutcome a = Either ProgramError [Token a]
 
-
-instance Show a => Show (ParseOutcome a) where
-  show (Error (SourceCodeLocation (Just file) line) msg) =
+instance Show ProgramError where
+  show (ProgramError (SourceCodeLocation (Just file) line) msg) =
     "[line " ++ (show line) ++ "] Error in " ++ file ++ ": " ++ msg
-  show (Error (SourceCodeLocation Nothing line) msg) =
+  show (ProgramError (SourceCodeLocation Nothing line) msg) =
     "[line " ++ (show line) ++ "] Error: " ++ msg
-  show (Success ts) = (show ts)
 
 createToken :: (Num a) => Char -> String -> Int -> Either SourceCodeLocation (TokenResult a)
 createToken nextChar rest line
@@ -87,7 +86,13 @@ scanTokens :: (Num a) => String -> ParseOutcome a
 scanTokens s = scanTokens' s 1
   where
     scanTokens' :: (Num a) => String -> Int -> ParseOutcome a
-    scanTokens' "" _ = Success []
-    scanTokens' s l = case r of Left s@(SourceCodeLocation _ _) -> Error s "Unexpected character"
-                                Right (token, rest, line) -> Success $ token : scanTokens' rest line
+    scanTokens' "" _ = Right []
+    scanTokens' s l = case r of Left s -> Left $ locationToError s
+                                Right (token, rest, line) -> transformError $ (fmap fst' r) >>= const (scanTokens' rest line)
       where r = scanToken s l
+            fst' :: (a, b, c) -> a
+            fst' (a, _, _) = a
+            locationToError :: SourceCodeLocation -> ProgramError
+            locationToError s = ProgramError s "Unexpected character."
+            transformError :: Either SourceCodeLocation a -> Either ProgramError a
+            transformError e = first locationToError transformError
