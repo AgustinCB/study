@@ -12,14 +12,11 @@ parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
 parse _       = putStrLn usage
 
-getOutcome :: String -> ParseOutcome
-getOutcome m = Success m
-
 run :: String -> IO()
-run s = handleOutcome (getOutcome s)
+run s = handleOutcome (scanTokens s)
   where handleOutcome :: ParseOutcome -> IO()
-        handleOutcome o@(Success _) = putStrLn (show o)
-        handleOutcome o@(Error _ _) = die (show o)
+        handleOutcome (Right o) = putStrLn (show o)
+        handleOutcome (Left o) = die (show o)
 
 runRepl :: IO()
 runRepl = sequence_ processInput

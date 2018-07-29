@@ -1,11 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
+import Control.Arrow
+
 -- Language specs
 
-data TokenType a =
-  LeftParen |
-  RightParen |
+data TokenType =
+  LeftParen | RightParen |
   LeftBrace |
   RightBrace |
   Comma |
@@ -41,19 +42,19 @@ data TokenType a =
   While |
   Identifier String |
   StringLiteral String |
-  Number a deriving Show
-data Token a = Token {
-    tokenType :: TokenType a
+  Number Double deriving Show
+data Token = Token {
+    tokenType :: TokenType
   , lexeme :: String
   , tokenLocation :: SourceCodeLocation } deriving Show
 
-type TokenResult a = (Token a, String, Int)
+type TokenResult = (Token, String, Int)
 
 -- Program results
 
 data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int } deriving Show
 data ProgramError = ProgramError { location :: SourceCodeLocation, msg :: String }
-type ParseOutcome a = Either ProgramError [Token a]
+type ParseOutcome = Either ProgramError [Token]
 
 instance Show ProgramError where
   show (ProgramError (SourceCodeLocation (Just file) line) msg) =
@@ -61,7 +62,7 @@ instance Show ProgramError where
   show (ProgramError (SourceCodeLocation Nothing line) msg) =
     "[line " ++ (show line) ++ "] Error: " ++ msg
 
-createToken :: (Num a) => Char -> String -> Int -> Either SourceCodeLocation (TokenResult a)
+createToken :: Char -> String -> Int -> Either SourceCodeLocation TokenResult
 createToken nextChar rest line
   | nextChar == '('   = Right $ oneCharToken LeftParen
   | nextChar == ')'   = Right $ oneCharToken RightParen
@@ -76,23 +77,27 @@ createToken nextChar rest line
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
-    oneCharToken :: TokenType a -> TokenResult a
+    oneCharToken :: TokenType -> TokenResult
     oneCharToken t = (Token t (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
 
-scanToken :: (Num a) => String -> Int -> Either SourceCodeLocation (TokenResult a)
+scanToken :: String -> Int -> Either SourceCodeLocation TokenResult
 scanToken s l = createToken (head s) (tail s) l
 
-scanTokens :: (Num a) => String -> ParseOutcome a
+scanTokens :: String -> ParseOutcome
 scanTokens s = scanTokens' s 1
   where
-    scanTokens' :: (Num a) => String -> Int -> ParseOutcome a
+    scanTokens' :: String -> Int -> ParseOutcome
     scanTokens' "" _ = Right []
     scanTokens' s l = case r of Left s -> Left $ locationToError s
-                                Right (token, rest, line) -> transformError $ (fmap fst' r) >>= const (scanTokens' rest line)
+                                Right (token, rest, line) -> (transformError (fmap fst' r)) >>= addToParseOutcome rest line
       where r = scanToken s l
             fst' :: (a, b, c) -> a
             fst' (a, _, _) = a
+            first :: (b -> c) -> Either b d -> Either c d
+            first = left
             locationToError :: SourceCodeLocation -> ProgramError
             locationToError s = ProgramError s "Unexpected character."
             transformError :: Either SourceCodeLocation a -> Either ProgramError a
-            transformError e = first locationToError transformError
+            transformError e = first locationToError e
+            addToParseOutcome :: String -> Int -> Token -> ParseOutcome
+            addToParseOutcome rest line token = fmap ((:) token) $ scanTokens' rest line
