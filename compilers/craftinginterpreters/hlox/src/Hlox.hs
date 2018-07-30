@@ -20,7 +20,7 @@ data TokenType =
   BangEqual |
   Equal |
   EqualEqual |
-  Grater |
+  Greater |
   GreaterEqual |
   Less |
   LessEqual |
@@ -64,16 +64,24 @@ instance Show ProgramError where
 
 createToken :: Char -> String -> Int -> Either SourceCodeLocation TokenResult
 createToken nextChar rest line
-  | nextChar == '('   = Right $ oneCharToken LeftParen
-  | nextChar == ')'   = Right $ oneCharToken RightParen
-  | nextChar == '{'   = Right $ oneCharToken LeftBrace
-  | nextChar == '}'   = Right $ oneCharToken RightBrace
-  | nextChar == ','   = Right $ oneCharToken Comma
-  | nextChar == '.'   = Right $ oneCharToken Dot
-  | nextChar == '-'   = Right $ oneCharToken Minus
-  | nextChar == '+'   = Right $ oneCharToken Plus
-  | nextChar == ';'   = Right $ oneCharToken Semicolon
-  | nextChar == '*'   = Right $ oneCharToken Star
+  | nextChar == '('                       = Right $ oneCharToken LeftParen
+  | nextChar == ')'                       = Right $ oneCharToken RightParen
+  | nextChar == '{'                       = Right $ oneCharToken LeftBrace
+  | nextChar == '}'                       = Right $ oneCharToken RightBrace
+  | nextChar == ','                       = Right $ oneCharToken Comma
+  | nextChar == '.'                       = Right $ oneCharToken Dot
+  | nextChar == '-'                       = Right $ oneCharToken Minus
+  | nextChar == '+'                       = Right $ oneCharToken Plus
+  | nextChar == ';'                       = Right $ oneCharToken Semicolon
+  | nextChar == '*'                       = Right $ oneCharToken Star
+  | nextChar == '!' && (head rest) == '=' = Right $ oneCharToken BangEqual
+  | nextChar == '!'                       = Right $ oneCharToken Bang
+  | nextChar == '=' && (head rest) == '=' = Right $ oneCharToken EqualEqual
+  | nextChar == '='                       = Right $ oneCharToken Equal
+  | nextChar == '<' && (head rest) == '=' = Right $ oneCharToken LessEqual
+  | nextChar == '<'                       = Right $ oneCharToken Less
+  | nextChar == '>' && (head rest) == '=' = Right $ oneCharToken GreaterEqual
+  | nextChar == '>'                       = Right $ oneCharToken Greater
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
