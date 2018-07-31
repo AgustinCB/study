@@ -40,6 +40,7 @@ data TokenType =
   TrueKeyword |
   Var |
   While |
+  Comment |
   Identifier String |
   StringLiteral String |
   Number Double deriving Show
@@ -64,29 +65,31 @@ instance Show ProgramError where
 
 createToken :: Char -> String -> Int -> Either SourceCodeLocation TokenResult
 createToken nextChar rest line
-  | nextChar == '('                       = Right $ oneCharToken LeftParen
-  | nextChar == ')'                       = Right $ oneCharToken RightParen
-  | nextChar == '{'                       = Right $ oneCharToken LeftBrace
-  | nextChar == '}'                       = Right $ oneCharToken RightBrace
-  | nextChar == ','                       = Right $ oneCharToken Comma
-  | nextChar == '.'                       = Right $ oneCharToken Dot
-  | nextChar == '-'                       = Right $ oneCharToken Minus
-  | nextChar == '+'                       = Right $ oneCharToken Plus
-  | nextChar == ';'                       = Right $ oneCharToken Semicolon
-  | nextChar == '*'                       = Right $ oneCharToken Star
-  | nextChar == '!' && (head rest) == '=' = Right $ oneCharToken BangEqual
-  | nextChar == '!'                       = Right $ oneCharToken Bang
-  | nextChar == '=' && (head rest) == '=' = Right $ oneCharToken EqualEqual
-  | nextChar == '='                       = Right $ oneCharToken Equal
-  | nextChar == '<' && (head rest) == '=' = Right $ oneCharToken LessEqual
-  | nextChar == '<'                       = Right $ oneCharToken Less
-  | nextChar == '>' && (head rest) == '=' = Right $ oneCharToken GreaterEqual
-  | nextChar == '>'                       = Right $ oneCharToken Greater
+  | nextChar == '('                       = Right $ oneCharTokenWithoutRest LeftParen
+  | nextChar == ')'                       = Right $ oneCharTokenWithoutRest RightParen
+  | nextChar == '{'                       = Right $ oneCharTokenWithoutRest LeftBrace
+  | nextChar == '}'                       = Right $ oneCharTokenWithoutRest RightBrace
+  | nextChar == ','                       = Right $ oneCharTokenWithoutRest Comma
+  | nextChar == '.'                       = Right $ oneCharTokenWithoutRest Dot
+  | nextChar == '-'                       = Right $ oneCharTokenWithoutRest Minus
+  | nextChar == '+'                       = Right $ oneCharTokenWithoutRest Plus
+  | nextChar == ';'                       = Right $ oneCharTokenWithoutRest Semicolon
+  | nextChar == '*'                       = Right $ oneCharTokenWithoutRest Star
+  | nextChar == '!' && (head rest) == '=' = Right $ oneCharTokenWithoutRest BangEqual
+  | nextChar == '!'                       = Right $ oneCharTokenWithoutRest Bang
+  | nextChar == '=' && (head rest) == '=' = Right $ oneCharTokenWithoutRest EqualEqual
+  | nextChar == '='                       = Right $ oneCharTokenWithoutRest Equal
+  | nextChar == '<' && (head rest) == '=' = Right $ oneCharTokenWithoutRest LessEqual
+  | nextChar == '<'                       = Right $ oneCharTokenWithoutRest Less
+  | nextChar == '>' && (head rest) == '=' = Right $ oneCharTokenWithoutRest GreaterEqual
+  | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
+  | nextChar == '/' && (head rest) == '/' = Right $ oneCharTokenWithRest Comment (secondPartition '\n' rest)
+  | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
-    oneCharToken :: TokenType -> TokenResult
-    oneCharToken t = (Token t (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
+    oneCharTokenWithoutRest :: TokenType -> TokenResult
+    oneCharTokenWithoutRest t = (Token t (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
 
 scanToken :: String -> Int -> Either SourceCodeLocation TokenResult
 scanToken s l = createToken (head s) (tail s) l
