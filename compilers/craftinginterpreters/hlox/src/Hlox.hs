@@ -2,6 +2,7 @@
 module Hlox where
 
 import Control.Arrow
+import Data.List.Split (splitOn)
 
 -- Language specs
 
@@ -88,6 +89,14 @@ createToken nextChar rest line
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
+    secondPartition :: Char -> String -> String
+    secondPartition c s = getSecondElement (splitOn (c:[]) s)
+      where getSecondElement :: [String] -> String
+            getSecondElement [] = ""
+            getSecondElement (s:[]) = s
+            getSecondelement (s:(s1:_)) = s
+    oneCharTokenWithRest :: TokenType -> String -> TokenResult
+    oneCharTokenWithRest t s = (Token t (nextChar : []) (SourceCodeLocation Nothing line), s, line + 1)
     oneCharTokenWithoutRest :: TokenType -> TokenResult
     oneCharTokenWithoutRest t = (Token t (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
 
