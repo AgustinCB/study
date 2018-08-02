@@ -76,13 +76,13 @@ createToken nextChar rest line
   | nextChar == '+'                       = Right $ oneCharTokenWithoutRest Plus
   | nextChar == ';'                       = Right $ oneCharTokenWithoutRest Semicolon
   | nextChar == '*'                       = Right $ oneCharTokenWithoutRest Star
-  | nextChar == '!' && (head rest) == '=' = Right $ oneCharTokenWithoutRest BangEqual
+  | nextChar == '!' && (head rest) == '=' = Right $ twoCharTokenWithoutRest BangEqual
   | nextChar == '!'                       = Right $ oneCharTokenWithoutRest Bang
-  | nextChar == '=' && (head rest) == '=' = Right $ oneCharTokenWithoutRest EqualEqual
+  | nextChar == '=' && (head rest) == '=' = Right $ twoCharTokenWithoutRest EqualEqual
   | nextChar == '='                       = Right $ oneCharTokenWithoutRest Equal
-  | nextChar == '<' && (head rest) == '=' = Right $ oneCharTokenWithoutRest LessEqual
+  | nextChar == '<' && (head rest) == '=' = Right $ twoCharTokenWithoutRest LessEqual
   | nextChar == '<'                       = Right $ oneCharTokenWithoutRest Less
-  | nextChar == '>' && (head rest) == '=' = Right $ oneCharTokenWithoutRest GreaterEqual
+  | nextChar == '>' && (head rest) == '=' = Right $ twoCharTokenWithoutRest GreaterEqual
   | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
   | nextChar == '/' && (head rest) == '/' = Right $ oneCharTokenWithRest Comment (secondPartition '\n' rest)
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
@@ -95,10 +95,14 @@ createToken nextChar rest line
             getSecondElement [] = ""
             getSecondElement (s:[]) = s
             getSecondelement (s:(s1:_)) = s
-    oneCharTokenWithRest :: TokenType -> String -> TokenResult
-    oneCharTokenWithRest t s = (Token t (nextChar : []) (SourceCodeLocation Nothing line), s, line + 1)
+    oneCharTokenWithRest :: TokenType -> String -> String -> TokenResult
+    oneCharTokenWithRest t s = (createToken' t (nextChar : []), s, line + 1)
     oneCharTokenWithoutRest :: TokenType -> TokenResult
-    oneCharTokenWithoutRest t = (Token t (nextChar : []) (SourceCodeLocation Nothing line), rest, line)
+    oneCharTokenWithoutRest t = (createToken' t (nextChar : []), rest, line)
+    twoCharTokenWithoutRest :: TokenType -> TokenResult
+    twoCharTokenWithoutRest t = (createToken' t (nextChar : (head rest) : []), rest, line)
+    createToken' :: TokenType -> String -> Token
+    createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
 scanToken :: String -> Int -> Either SourceCodeLocation TokenResult
 scanToken s l = createToken (head s) (tail s) l
