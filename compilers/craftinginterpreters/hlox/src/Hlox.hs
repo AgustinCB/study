@@ -84,19 +84,22 @@ createToken nextChar rest line
   | nextChar == '<'                       = Right $ oneCharTokenWithoutRest Less
   | nextChar == '>' && (head rest) == '=' = Right $ twoCharTokenWithoutRest GreaterEqual
   | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
-  | nextChar == '/' && (head rest) == '/' = Right $ oneCharTokenWithRest Comment (secondPartition '\n' rest)
+  | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
   | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
   | otherwise         = Left $ SourceCodeLocation Nothing line
   where
-    secondPartition :: Char -> String -> String
-    secondPartition c s = getSecondElement (splitOn (c:[]) s)
-      where getSecondElement :: [String] -> String
-            getSecondElement [] = ""
-            getSecondElement (s:[]) = s
-            getSecondelement (s:(s1:_)) = s
-    oneCharTokenWithRest :: TokenType -> String -> String -> TokenResult
-    oneCharTokenWithRest t s = (createToken' t (nextChar : []), s, line + 1)
+    secondPartition = getSecondElement partitions
+    firstPartition = getFirstElement partitions
+    partitions = (splitOn ('\n':[]) rest)
+    getSecondElement :: [String] -> String
+    getSecondElement (s:(s1:_)) = s
+    getSecondElement _ = ""
+    getFirstElement :: [String] -> String
+    getFirstElement [] = ""
+    getFirstElement (s:[]) = s
+    tokenWithRestAndLiteral :: TokenType -> String -> String -> TokenResult
+    tokenWithRestAndLiteral t r l = (createToken' t l, r, line + 1)
     oneCharTokenWithoutRest :: TokenType -> TokenResult
     oneCharTokenWithoutRest t = (createToken' t (nextChar : []), rest, line)
     twoCharTokenWithoutRest :: TokenType -> TokenResult
