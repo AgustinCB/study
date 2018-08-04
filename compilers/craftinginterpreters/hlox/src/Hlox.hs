@@ -86,8 +86,9 @@ createToken nextChar rest line
   | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
   | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
-  | nextChar == '\n'  = createToken (head rest) (tail rest) (line + 1)
-  | otherwise         = Left $ SourceCodeLocation Nothing line
+  | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
+  | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
+  | otherwise                             = Left $ SourceCodeLocation Nothing line
   where
     secondPartition = getSecondElement partitions
     firstPartition = getFirstElement partitions
