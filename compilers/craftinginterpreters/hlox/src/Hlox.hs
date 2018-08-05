@@ -1,7 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
-import Control.Arrow
 import Data.List.Split (splitOn)
 
 -- Language specs
@@ -64,7 +63,7 @@ instance Show ProgramError where
   show (ProgramError (SourceCodeLocation Nothing line) msg) =
     "[line " ++ (show line) ++ "] Error: " ++ msg
 
-createToken :: Char -> String -> Int -> Either SourceCodeLocation TokenResult
+createToken :: Char -> String -> Int -> Either ProgramError TokenResult
 createToken nextChar rest line
   | nextChar == '('                       = Right $ oneCharTokenWithoutRest LeftParen
   | nextChar == ')'                       = Right $ oneCharTokenWithoutRest RightParen
@@ -88,7 +87,7 @@ createToken nextChar rest line
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
   | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
   | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
-  | otherwise                             = Left $ SourceCodeLocation Nothing line
+  | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character."
   where
     secondPartition = getSecondElement partitions
     firstPartition = getFirstElement partitions
@@ -108,7 +107,7 @@ createToken nextChar rest line
     createToken' :: TokenType -> String -> Token
     createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
-scanToken :: String -> Int -> Either SourceCodeLocation TokenResult
+scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
 
 scanTokens :: String -> ParseOutcome
@@ -116,16 +115,6 @@ scanTokens s = scanTokens' s 1
   where
     scanTokens' :: String -> Int -> ParseOutcome
     scanTokens' "" _ = Right []
-    scanTokens' s l = case r of Left s -> Left $ locationToError s
-                                Right (token, rest, line) -> (transformError (fmap fst' r)) >>= addToParseOutcome rest line
-      where r = scanToken s l
-            fst' :: (a, b, c) -> a
-            fst' (a, _, _) = a
-            first :: (b -> c) -> Either b d -> Either c d
-            first = left
-            locationToError :: SourceCodeLocation -> ProgramError
-            locationToError s = ProgramError s "Unexpected character."
-            transformError :: Either SourceCodeLocation a -> Either ProgramError a
-            transformError e = first locationToError e
-            addToParseOutcome :: String -> Int -> Token -> ParseOutcome
-            addToParseOutcome rest line token = fmap ((:) token) $ scanTokens' rest line
+    scanTokens' s l = scanToken s l >>= tokenResultToParseOutcome
+    tokenResultToParseOutcome :: TokenResult -> ParseOutcome
+    tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
