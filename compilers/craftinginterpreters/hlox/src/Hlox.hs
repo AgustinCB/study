@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
+import Data.List (intercalate)
 import Data.List.Split (splitOn)
 
 -- Language specs
@@ -87,6 +88,7 @@ createToken nextChar rest line
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
   | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
   | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
+  | nextChar == '"'                       = createStringToken (tail rest) line
   | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character."
   where
     secondPartition = getSecondElement partitions
@@ -106,6 +108,17 @@ createToken nextChar rest line
     twoCharTokenWithoutRest t = (createToken' t (nextChar : (head rest) : []), rest, line)
     createToken' :: TokenType -> String -> Token
     createToken' t s = Token t s $ SourceCodeLocation Nothing line
+
+createStringToken :: String -> Int -> Either ProgramError TokenResult
+createStringToken s line
+  | elem '"' s  = Right $ (Token (StringLiteral string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
+  | otherwise   = Left $ ProgramError (SourceCodeLocation Nothing (line+(breaklines s))) "Unterminated string."
+  where string = head partitions
+        newRest = intercalate ['"'] (tail partitions)
+        partitions = splitOn ('"':[]) s
+        breaklines s = length $ filter (== '\n') s
+        stringLiteral s = ('"':s) ++ "\""
+
 
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
