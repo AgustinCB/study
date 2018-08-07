@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
+import Data.Char (isDigit)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 
@@ -89,6 +90,7 @@ createToken nextChar rest line
   | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
   | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
   | nextChar == '"'                       = createStringToken (tail rest) line
+  | isDigit nextChar                      = createNumberToken nextChar rest line
   | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character."
   where
     secondPartition = getSecondElement partitions
@@ -108,6 +110,9 @@ createToken nextChar rest line
     twoCharTokenWithoutRest t = (createToken' t (nextChar : (head rest) : []), rest, line)
     createToken' :: TokenType -> String -> Token
     createToken' t s = Token t s $ SourceCodeLocation Nothing line
+
+createNumberToken :: Char -> String -> Int -> Either ProgramError TokenResult
+createNumberToken firstChar rest line = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
 
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
