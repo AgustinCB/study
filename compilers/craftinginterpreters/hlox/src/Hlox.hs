@@ -112,7 +112,11 @@ createToken nextChar rest line
     createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
 createNumberToken :: Char -> String -> Int -> Either ProgramError TokenResult
-createNumberToken firstChar rest line = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
+createNumberToken firstChar rest line = createNumberToken' firstChar:[] rest line
+  where createNumberToken' :: String -> String -> Int -> Either ProgramError TokenResult
+        createNumberToken' acc [] line = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
+        createNumberToken' acc (head:r) line = if (isDigit head || head == '.') then createNumberToken (acc ++ head) r line else error
+        error = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
 
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
