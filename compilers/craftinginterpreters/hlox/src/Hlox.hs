@@ -45,7 +45,7 @@ data TokenType =
   Comment |
   Identifier String |
   StringLiteral String |
-  Number Double deriving Show
+  NumberLiteral Double deriving Show
 data Token = Token {
     tokenType :: TokenType
   , lexeme :: String
@@ -112,11 +112,12 @@ createToken nextChar rest line
     createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
 createNumberToken :: Char -> String -> Int -> Either ProgramError TokenResult
-createNumberToken firstChar rest line = createNumberToken' firstChar:[] rest line
-  where createNumberToken' :: String -> String -> Int -> Either ProgramError TokenResult
-        createNumberToken' acc [] line = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
-        createNumberToken' acc (head:r) line = if (isDigit head || head == '.') then createNumberToken (acc ++ head) r line else error
+createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
+  where createNumberToken' :: String -> String -> Either ProgramError TokenResult
+        createNumberToken' acc (head:r) = if (isDigit head || head == '.') then createNumberToken' (acc ++ [head]) r else maybeFinish acc (head:r)
         error = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
+        maybeFinish :: String -> String -> Either ProgramError TokenResult
+        maybeFinish acc rest = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
