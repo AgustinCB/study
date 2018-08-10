@@ -117,7 +117,10 @@ createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
         createNumberToken' acc (head:r) = if (isDigit head || head == '.') then createNumberToken' (acc ++ [head]) r else maybeFinish acc (head:r)
         error = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
         maybeFinish :: String -> String -> Either ProgramError TokenResult
-        maybeFinish acc rest = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
+        maybeFinish acc rest
+          | last acc == '.'                     = error
+          | (length $ filter (== '.') acc) > 1  = error
+          | otherwise                           = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
