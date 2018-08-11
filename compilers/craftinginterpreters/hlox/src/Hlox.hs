@@ -91,6 +91,7 @@ createToken nextChar rest line
   | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
   | nextChar == '"'                       = createStringToken (tail rest) line
   | isDigit nextChar                      = createNumberToken nextChar rest line
+  | isAlpha nextChar || nextChar == '_'   = Right $ createIdentifierOrKeywordToken nextChar rest line
   | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character."
   where
     secondPartition = getSecondElement partitions
@@ -122,6 +123,8 @@ createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
           | (length $ filter (== '.') acc) > 1  = error
           | otherwise                           = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
+createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
+
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
   | elem '"' s  = Right $ (Token (StringLiteral string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
@@ -132,6 +135,8 @@ createStringToken s line
         breaklines s = length $ filter (== '\n') s
         stringLiteral s = ('"':s) ++ "\""
 
+createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
+createIdentifierOrKeywordToken = undefined
 
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
