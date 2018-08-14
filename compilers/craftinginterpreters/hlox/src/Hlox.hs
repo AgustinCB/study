@@ -136,7 +136,16 @@ createStringToken s line
         stringLiteral s = ('"':s) ++ "\""
 
 createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
-createIdentifierOrKeywordToken = undefined
+createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken word rest line
+  where (word, rest) = extractWord line []
+        extractWord :: String -> String -> (String, String)
+        extractWord c:rest acc = if (isIdentifier c) (extractWord rest (acc ++ [c]))
+                                 else (acc, c:rest)
+        isIdentifier :: Char -> Bool
+        isIdentifier c = isDigit c || isAlpha c || '_' == c
+
+identifierOrKeywordToken :: String -> String -> Int -> TokenResult
+identifierOrKeywordToken word rest line = undefined
 
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
