@@ -123,8 +123,6 @@ createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
           | (length $ filter (== '.') acc) > 1  = error
           | otherwise                           = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
-createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
-
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
   | elem '"' s  = Right $ (Token (StringLiteral string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
@@ -163,6 +161,12 @@ identifierOrKeywordToken word rest line
   | word == "var"   = createKeywordToken Var word rest line
   | word == "while" = createKeywordToken While word rest line
   | otherwise       = createIdentifierToken word rest line
+
+createKeywordToken :: TokenType -> String -> String -> Int -> TokenResult
+createKeywordToken tokenType value rest line = (Token tokenType value (SourceCodeLocation Nothing line), rest, line)
+
+createIdentifierToken :: String -> String -> Int -> TokenResult
+createIdentifierToken value rest line = (Token value (SourceCodeLocation Nothing line), rest, line)
 
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
