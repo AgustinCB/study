@@ -1,7 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox where
 
-import Data.Char (isDigit)
+import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 
@@ -135,10 +135,11 @@ createStringToken s line
 
 createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
 createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken word rest line
-  where (word, rest) = extractWord line []
+  where (word, rest) = extractWord (nextChar:input) []
         extractWord :: String -> String -> (String, String)
-        extractWord c:rest acc = if (isIdentifier c) (extractWord rest (acc ++ [c]))
-                                 else (acc, c:rest)
+        extractWord (c:rest) acc
+          | isIdentifier c  = extractWord rest (acc ++ [c])
+          | otherwise       = (acc, c:rest)
         isIdentifier :: Char -> Bool
         isIdentifier c = isDigit c || isAlpha c || '_' == c
 
@@ -166,7 +167,8 @@ createKeywordToken :: TokenType -> String -> String -> Int -> TokenResult
 createKeywordToken tokenType value rest line = (Token tokenType value (SourceCodeLocation Nothing line), rest, line)
 
 createIdentifierToken :: String -> String -> Int -> TokenResult
-createIdentifierToken value rest line = (Token value (SourceCodeLocation Nothing line), rest, line)
+createIdentifierToken value rest line = 
+  (Token (Identifier value) value (SourceCodeLocation Nothing line), rest, line)
 
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
