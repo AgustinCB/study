@@ -86,6 +86,7 @@ createToken nextChar rest line
   | nextChar == '>' && (head rest) == '=' = Right $ twoCharTokenWithoutRest GreaterEqual
   | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
   | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
+  | nextChar == '/' && (head rest) == '*' = Right $ tokenWithRestAndLiteral Comment rest comment
   | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
   | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
   | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
@@ -96,7 +97,11 @@ createToken nextChar rest line
   where
     secondPartition = getSecondElement partitions
     firstPartition = getFirstElement partitions
-    partitions = (splitOn ('\n':[]) rest)
+    partitions = splitOn ('\n':[]) rest
+    (comment, rest) = getCommentAndRest (tail rest)
+    getCommentAndRest :: String -> (String, String)
+    getCommentAndRest content = (getFirstElement partition, getSecondElement partition)
+      where partition = splitOn "*/" content
     getSecondElement :: [String] -> String
     getSecondElement (s:(s1:_)) = s
     getSecondElement _ = ""
