@@ -51,6 +51,11 @@ data Token = Token {
   , lexeme :: String
   , tokenLocation :: SourceCodeLocation } deriving Show
 
+data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression } |
+  Unary { operator :: TokenType, operand :: Expression } |
+  Grouping { expression :: Expression } |
+  Literal { value :: TokenType }
+
 type TokenResult = (Token, String, Int)
 
 -- Program results
