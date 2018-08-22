@@ -8,7 +8,7 @@ import Data.List.Split (splitOn)
 -- Language specs
 
 data Literal = StringLiteral String |
-    NumberLiteral Double
+    NumberLiteral Double deriving Show
 
 data TokenType =
     LeftParen | RightParen |
@@ -47,8 +47,7 @@ data TokenType =
     While |
     Comment |
     Identifier String |
-    StringLiteral String |
-    NumberLiteral Double deriving Show
+    TokenLiteral Literal deriving Show
 data Token = Token {
       tokenType :: TokenType
     , lexeme :: String
@@ -57,7 +56,7 @@ data Token = Token {
 data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression } |
     Unary { operator :: TokenType, operand :: Expression } |
     Grouping { expression :: Expression } |
-    Literal { value :: TokenType }
+    ExpressionLiteral { value :: Literal }
 
 type TokenResult = (Token, String, Int)
 
@@ -130,21 +129,26 @@ createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
     where createNumberToken' :: String -> String -> Either ProgramError TokenResult
           createNumberToken' acc (head:r) = if (isDigit head || head == '.') then createNumberToken' (acc ++ [head]) r else maybeFinish acc (head:r)
           error = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
+          numberToken :: Double -> TokenType
+          numberToken n = TokenLiteral $ NumberLiteral n
           maybeFinish :: String -> String -> Either ProgramError TokenResult
           maybeFinish acc rest
-              | last acc == '.'                                         = error
+              | last acc == '.'                       = error
               | (length $ filter (== '.') acc) > 1    = error
-              | otherwise                                                     = Right $ (Token (NumberLiteral (read acc)) acc (SourceCodeLocation Nothing line), [], line)
+              | otherwise                             =
+                    Right $ (Token (numberToken (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
 createStringToken :: String -> Int -> Either ProgramError TokenResult
 createStringToken s line
-    | elem '"' s    = Right $ (Token (StringLiteral string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
+    | elem '"' s    = Right $ (Token (stringToken string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
     | otherwise     = Left $ ProgramError (SourceCodeLocation Nothing (line+(breaklines s))) "Unterminated string."
     where string = head partitions
           newRest = intercalate ['"'] (tail partitions)
           partitions = splitOn ('"':[]) s
           breaklines s = length $ filter (== '\n') s
           stringLiteral s = ('"':s) ++ "\""
+          stringToken :: String -> TokenType
+          stringToken s = TokenLiteral $ StringLiteral s
 
 createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
 createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken word rest line

@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE NoRebindableSyntax #-}
 {-# OPTIONS_GHC -fno-warn-missing-import-lists #-}
-{-# OPTIONS_GHC -fno-warn-implicit-prelude #-}
 module Paths_hlox (
     version,
     getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir,
@@ -30,10 +30,10 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/home/agustin/.cabal/bin"
-libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.2.2/hlox-0.1.0.0-6yHmAdpaDRVDKwSIMAgWom-hlox"
-dynlibdir  = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.2.2"
-datadir    = "/home/agustin/.cabal/share/x86_64-linux-ghc-8.2.2/hlox-0.1.0.0"
-libexecdir = "/home/agustin/.cabal/libexec/x86_64-linux-ghc-8.2.2/hlox-0.1.0.0"
+libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0-8Xl0CAuBQhv94nMMQvT0nI-hlox"
+dynlibdir  = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3"
+datadir    = "/home/agustin/.cabal/share/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
+libexecdir = "/home/agustin/.cabal/libexec/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
 sysconfdir = "/home/agustin/.cabal/etc"
 
 getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: IO FilePath
