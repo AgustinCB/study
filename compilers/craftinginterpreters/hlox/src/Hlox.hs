@@ -56,7 +56,7 @@ data Token = Token {
 data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression } |
     Unary { operator :: TokenType, operand :: Expression } |
     Grouping { expression :: Expression } |
-    ExpressionLiteral { value :: Literal }
+    ExpressionLiteral { value :: Literal } deriving Show
 
 type TokenResult = (Token, String, Int)
 
