@@ -1,0 +1,1 @@
+You could make typeclasses per every method. That way adding a new method is just defining a typeclass and and its implementation for the current classes (no need to recompile old code). And adding a new class is just adding a new type and then its implementations of the typeclasses (no need to recompile old code!).
