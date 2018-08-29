@@ -162,23 +162,23 @@ createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken wo
 
 identifierOrKeywordToken :: String -> String -> Int -> TokenResult
 identifierOrKeywordToken word rest line
-    | word == "and"     = createKeywordToken And word rest line
+    | word == "and"   = createKeywordToken And word rest line
     | word == "class" = createKeywordToken Class word rest line
-    | word == "else"    = createKeywordToken Else word rest line
+    | word == "else"  = createKeywordToken Else word rest line
     | word == "false" = createKeywordToken FalseKeyword word rest line
-    | word == "for"     = createKeywordToken For word rest line
-    | word == "fun"     = createKeywordToken Fun word rest line
-    | word == "if"        = createKeywordToken If word rest line
-    | word == "nil"     = createKeywordToken Nil word rest line
-    | word == "or"        = createKeywordToken Or word rest line
+    | word == "for"   = createKeywordToken For word rest line
+    | word == "fun"   = createKeywordToken Fun word rest line
+    | word == "if"    = createKeywordToken If word rest line
+    | word == "nil"   = createKeywordToken Nil word rest line
+    | word == "or"    = createKeywordToken Or word rest line
     | word == "print" = createKeywordToken Print word rest line
     | word == "return"= createKeywordToken Return word rest line
     | word == "super" = createKeywordToken Super word rest line
-    | word == "this"    = createKeywordToken This word rest line
-    | word == "true"    = createKeywordToken TrueKeyword word rest line
-    | word == "var"     = createKeywordToken Var word rest line
+    | word == "this"  = createKeywordToken This word rest line
+    | word == "true"  = createKeywordToken TrueKeyword word rest line
+    | word == "var"   = createKeywordToken Var word rest line
     | word == "while" = createKeywordToken While word rest line
-    | otherwise             = createIdentifierToken word rest line
+    | otherwise       = createIdentifierToken word rest line
 
 createKeywordToken :: TokenType -> String -> String -> Int -> TokenResult
 createKeywordToken tokenType value rest line = (Token tokenType value (SourceCodeLocation Nothing line), rest, line)
@@ -198,3 +198,9 @@ scanTokens s = scanTokens' s 1
         scanTokens' s l = scanToken s l >>= tokenResultToParseOutcome
         tokenResultToParseOutcome :: TokenResult -> ParseOutcome
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
+
+parseEquality :: [Token] -> Expression
+parseEquality = undefined
+
+parseExpression :: [Token] -> Expression
+parseExpression = parseEquality
