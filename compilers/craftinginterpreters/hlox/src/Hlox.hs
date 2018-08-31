@@ -199,8 +199,11 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ParseOutcome
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
-parseEquality :: [Token] -> Expression
-parseEquality = undefined
+type ParsingResult = ([Token], Maybe Expression)
 
-parseExpression :: [Token] -> Expression
+parseExpression :: [Token] -> ParsingResult
 parseExpression = parseEquality
+
+parseEquality :: [Token] -> ParsingResult
+parseEquality [] = ([], Nothing)
+parseEquality list = undefined
