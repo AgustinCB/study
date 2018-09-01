@@ -199,11 +199,20 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ParseOutcome
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
-type ParsingResult = ([Token], Maybe Expression)
+newtype ParseError = ParseError String
+type ParsingStep = ([Token], Expression)
+type ParsingResult = Either ParseError ParsingStep
 
 parseExpression :: [Token] -> ParsingResult
-parseExpression = parseEquality
+parseExpression [] = Left $ ParseError "No input!"
+parseExpression list = Right $ parseEquality ParsingStep
 
-parseEquality :: [Token] -> ParsingResult
-parseEquality [] = ([], Nothing)
-parseEquality list = undefined
+parseEquality :: [Token] -> ParsingStep
+parseEquality list = comparison
+    where comparisonStep = parseComparison list
+          comparison = snd comparisonStep
+          rest = fst comparisonStep
+          result = comparison
+
+parseComparison :: [Token] -> ParsingStep
+parseComparison = undefined
