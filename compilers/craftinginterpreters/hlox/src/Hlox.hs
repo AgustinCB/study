@@ -47,7 +47,7 @@ data TokenType =
     While |
     Comment |
     Identifier String |
-    TokenLiteral Literal deriving Show
+    TokenLiteral Literal deriving (Show, Eq)
 data Token = Token {
       tokenType :: TokenType
     , lexeme :: String
@@ -210,9 +210,12 @@ parseExpression list = Right $ parseEquality ParsingStep
 parseEquality :: [Token] -> ParsingStep
 parseEquality list = comparison
     where comparisonStep = parseComparison list
-          comparison = snd comparisonStep
-          rest = fst comparisonStep
-          result = comparison
+          result = concatenateComparisons (snd comparisonStep) (fst comparisonStep)
+          concatenateComparisons :: Expression -> [Token] -> Expression
+          concatenateComparisons expr [] = expr
+          concatenateComparisons expr (head:rest)
+            | head == BangEqual || head Equal Equal = Binary (parseEquality rest) (tokenType head) expr
+            | otherwise                             = expr
 
 parseComparison :: [Token] -> ParsingStep
 parseComparison = undefined
