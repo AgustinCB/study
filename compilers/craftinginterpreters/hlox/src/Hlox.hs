@@ -200,7 +200,7 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
 newtype ParseError = ParseError String
-type ParsingStep = ([Token], Expression)
+type ParsingStep = (Expression, [Token])
 type ParsingResult = Either ParseError ParsingStep
 
 parseExpression :: [Token] -> ParsingResult
@@ -211,11 +211,14 @@ parseEquality :: [Token] -> ParsingStep
 parseEquality list = comparison
     where comparisonStep = parseComparison list
           result = concatenateComparisons (snd comparisonStep) (fst comparisonStep)
-          concatenateComparisons :: Expression -> [Token] -> Expression
-          concatenateComparisons expr [] = expr
+          concatenateComparisons :: Expression -> [Token] -> ParsingStep
+          concatenateComparisons expr [] = (expr, [])
           concatenateComparisons expr (head:rest)
-            | head == BangEqual || head Equal Equal = Binary (parseEquality rest) (tokenType head) expr
-            | otherwise                             = expr
+            | head == BangEqual || head Equal Equal = createParseEqualityBinaryResult rest (tokenType head) expr
+            | otherwise                             = (expr, head:rest)
+          createParseEqualityBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
+          createParseEqualityBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
+            where res = parseEquality tokens
 
 parseComparison :: [Token] -> ParsingStep
 parseComparison = undefined
