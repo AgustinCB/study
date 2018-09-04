@@ -208,10 +208,8 @@ parseExpression [] = Left $ ParseError "No input!"
 parseExpression list = Right $ parseEquality ParsingStep
 
 parseEquality :: [Token] -> ParsingStep
-parseEquality list = comparison
-    where comparisonStep = parseComparison list
-          result = concatenateComparisons (snd comparisonStep) (fst comparisonStep)
-          concatenateComparisons :: Expression -> [Token] -> ParsingStep
+parseEquality list = uncurry concatenateComparisons (parseComparison list)
+    where concatenateComparisons :: Expression -> [Token] -> ParsingStep
           concatenateComparisons expr [] = (expr, [])
           concatenateComparisons expr (head:rest)
             | head == BangEqual || head Equal Equal = createParseEqualityBinaryResult rest (tokenType head) expr
@@ -221,4 +219,9 @@ parseEquality list = comparison
             where res = parseEquality tokens
 
 parseComparison :: [Token] -> ParsingStep
-parseComparison = undefined
+parseComparison list = uncurry concatenateAdditions (parseAddition list)
+    where concatenateAdditions :: Expression -> [Token] -> ParsingStep
+          concatenateAdditions = undefined
+
+parseAddition :: [Token] -> ParsingStep
+parseAddition = undefined
