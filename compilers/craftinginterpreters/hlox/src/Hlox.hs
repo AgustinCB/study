@@ -212,8 +212,8 @@ parseEquality list = uncurry concatenateComparisons (parseComparison list)
     where concatenateComparisons :: Expression -> [Token] -> ParsingStep
           concatenateComparisons expr [] = (expr, [])
           concatenateComparisons expr (head:rest)
-            | head == BangEqual || head Equal Equal = createParseEqualityBinaryResult rest (tokenType head) expr
-            | otherwise                             = (expr, head:rest)
+            | elem (tokenType head) [BangEqual, EqualEqual] = createParseEqualityBinaryResult rest (tokenType head) expr
+            | otherwise                                     = (expr, head:rest)
           createParseEqualityBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
           createParseEqualityBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
             where res = parseEquality tokens
@@ -221,7 +221,10 @@ parseEquality list = uncurry concatenateComparisons (parseComparison list)
 parseComparison :: [Token] -> ParsingStep
 parseComparison list = uncurry concatenateAdditions (parseAddition list)
     where concatenateAdditions :: Expression -> [Token] -> ParsingStep
-          concatenateAdditions = undefined
+          concatenateAdditions expr [] = (expr, [])
+          concatenateAdditions expr (head:rest)
+            | elem (tokenType head) [Greater, GreaterEqual, Less, LessEqual] = undefined
+            | otherwise                                                      = (expr, head:rest)
 
 parseAddition :: [Token] -> ParsingStep
 parseAddition = undefined
