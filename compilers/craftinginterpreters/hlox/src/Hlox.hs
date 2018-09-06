@@ -8,7 +8,7 @@ import Data.List.Split (splitOn)
 -- Language specs
 
 data Literal = StringLiteral String |
-    NumberLiteral Double deriving Show
+    NumberLiteral Double deriving (Show, Eq)
 
 data TokenType =
     LeftParen | RightParen |
@@ -205,17 +205,17 @@ type ParsingResult = Either ParseError ParsingStep
 
 parseExpression :: [Token] -> ParsingResult
 parseExpression [] = Left $ ParseError "No input!"
-parseExpression list = Right $ parseEquality ParsingStep
+parseExpression list = Right $ parseEquality list
 
 parseEquality :: [Token] -> ParsingStep
 parseEquality list = uncurry concatenateComparisons (parseComparison list)
     where concatenateComparisons :: Expression -> [Token] -> ParsingStep
           concatenateComparisons expr [] = (expr, [])
           concatenateComparisons expr (head:rest)
-            | elem (tokenType head) [BangEqual, EqualEqual] = createParseEqualityBinaryResult rest (tokenType head) expr
+            | elem (tokenType head) [BangEqual, EqualEqual] = createEqualityBinaryResult rest (tokenType head) expr
             | otherwise                                     = (expr, head:rest)
-          createParseEqualityBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
-          createParseEqualityBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
+          createEqualityBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
+          createEqualityBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
             where res = parseEquality tokens
 
 parseComparison :: [Token] -> ParsingStep
@@ -223,8 +223,11 @@ parseComparison list = uncurry concatenateAdditions (parseAddition list)
     where concatenateAdditions :: Expression -> [Token] -> ParsingStep
           concatenateAdditions expr [] = (expr, [])
           concatenateAdditions expr (head:rest)
-            | elem (tokenType head) [Greater, GreaterEqual, Less, LessEqual] = undefined
+            | elem (tokenType head) [Greater, GreaterEqual, Less, LessEqual] = createComparisonBinaryResult rest (tokenType head) expr
             | otherwise                                                      = (expr, head:rest)
+          createComparisonBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
+          createComparisonBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
+            where res = parseComparison tokens
 
 parseAddition :: [Token] -> ParsingStep
 parseAddition = undefined
