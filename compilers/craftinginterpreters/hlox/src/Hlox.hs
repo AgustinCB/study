@@ -230,4 +230,15 @@ parseComparison list = uncurry concatenateAdditions (parseAddition list)
             where res = parseComparison tokens
 
 parseAddition :: [Token] -> ParsingStep
-parseAddition = undefined
+parseAddition list = uncurry concatenateMultiplications (parseMultiplication list)
+    where concatenateMultiplications :: Expression -> [Token] -> ParsingStep
+          concatenateMultiplications expr [] = (expr, [])
+          concatenateMultiplications expr (head:rest)
+            | elem (tokenType head) [Minus, Plus] = createAdditionBinaryResult rest (tokenType head) expr
+            | otherwise                           = (expr, head:rest)
+          createAdditionBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
+          createAdditionBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
+            where res = parseAddition tokens
+
+parseMultiplication :: [Token] -> ParsingStep
+parseMultiplication = undefined
