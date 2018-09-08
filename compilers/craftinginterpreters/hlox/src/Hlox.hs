@@ -7,7 +7,10 @@ import Data.List.Split (splitOn)
 
 -- Language specs
 
+data DataKeyword = TrueKeyword | FalseKeyword | NilKeyword deriving (Show, Eq)
+
 data Literal = StringLiteral String |
+    KeywordLiteral DataKeyword |
     NumberLiteral Double deriving (Show, Eq)
 
 data TokenType =
@@ -32,17 +35,14 @@ data TokenType =
     And |
     Class |
     Else |
-    FalseKeyword |
     Fun |
     For |
     If |
-    Nil |
     Or |
     Print |
     Return |
     Super |
     This |
-    TrueKeyword |
     Var |
     While |
     Comment |
@@ -165,17 +165,17 @@ identifierOrKeywordToken word rest line
     | word == "and"   = createKeywordToken And word rest line
     | word == "class" = createKeywordToken Class word rest line
     | word == "else"  = createKeywordToken Else word rest line
-    | word == "false" = createKeywordToken FalseKeyword word rest line
+    | word == "false" = createKeywordToken (TokenLiteral $ KeywordLiteral FalseKeyword) word rest line
     | word == "for"   = createKeywordToken For word rest line
     | word == "fun"   = createKeywordToken Fun word rest line
     | word == "if"    = createKeywordToken If word rest line
-    | word == "nil"   = createKeywordToken Nil word rest line
+    | word == "nil"   = createKeywordToken (TokenLiteral $ KeywordLiteral NilKeyword) word rest line
     | word == "or"    = createKeywordToken Or word rest line
     | word == "print" = createKeywordToken Print word rest line
     | word == "return"= createKeywordToken Return word rest line
     | word == "super" = createKeywordToken Super word rest line
     | word == "this"  = createKeywordToken This word rest line
-    | word == "true"  = createKeywordToken TrueKeyword word rest line
+    | word == "true"  = createKeywordToken (TokenLiteral $ KeywordLiteral FalseKeyword) word rest line
     | word == "var"   = createKeywordToken Var word rest line
     | word == "while" = createKeywordToken While word rest line
     | otherwise       = createIdentifierToken word rest line
@@ -241,4 +241,22 @@ parseAddition list = uncurry concatenateMultiplications (parseMultiplication lis
             where res = parseAddition tokens
 
 parseMultiplication :: [Token] -> ParsingStep
-parseMultiplication = undefined
+parseMultiplication list = uncurry concatenateUnaries (parseUnary list)
+    where concatenateUnaries :: Expression -> [Token] -> ParsingStep
+          concatenateUnaries expr [] = (expr, [])
+          concatenateUnaries expr (head:rest)
+            | elem (tokenType head) [Slash, Star] = createUnaryBinaryResult rest (tokenType head) expr
+            | otherwise                           = (expr, head:rest)
+          createUnaryBinaryResult :: [Token] -> TokenType -> Expression -> ParsingStep
+          createUnaryBinaryResult tokens tokenType expr = (Binary (fst res) tokenType expr, snd res)
+            where res = parseUnary tokens
+
+parseUnary :: [Token] -> ParsingStep
+parseUnary (head:rest)
+  | elem (tokenType head) [Bang, Minus] = (Unary (tokenType head) $ fst result, snd result)
+  | otherwise                           = parsePrimary (head:rest)
+    where result = parseUnary rest
+
+parsePrimary :: [Token] -> ParsingStep
+parsePrimary ((Token (TokenLiteral literal) _ _):rest) = (ExpressionLiteral literal, rest)
+parsePrimary _ = undefined
