@@ -202,6 +202,7 @@ scanTokens s = scanTokens' s 1
 newtype ParseError = ParseError String
 type ParsingStep = (Expression, [Token])
 type ParsingResult = Either ParseError ParsingStep
+type Parser = [Token] -> ParsingResult
 
 parseExpression :: [Token] -> ParsingResult
 parseExpression [] = Left $ ParseError "No input!"
@@ -210,46 +211,31 @@ parseExpression list = parseEquality list
 createBinaryResult :: TokenType -> Expression -> ParsingResult -> ParsingResult
 createBinaryResult tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r))
 
-parseEquality :: [Token] -> ParsingResult
-parseEquality list = (parseComparison list) >>= uncurry concatenateComparisons
-    where concatenateComparisons :: Expression -> [Token] -> ParsingResult
-          concatenateComparisons expr [] = Right $ (expr, [])
-          concatenateComparisons expr (head:rest)
-            | elem (tokenType head) [BangEqual, EqualEqual] =
-                createBinaryResult (tokenType head) expr (parseEquality rest)
-            | otherwise                                     = Right $ (expr, head:rest)
+concatenate :: [TokenType] -> Parser -> Expression -> [Token] -> ParsingResult
+concatenate _ _ expr [] = Right $ (expr, [])
+concatenate tokens parser expr (head:rest)
+  | elem (tokenType head) tokens = createBinaryResult (tokenType head) expr (parser rest)
+  | otherwise                    = Right $ (expr, head:rest)
 
-parseComparison :: [Token] -> ParsingResult
-parseComparison list = (parseAddition list) >>= uncurry concatenateAdditions
-    where concatenateAdditions :: Expression -> [Token] -> ParsingResult
-          concatenateAdditions expr [] = Right $ (expr, [])
-          concatenateAdditions expr (head:rest)
-            | elem (tokenType head) [Greater, GreaterEqual, Less, LessEqual] =
-                createBinaryResult (tokenType head) expr (parseComparison rest)
-            | otherwise                                                      = Right $ (expr, head:rest)
+parseEquality :: Parser
+parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)
 
-parseAddition :: [Token] -> ParsingResult
-parseAddition list = (parseMultiplication list) >>= uncurry concatenateMultiplications
-    where concatenateMultiplications :: Expression -> [Token] -> ParsingResult
-          concatenateMultiplications expr [] = Right $ (expr, [])
-          concatenateMultiplications expr (head:rest)
-            | elem (tokenType head) [Minus, Plus] = createBinaryResult (tokenType head) expr (parseAddition rest)
-            | otherwise                           = Right $ (expr, head:rest)
+parseComparison :: Parser
+parseComparison list = (parseAddition list) >>=
+                            uncurry (concatenate [Greater, GreaterEqual, Less, LessEqual] parseComparison)
 
-parseMultiplication :: [Token] -> ParsingResult
-parseMultiplication list = (parseUnary list) >>= uncurry concatenateUnaries
-    where concatenateUnaries :: Expression -> [Token] -> ParsingResult
-          concatenateUnaries expr [] = Right $ (expr, [])
-          concatenateUnaries expr (head:rest)
-            | elem (tokenType head) [Slash, Star] = createBinaryResult (tokenType head) expr (parseUnary rest)
-            | otherwise                           = Right $ (expr, head:rest)
+parseAddition :: Parser
+parseAddition list = (parseMultiplication list) >>= uncurry (concatenate [Minus, Plus] parseAddition)
 
-parseUnary :: [Token] -> ParsingResult
+parseMultiplication :: Parser
+parseMultiplication list = (parseUnary list) >>= uncurry (concatenate [Slash, Star] parseMultiplication)
+
+parseUnary :: Parser
 parseUnary (head:rest)
   | elem (tokenType head) [Bang, Minus] = fmap (\r -> (Unary (tokenType head) $ fst r, snd r)) result
   | otherwise                           = parsePrimary (head:rest)
     where result = parseUnary rest
 
-parsePrimary :: [Token] -> ParsingResult
+parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ _):rest) = Right (ExpressionLiteral literal, rest)
 parsePrimary _ = undefined
