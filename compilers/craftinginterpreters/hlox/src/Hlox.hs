@@ -207,16 +207,17 @@ parseExpression :: [Token] -> ParsingResult
 parseExpression [] = Left $ ParseError "No input!"
 parseExpression list = parseEquality list
 
+createBinaryResult :: TokenType -> Expression -> ParsingResult -> ParsingResult
+createBinaryResult tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r))
+
 parseEquality :: [Token] -> ParsingResult
 parseEquality list = (parseComparison list) >>= uncurry concatenateComparisons
     where concatenateComparisons :: Expression -> [Token] -> ParsingResult
           concatenateComparisons expr [] = Right $ (expr, [])
           concatenateComparisons expr (head:rest)
-            | elem (tokenType head) [BangEqual, EqualEqual] = createEqualityBinaryResult rest (tokenType head) expr
+            | elem (tokenType head) [BangEqual, EqualEqual] =
+                createBinaryResult (tokenType head) expr (parseEquality rest)
             | otherwise                                     = Right $ (expr, head:rest)
-          createEqualityBinaryResult :: [Token] -> TokenType -> Expression -> ParsingResult
-          createEqualityBinaryResult tokens tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r)) res
-            where res = parseEquality tokens
 
 parseComparison :: [Token] -> ParsingResult
 parseComparison list = (parseAddition list) >>= uncurry concatenateAdditions
@@ -224,33 +225,24 @@ parseComparison list = (parseAddition list) >>= uncurry concatenateAdditions
           concatenateAdditions expr [] = Right $ (expr, [])
           concatenateAdditions expr (head:rest)
             | elem (tokenType head) [Greater, GreaterEqual, Less, LessEqual] =
-                createComparisonBinaryResult rest (tokenType head) expr
+                createBinaryResult (tokenType head) expr (parseComparison rest)
             | otherwise                                                      = Right $ (expr, head:rest)
-          createComparisonBinaryResult :: [Token] -> TokenType -> Expression -> ParsingResult
-          createComparisonBinaryResult tokens tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r)) res
-            where res = parseComparison tokens
 
 parseAddition :: [Token] -> ParsingResult
 parseAddition list = (parseMultiplication list) >>= uncurry concatenateMultiplications
     where concatenateMultiplications :: Expression -> [Token] -> ParsingResult
           concatenateMultiplications expr [] = Right $ (expr, [])
           concatenateMultiplications expr (head:rest)
-            | elem (tokenType head) [Minus, Plus] = createAdditionBinaryResult rest (tokenType head) expr
+            | elem (tokenType head) [Minus, Plus] = createBinaryResult (tokenType head) expr (parseAddition rest)
             | otherwise                           = Right $ (expr, head:rest)
-          createAdditionBinaryResult :: [Token] -> TokenType -> Expression -> ParsingResult
-          createAdditionBinaryResult tokens tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r)) res
-            where res = parseAddition tokens
 
 parseMultiplication :: [Token] -> ParsingResult
 parseMultiplication list = (parseUnary list) >>= uncurry concatenateUnaries
     where concatenateUnaries :: Expression -> [Token] -> ParsingResult
           concatenateUnaries expr [] = Right $ (expr, [])
           concatenateUnaries expr (head:rest)
-            | elem (tokenType head) [Slash, Star] = createUnaryBinaryResult rest (tokenType head) expr
+            | elem (tokenType head) [Slash, Star] = createBinaryResult (tokenType head) expr (parseUnary rest)
             | otherwise                           = Right $ (expr, head:rest)
-          createUnaryBinaryResult :: [Token] -> TokenType -> Expression -> ParsingResult
-          createUnaryBinaryResult tokens tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r)) res
-            where res = parseUnary tokens
 
 parseUnary :: [Token] -> ParsingResult
 parseUnary (head:rest)
