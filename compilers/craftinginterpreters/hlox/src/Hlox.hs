@@ -14,7 +14,8 @@ data Literal = StringLiteral String |
     NumberLiteral Double deriving (Show, Eq)
 
 data TokenType =
-    LeftParen | RightParen |
+    LeftParen |
+    RightParen |
     LeftBrace |
     RightBrace |
     Comma |
@@ -238,4 +239,10 @@ parseUnary (head:rest)
 
 parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ _):rest) = Right (ExpressionLiteral literal, rest)
-parsePrimary _ = undefined
+parsePrimary ((Token (LeftParen) _ _):rest) = let newExpr = inBetweenParenthesis rest
+                                              in if (length newExpr) == (length rest)
+                                                    then Left $ ParseError "Expecting right parenthesis"
+                                                    else fmap (\p -> (Grouping $ fst p, snd p)) (parseExpression newExpr)
+    where inBetweenParenthesis :: [Token] -> [Token]
+          inBetweenParenthesis tokens = takeWhile ((/= RightParen) . tokenType) tokens
+parsePrimary _ = Left $ ParseError "Expecting a literal!"
