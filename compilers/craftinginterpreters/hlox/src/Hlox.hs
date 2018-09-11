@@ -200,13 +200,12 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ParseOutcome
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
-newtype ParseError = ParseError String
 type ParsingStep = (Expression, [Token])
-type ParsingResult = Either ParseError ParsingStep
+type ParsingResult = Either ProgramError ParsingStep
 type Parser = [Token] -> ParsingResult
 
 parseExpression :: [Token] -> ParsingResult
-parseExpression [] = Left $ ParseError "No input!"
+parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!"
 parseExpression list = parseEquality list
 
 createBinaryResult :: TokenType -> Expression -> ParsingResult -> ParsingResult
@@ -239,10 +238,12 @@ parseUnary (head:rest)
 
 parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ _):rest) = Right (ExpressionLiteral literal, rest)
-parsePrimary ((Token (LeftParen) _ _):rest) = let newExpr = inBetweenParenthesis rest
-                                              in if (length newExpr) == (length rest)
-                                                    then Left $ ParseError "Expecting right parenthesis"
+parsePrimary ((Token LeftParen _ _):rest) = let partition = inBetweenParenthesis rest
+                                                newExpr = fst partition
+                                                rest = snd  partition
+                                              in if (length rest) > 0
+                                                    then Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis"
                                                     else fmap (\p -> (Grouping $ fst p, snd p)) (parseExpression newExpr)
-    where inBetweenParenthesis :: [Token] -> [Token]
-          inBetweenParenthesis tokens = takeWhile ((/= RightParen) . tokenType) tokens
-parsePrimary _ = Left $ ParseError "Expecting a literal!"
+    where inBetweenParenthesis :: [Token] -> ([Token], [Token])
+          inBetweenParenthesis = span ((/= RightParen) . tokenType)
+parsePrimary (head:_) = Left $ ProgramError (tokenLocation head) "Expecting a literal!"
