@@ -13,8 +13,8 @@ parse [file]  = runFile file
 parse _       = putStrLn usage
 
 run :: String -> IO()
-run s = handleOutcome (scanTokens s)
-  where handleOutcome :: ParseOutcome -> IO()
+run s = handleOutcome ((scanTokens s) >>= parseExpression)
+  where handleOutcome :: ParsingResult -> IO()
         handleOutcome (Right o) = putStrLn (show o)
         handleOutcome (Left o) = die (show o)
 

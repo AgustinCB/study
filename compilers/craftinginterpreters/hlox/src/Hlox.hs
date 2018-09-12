@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox where
+module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult) where
 
 import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
@@ -65,7 +65,7 @@ type TokenResult = (Token, String, Int)
 
 data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int } deriving Show
 data ProgramError = ProgramError { location :: SourceCodeLocation, msg :: String }
-type ParseOutcome = Either ProgramError [Token]
+type ScanningResult = Either ProgramError [Token]
 
 instance Show ProgramError where
     show (ProgramError (SourceCodeLocation (Just file) line) msg) =
@@ -191,13 +191,13 @@ createIdentifierToken value rest line =
 scanToken :: String -> Int -> Either ProgramError TokenResult
 scanToken s l = createToken (head s) (tail s) l
 
-scanTokens :: String -> ParseOutcome
+scanTokens :: String -> ScanningResult
 scanTokens s = scanTokens' s 1
     where
-        scanTokens' :: String -> Int -> ParseOutcome
+        scanTokens' :: String -> Int -> ScanningResult
         scanTokens' "" _ = Right []
         scanTokens' s l = scanToken s l >>= tokenResultToParseOutcome
-        tokenResultToParseOutcome :: TokenResult -> ParseOutcome
+        tokenResultToParseOutcome :: TokenResult -> ScanningResult
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
 type ParsingStep = (Expression, [Token])
@@ -240,10 +240,17 @@ parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ _):rest) = Right (ExpressionLiteral literal, rest)
 parsePrimary ((Token LeftParen _ _):rest) = let partition = inBetweenParenthesis rest
                                                 newExpr = fst partition
-                                                rest = snd  partition
+                                                rest = snd partition
                                               in if (length rest) > 0
                                                     then Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis"
-                                                    else fmap (\p -> (Grouping $ fst p, snd p)) (parseExpression newExpr)
+                                                    else fmap (\p -> (Grouping $ fst p, (tail rest))) (parseExpression newExpr)
     where inBetweenParenthesis :: [Token] -> ([Token], [Token])
           inBetweenParenthesis = span ((/= RightParen) . tokenType)
 parsePrimary (head:_) = Left $ ProgramError (tokenLocation head) "Expecting a literal!"
+
+discardTillStatement :: [Token] -> [Token]
+discardTillStatement [] = []
+discardTillStatement (head@(Token headType _ _):tail)
+  | headType == Semicolon                                           = tail
+  | elem headType [Class, Fun, Var, For, If, While, Print, Return]  = (head:tail)
+  | otherwise                                                       = discardTillStatement tail
