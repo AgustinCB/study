@@ -206,7 +206,7 @@ type Parser = [Token] -> ParsingResult
 
 parseExpression :: [Token] -> ParsingResult
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!"
-parseExpression list = parseEquality list
+parseExpression list = parseComma list
 
 createBinaryResult :: TokenType -> Expression -> ParsingResult -> ParsingResult
 createBinaryResult tokenType expr = fmap (\r -> (Binary (fst r) tokenType expr, snd r))
@@ -216,6 +216,9 @@ concatenate _ _ expr [] = Right $ (expr, [])
 concatenate tokens parser expr (head:rest)
   | elem (tokenType head) tokens = createBinaryResult (tokenType head) expr (parser rest)
   | otherwise                    = Right $ (expr, head:rest)
+
+parseComma :: Parser
+parseComma list = (parseEquality list) >>= uncurry (concatenate [Comma] parseComma)
 
 parseEquality :: Parser
 parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)
