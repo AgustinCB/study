@@ -54,7 +54,8 @@ data Token = Token {
     , lexeme :: String
     , tokenLocation :: SourceCodeLocation } deriving Show
 
-data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression } |
+data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
+    Binary { right :: Expression, operator :: TokenType, left :: Expression } |
     Unary { operator :: TokenType, operand :: Expression } |
     Grouping { expression :: Expression } |
     ExpressionLiteral { value :: Literal } deriving Show
@@ -218,7 +219,25 @@ concatenate tokens parser expr (head:rest)
   | otherwise                    = Right $ (expr, head:rest)
 
 parseComma :: Parser
-parseComma list = (parseEquality list) >>= uncurry (concatenate [Comma] parseComma)
+parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
+
+consume :: TokenType -> String -> ParsingStep -> ParsingResult
+consume needle error (expression, []) = Left $ ProgramError (SourceCodeLocation Nothing 1) error
+consume needle error (expression, (head:tail))
+  | needle == (tokenType head)  = Right $ (expression, tail)
+  | otherwise                   = Left $ ProgramError (tokenLocation head) error
+
+parseTernary :: Parser
+parseTernary tokens = parseEquality tokens >>= uncurry parseTernaryOperator
+    where parseTernaryOperator :: ParsingStep -> ParsingResult
+          parseTernaryOperator (expr, tokens@(head:rest))
+            | (tokenType head) == Question  = createTernaryOperator expr rest
+            | otherwise                     = (expr, tokens)
+          parseThenBranch :: [Token] -> ParsingResult
+          parseThenBranch tokens = (parseExpression tokens) >>=
+                                        (consume Comma "Expect ':' after then branch of conditional expression.")
+          createTernaryOperator :: Expression -> [Token] -> ParsingResult
+          createTernaryOperator equality tokens = undefined
 
 parseEquality :: Parser
 parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)
