@@ -18,6 +18,7 @@ data TokenType =
     RightParen |
     LeftBrace |
     RightBrace |
+    Colon |
     Comma |
     Dot |
     Minus |
@@ -41,6 +42,7 @@ data TokenType =
     If |
     Or |
     Print |
+    Question |
     Return |
     Super |
     This |
@@ -80,6 +82,7 @@ createToken nextChar rest line
     | nextChar == ')'                       = Right $ oneCharTokenWithoutRest RightParen
     | nextChar == '{'                       = Right $ oneCharTokenWithoutRest LeftBrace
     | nextChar == '}'                       = Right $ oneCharTokenWithoutRest RightBrace
+    | nextChar == ':'                       = Right $ oneCharTokenWithoutRest Colon
     | nextChar == ','                       = Right $ oneCharTokenWithoutRest Comma
     | nextChar == '.'                       = Right $ oneCharTokenWithoutRest Dot
     | nextChar == '-'                       = Right $ oneCharTokenWithoutRest Minus
@@ -97,6 +100,7 @@ createToken nextChar rest line
     | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
     | nextChar == '/' && (head rest) == '*' = Right $ tokenWithRestAndLiteral Comment rest comment
     | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
+    | nextChar == '?'                       = Right $ oneCharTokenWithoutRest Question
     | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
     | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
     | nextChar == '"'                       = createStringToken (tail rest) line
@@ -221,23 +225,24 @@ concatenate tokens parser expr (head:rest)
 parseComma :: Parser
 parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
 
-consume :: TokenType -> String -> ParsingStep -> ParsingResult
-consume needle error (expression, []) = Left $ ProgramError (SourceCodeLocation Nothing 1) error
-consume needle error (expression, (head:tail))
-  | needle == (tokenType head)  = Right $ (expression, tail)
+consume :: TokenType -> String -> [Token] -> Either ProgramError [Token]
+consume needle error [] = Left $ ProgramError (SourceCodeLocation Nothing 1) error
+consume needle error (head:tail)
+  | needle == (tokenType head)  = Right $ tail
   | otherwise                   = Left $ ProgramError (tokenLocation head) error
 
 parseTernary :: Parser
-parseTernary tokens = parseEquality tokens >>= uncurry parseTernaryOperator
+parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
     where parseTernaryOperator :: ParsingStep -> ParsingResult
           parseTernaryOperator (expr, tokens@(head:rest))
             | (tokenType head) == Question  = createTernaryOperator expr rest
-            | otherwise                     = (expr, tokens)
-          parseThenBranch :: [Token] -> ParsingResult
-          parseThenBranch tokens = (parseExpression tokens) >>=
-                                        (consume Comma "Expect ':' after then branch of conditional expression.")
+            | otherwise                     = Right $ (expr, tokens)
           createTernaryOperator :: Expression -> [Token] -> ParsingResult
-          createTernaryOperator equality tokens = undefined
+          createTernaryOperator equality tokens = do
+            (thenBranch, rest) <- parseExpression tokens
+            rest <- consume Colon "Expect ':' after then branch of conditional expression." rest
+            (elseBranch, rest) <- parseTernary rest
+            Right $ (Conditional equality thenBranch elseBranch, rest)
 
 parseEquality :: Parser
 parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)
