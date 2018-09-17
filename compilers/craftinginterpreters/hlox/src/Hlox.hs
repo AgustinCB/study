@@ -234,6 +234,7 @@ consume needle error (head:tail)
 parseTernary :: Parser
 parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
     where parseTernaryOperator :: ParsingStep -> ParsingResult
+          parseTernaryOperator (expr, [])   = Right $ (expr, [])
           parseTernaryOperator (expr, tokens@(head:rest))
             | (tokenType head) == Question  = createTernaryOperator expr rest
             | otherwise                     = Right $ (expr, tokens)
