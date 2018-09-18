@@ -266,14 +266,12 @@ parseUnary (head:rest)
 
 parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ _):rest) = Right (ExpressionLiteral literal, rest)
-parsePrimary ((Token LeftParen _ _):rest) = let partition = inBetweenParenthesis rest
+parsePrimary ((Token LeftParen _ _):rest) = let partition = partitionByToken RightParen rest
                                                 newExpr = fst partition
                                                 rest = snd partition
-                                              in if (length rest) > 0
-                                                    then Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis"
-                                                    else fmap (\p -> (Grouping $ fst p, (tail rest))) (parseExpression newExpr)
-    where inBetweenParenthesis :: [Token] -> ([Token], [Token])
-          inBetweenParenthesis = span ((/= RightParen) . tokenType)
+                                              in case rest of
+                                                [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis"
+                                                h:r -> fmap (\p -> (Grouping $ fst p, r)) (parseExpression newExpr)
 parsePrimary (head:_) = Left $ ProgramError (tokenLocation head) "Expecting a literal!"
 
 discardTillStatement :: [Token] -> [Token]
@@ -282,3 +280,6 @@ discardTillStatement (head@(Token headType _ _):tail)
   | headType == Semicolon                                           = tail
   | elem headType [Class, Fun, Var, For, If, While, Print, Return]  = (head:tail)
   | otherwise                                                       = discardTillStatement tail
+
+partitionByToken :: TokenType -> [Token] -> ([Token], [Token])
+partitionByToken t = span ((/= t) .tokenType)

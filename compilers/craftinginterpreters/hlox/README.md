@@ -17,4 +17,8 @@ unary           → ( "!" | "-" ) unary
                 | primary ;
 primary         → NUMBER | STRING | "false" | "true" | "nil"
                 | "(" expression ")" ;
+                | ( "!=" | "==" ) equality ;
+                | ( ">" | ">=" | "<" | "<=" ) comparison ;
+                | ( "+" ) addition ;
+                | ( "/" | "*" ) multiplication ;
 ```
