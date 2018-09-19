@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult) where
+module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult, Token, ParsingStep) where
 
 import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
@@ -67,16 +67,16 @@ type TokenResult = (Token, String, Int)
 -- Program results
 
 data SourceCodeLocation = SourceCodeLocation { file :: Maybe String, line :: Int } deriving Show
-data ProgramError = ProgramError { location :: SourceCodeLocation, msg :: String }
-type ScanningResult = Either ProgramError [Token]
+data ProgramError a = ProgramError { location :: SourceCodeLocation, msg :: String, rest :: [a] }
+type ScanningResult = Either (ProgramError Char) [Token]
 
-instance Show ProgramError where
-    show (ProgramError (SourceCodeLocation (Just file) line) msg) =
+instance Show (ProgramError a) where
+    show (ProgramError (SourceCodeLocation (Just file) line) msg _) =
         "[line " ++ (show line) ++ "] Error in " ++ file ++ ": " ++ msg
-    show (ProgramError (SourceCodeLocation Nothing line) msg) =
+    show (ProgramError (SourceCodeLocation Nothing line) msg _) =
         "[line " ++ (show line) ++ "] Error: " ++ msg
 
-createToken :: Char -> String -> Int -> Either ProgramError TokenResult
+createToken :: Char -> String -> Int -> Either (ProgramError Char) TokenResult
 createToken nextChar rest line
     | nextChar == '('                       = Right $ oneCharTokenWithoutRest LeftParen
     | nextChar == ')'                       = Right $ oneCharTokenWithoutRest RightParen
@@ -106,7 +106,7 @@ createToken nextChar rest line
     | nextChar == '"'                       = createStringToken (tail rest) line
     | isDigit nextChar                      = createNumberToken nextChar rest line
     | isAlpha nextChar || nextChar == '_'   = Right $ createIdentifierOrKeywordToken nextChar rest line
-    | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character."
+    | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character." rest
     where
         secondPartition = getSecondElement partitions
         firstPartition = getFirstElement partitions
@@ -130,24 +130,25 @@ createToken nextChar rest line
         createToken' :: TokenType -> String -> Token
         createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
-createNumberToken :: Char -> String -> Int -> Either ProgramError TokenResult
+createNumberToken :: Char -> String -> Int -> Either (ProgramError Char) TokenResult
 createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
-    where createNumberToken' :: String -> String -> Either ProgramError TokenResult
+    where createNumberToken' :: String -> String -> Either (ProgramError Char) TokenResult
           createNumberToken' acc (head:r) = if (isDigit head || head == '.') then createNumberToken' (acc ++ [head]) r else maybeFinish acc (head:r)
-          error = Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number."
           numberToken :: Double -> TokenType
           numberToken n = TokenLiteral $ NumberLiteral n
-          maybeFinish :: String -> String -> Either ProgramError TokenResult
+          maybeFinish :: String -> String -> Either (ProgramError Char) TokenResult
           maybeFinish acc rest
-              | last acc == '.'                       = error
-              | (length $ filter (== '.') acc) > 1    = error
+              | last acc == '.'                       =
+                    Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number." rest
+              | (length $ filter (== '.') acc) > 1    =
+                    Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number." rest
               | otherwise                             =
                     Right $ (Token (numberToken (read acc)) acc (SourceCodeLocation Nothing line), [], line)
 
-createStringToken :: String -> Int -> Either ProgramError TokenResult
+createStringToken :: String -> Int -> Either (ProgramError Char) TokenResult
 createStringToken s line
     | elem '"' s    = Right $ (Token (stringToken string) (stringLiteral string) (SourceCodeLocation Nothing line), newRest, line + (breaklines string))
-    | otherwise     = Left $ ProgramError (SourceCodeLocation Nothing (line+(breaklines s))) "Unterminated string."
+    | otherwise     = Left $ ProgramError (SourceCodeLocation Nothing (line+(breaklines s))) "Unterminated string." []
     where string = head partitions
           newRest = intercalate ['"'] (tail partitions)
           partitions = splitOn ('"':[]) s
@@ -193,7 +194,7 @@ createIdentifierToken :: String -> String -> Int -> TokenResult
 createIdentifierToken value rest line = 
     (Token (Identifier value) value (SourceCodeLocation Nothing line), rest, line)
 
-scanToken :: String -> Int -> Either ProgramError TokenResult
+scanToken :: String -> Int -> Either (ProgramError Char) TokenResult
 scanToken s l = createToken (head s) (tail s) l
 
 scanTokens :: String -> ScanningResult
@@ -206,11 +207,11 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
 type ParsingStep = (Expression, [Token])
-type ParsingResult = Either ProgramError ParsingStep
+type ParsingResult = Either (ProgramError Token) ParsingStep
 type Parser = [Token] -> ParsingResult
 
 parseExpression :: [Token] -> ParsingResult
-parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!"
+parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseExpression list = parseComma list
 
 createBinaryResult :: TokenType -> Expression -> ParsingResult -> ParsingResult
@@ -225,11 +226,11 @@ concatenate tokens parser expr (head:rest)
 parseComma :: Parser
 parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
 
-consume :: TokenType -> String -> [Token] -> Either ProgramError [Token]
-consume needle error [] = Left $ ProgramError (SourceCodeLocation Nothing 1) error
+consume :: TokenType -> String -> [Token] -> Either (ProgramError Token) [Token]
+consume needle error [] = Left $ ProgramError (SourceCodeLocation Nothing 1) error []
 consume needle error (head:tail)
   | needle == (tokenType head)  = Right $ tail
-  | otherwise                   = Left $ ProgramError (tokenLocation head) error
+  | otherwise                   = Left $ ProgramError (tokenLocation head) error tail
 
 parseTernary :: Parser
 parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
@@ -270,9 +271,9 @@ parsePrimary ((Token LeftParen _ _):rest) = let partition = partitionByToken Rig
                                                 newExpr = fst partition
                                                 rest = snd partition
                                               in case rest of
-                                                [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis"
+                                                [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis" []
                                                 h:r -> fmap (\p -> (Grouping $ fst p, r)) (parseExpression newExpr)
-parsePrimary (head:_) = Left $ ProgramError (tokenLocation head) "Expecting a literal!"
+parsePrimary (head:r) = Left $ ProgramError (tokenLocation head) "Expecting a literal!" r
 
 discardTillStatement :: [Token] -> [Token]
 discardTillStatement [] = []
