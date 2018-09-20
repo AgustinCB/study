@@ -12,16 +12,12 @@ parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
 parse _       = putStrLn usage
 
-normalizeScanningResult :: ScanningResult -> Either String [Token]
-normalizeScanningResult (Left o) = Left $ show o
-normalizeScanningResult (Right o) = Right o
-
-normalizeParsingResult :: ParsingResult -> Either String ParsingStep
-normalizeParsingResult (Left o) = Left $ show o
-normalizeParsingResult (Right o) = Right o
+normalize :: (Show s) => Either (ProgramError s) a -> Either String a
+normalize (Left o) = Left $ show o
+normalize (Right o) = Right o
 
 run :: String -> IO()
-run s = handleOutcome ((normalizeScanningResult $ scanTokens s) >>= (normalizeParsingResult . parseExpression))
+run s = handleOutcome ((normalize $ scanTokens s) >>= (normalize . parseExpression))
   where handleOutcome :: Either String ParsingStep -> IO()
         handleOutcome (Right o) = putStrLn (show o)
         handleOutcome (Left o) = die (show o)

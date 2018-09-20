@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult, Token, ParsingStep) where
+module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult, Token, ParsingStep, ProgramError) where
 
 import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
