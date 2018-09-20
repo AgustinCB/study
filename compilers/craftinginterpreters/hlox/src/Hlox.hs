@@ -273,7 +273,19 @@ parsePrimary ((Token LeftParen _ _):rest) = let partition = partitionByToken Rig
                                               in case rest of
                                                 [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis" []
                                                 h:r -> fmap (\p -> (Grouping $ fst p, r)) (parseExpression newExpr)
-parsePrimary (head:r) = Left $ ProgramError (tokenLocation head) "Expecting a literal!" r
+parsePrimary (head@(Token headType _ headLocation):r)
+  | elem headType [EqualEqual, BangEqual]                   = fastForward parseEquality r >>=
+                                                                Left . ProgramError headLocation "Equality without left side"
+  | elem headType [Greater, GreaterEqual, Less, LessEqual]  = fastForward parseComparison r >>=
+                                                                Left . ProgramError headLocation "Comparision without left side"
+  | headType == Plus                                        = fastForward parseAddition r >>=
+                                                                Left . ProgramError headLocation "Addition without left side"
+  | elem headType [Slash, Star]                             = fastForward parseMultiplication r >>=
+                                                                Left . ProgramError headLocation "Multiplication without left side"
+  | otherwise                                               = Left $ ProgramError headLocation "Expecting a literal!" r
+
+fastForward :: Parser -> [Token] -> Either (ProgramError Token) [Token]
+fastForward p ts = fmap snd $ p ts
 
 discardTillStatement :: [Token] -> [Token]
 discardTillStatement [] = []
