@@ -296,3 +296,21 @@ discardTillStatement (head@(Token headType _ _):tail)
 
 partitionByToken :: TokenType -> [Token] -> ([Token], [Token])
 partitionByToken t = span ((/= t) .tokenType)
+
+-- Evaluation
+data LoxValue = NilValue
+              | BooleanValue Bool
+              | NumberValue Double
+              | StringValue String
+
+--data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
+--    Binary { right :: Expression, operator :: TokenType, left :: Expression } |
+--    Unary { operator :: TokenType, operand :: Expression } |
+--    Grouping { expression :: Expression }
+evaluate :: Expression -> LoxValue
+evaluate (ExpressionLiteral (KeywordLiteral NilKeyword)) = NilValue
+evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword)) = BooleanValue True
+evaluate (ExpressionLiteral (KeywordLiteral FalseKeyword)) = BooleanValue False
+evaluate (ExpressionLiteral (NumberLiteral v)) = NumberValue v
+evaluate (ExpressionLiteral (StringLiteral s)) = StringValue s
+evaluate _ = undefined
