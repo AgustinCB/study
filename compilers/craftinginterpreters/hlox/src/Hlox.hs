@@ -302,15 +302,23 @@ data LoxValue = NilValue
               | BooleanValue Bool
               | NumberValue Double
               | StringValue String
+type EvaluationResult = Either (ProgramError Expression) ParsingStep
+
+negateTruthy :: LoxValue -> LoxValue
+negateTruthy NilValue = BooleanValue True
+negateTruthy (BooleanValue False) = BooleanValue True
+negateTruthy _ = BooleanValue False
 
 --data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
 --    Binary { right :: Expression, operator :: TokenType, left :: Expression } |
---    Unary { operator :: TokenType, operand :: Expression } |
---    Grouping { expression :: Expression }
+--    Unary { operator :: TokenType, operand :: Expression }
 evaluate :: Expression -> LoxValue
 evaluate (ExpressionLiteral (KeywordLiteral NilKeyword)) = NilValue
 evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword)) = BooleanValue True
 evaluate (ExpressionLiteral (KeywordLiteral FalseKeyword)) = BooleanValue False
 evaluate (ExpressionLiteral (NumberLiteral v)) = NumberValue v
 evaluate (ExpressionLiteral (StringLiteral s)) = StringValue s
+evaluate (Grouping expr) = evaluate expr
+evaluate (Unary Bang expr) = negateTruthy $ evaluate expr
+evaluate (Unary Minus expr) = undefined
 evaluate _ = undefined
