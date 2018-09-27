@@ -299,9 +299,9 @@ partitionByToken t = span ((/= t) .tokenType)
 
 -- Evaluation
 data LoxValue = NilValue
-              | BooleanValue Bool
-              | NumberValue Double
-              | StringValue String
+              | BooleanValue { boolean :: Bool }
+              | NumberValue { number :: Double }
+              | StringValue { string :: String }
 type EvaluationResult = Either (ProgramError Expression) LoxValue
 
 negateTruthy :: LoxValue -> LoxValue
@@ -313,9 +313,12 @@ negateDouble :: SourceCodeLocation -> LoxValue -> EvaluationResult
 negateDouble _ (NumberValue v) = Right $ NumberValue (-v)
 negateDouble location _ = Left $ ProgramError location "Can only negate numbers" []
 
+expectNumber :: SourceCodeLocation -> LoxValue -> EvaluationResult
+expectNumber _ n@(NumberValue v ) = Right $ n
+expectNumber location _ = Left $ ProgramError location "Type error! Expecting a double!" []
+
 --data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
---    Binary { right :: Expression, operator :: TokenType, left :: Expression } |
---    Unary { operator :: TokenType, operand :: Expression }
+--    Binary { right :: Expression, operator :: TokenType, left :: Expression }
 evaluate :: Expression -> EvaluationResult
 evaluate (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
 evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
@@ -325,4 +328,8 @@ evaluate (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
 evaluate (Grouping expr _) = evaluate expr
 evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
 evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
+evaluate (Binary right Minus left location) = do
+  rightOp <- evaluate right >>= (expectNumber location)
+  leftOp <- evaluate right >>= (expectNumber location)
+  return $ NumberValue ((number leftOp) - (number rightOp))
 evaluate _ = undefined
