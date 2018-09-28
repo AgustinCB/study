@@ -317,6 +317,23 @@ expectNumber :: SourceCodeLocation -> LoxValue -> EvaluationResult
 expectNumber _ n@(NumberValue v ) = Right $ n
 expectNumber location _ = Left $ ProgramError location "Type error! Expecting a double!" []
 
+expectString :: SourceCodeLocation -> LoxValue -> EvaluationResult
+expectString _ n@(StringValue v ) = Right $ n
+expectString location _ = Left $ ProgramError location "Type error! Expecting a string!" []
+
+type MathOperation = Double -> Double -> Double
+mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> EvaluationResult
+mathOperation location left op right = do
+  rightOp <- evaluate right >>= (expectNumber location)
+  leftOp <- evaluate right >>= (expectNumber location)
+  return $ NumberValue ((number leftOp) `op` (number rightOp))
+
+concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
+concatenateValues location left right = do
+  rightOp <- evaluate right >>= (expectString location)
+  leftOp <- evaluate right >>= (expectString location)
+  return $ StringValue ((string leftOp) ++ (string rightOp))
+
 --data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
 --    Binary { right :: Expression, operator :: TokenType, left :: Expression }
 evaluate :: Expression -> EvaluationResult
@@ -328,8 +345,11 @@ evaluate (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
 evaluate (Grouping expr _) = evaluate expr
 evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
 evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
-evaluate (Binary right Minus left location) = do
-  rightOp <- evaluate right >>= (expectNumber location)
-  leftOp <- evaluate right >>= (expectNumber location)
-  return $ NumberValue ((number leftOp) - (number rightOp))
+evaluate (Binary left Minus right location) = mathOperation location left (-) right
+evaluate (Binary left Star right location) = mathOperation location left (*) right
+evaluate (Binary left Slash right location) = mathOperation location left (/) right
+evaluate (Binary left Plus right location) =
+  let sum = mathOperation location left (+) right
+  in case sum of r@(Right _) -> r
+                 (Left _) -> concatenateValues location left right
 evaluate _ = undefined
