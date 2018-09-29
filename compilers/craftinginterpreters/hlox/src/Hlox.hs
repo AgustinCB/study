@@ -304,10 +304,13 @@ data LoxValue = NilValue
               | StringValue { string :: String }
 type EvaluationResult = Either (ProgramError Expression) LoxValue
 
+isTruthy :: LoxValue -> LoxValue
+isTruthy NilValue = BooleanValue False
+isTruthy (BooleanValue False) = BooleanValue False
+isTruthy _ = BooleanValue True
+
 negateTruthy :: LoxValue -> LoxValue
-negateTruthy NilValue = BooleanValue True
-negateTruthy (BooleanValue False) = BooleanValue True
-negateTruthy _ = BooleanValue False
+negateTruthy e = BooleanValue $ not (boolean e)
 
 negateDouble :: SourceCodeLocation -> LoxValue -> EvaluationResult
 negateDouble _ (NumberValue v) = Right $ NumberValue (-v)
@@ -334,8 +337,7 @@ concatenateValues location left right = do
   leftOp <- evaluate right >>= (expectString location)
   return $ StringValue ((string leftOp) ++ (string rightOp))
 
---data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression } |
---    Binary { right :: Expression, operator :: TokenType, left :: Expression }
+--data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression }
 evaluate :: Expression -> EvaluationResult
 evaluate (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
 evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
@@ -343,7 +345,7 @@ evaluate (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ BooleanVa
 evaluate (ExpressionLiteral (NumberLiteral v) _) = Right $ NumberValue v
 evaluate (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
 evaluate (Grouping expr _) = evaluate expr
-evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
+evaluate (Unary Bang expr _) = fmap (negateTruthy . isTruthy) $ evaluate expr
 evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
 evaluate (Binary left Minus right location) = mathOperation location left (-) right
 evaluate (Binary left Star right location) = mathOperation location left (*) right
@@ -352,4 +354,8 @@ evaluate (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
   in case sum of r@(Right _) -> r
                  (Left _) -> concatenateValues location left right
+evaluate (Conditional condition thenBranch elseBranch location) = do
+    isTruth <- fmap isTruthy (evaluate condition)
+    if (boolean isTruth) then evaluate thenBranch
+                         else evaluate elseBranch
 evaluate _ = undefined
