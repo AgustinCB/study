@@ -331,6 +331,13 @@ mathOperation location left op right = do
   leftOp <- evaluate right >>= (expectNumber location)
   return $ NumberValue ((number leftOp) `op` (number rightOp))
 
+type BooleanOperation = Double -> Double -> Bool
+comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> EvaluationResult
+comparisonOperation location left op right = do
+  rightOp <- evaluate right >>= (expectNumber location)
+  leftOp <- evaluate right >>= (expectNumber location)
+  return $ BooleanValue ((number leftOp) `op` (number rightOp))
+
 concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
 concatenateValues location left right = do
   rightOp <- evaluate right >>= (expectString location)
@@ -354,6 +361,11 @@ evaluate (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
   in case sum of r@(Right _) -> r
                  (Left _) -> concatenateValues location left right
+-- Greater, GreaterEqual, Less, LessEqual
+evaluate (Binary left Greater right location) = comparisonOperation location left (>) right
+evaluate (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right
+evaluate (Binary left Less right location) = comparisonOperation location left (<) right
+evaluate (Binary left LessEqual right location) = comparisonOperation location left (<=) right
 evaluate (Conditional condition thenBranch elseBranch location) = do
     isTruth <- fmap isTruthy (evaluate condition)
     if (boolean isTruth) then evaluate thenBranch
