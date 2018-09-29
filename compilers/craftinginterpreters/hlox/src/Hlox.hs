@@ -301,7 +301,7 @@ partitionByToken t = span ((/= t) .tokenType)
 data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
-              | StringValue { string :: String }
+              | StringValue { string :: String } deriving Eq
 type EvaluationResult = Either (ProgramError Expression) LoxValue
 
 isTruthy :: LoxValue -> LoxValue
@@ -310,7 +310,7 @@ isTruthy (BooleanValue False) = BooleanValue False
 isTruthy _ = BooleanValue True
 
 negateTruthy :: LoxValue -> LoxValue
-negateTruthy e = BooleanValue $ not (boolean e)
+negateTruthy e = BooleanValue $ not . boolean $ isTruthy e
 
 negateDouble :: SourceCodeLocation -> LoxValue -> EvaluationResult
 negateDouble _ (NumberValue v) = Right $ NumberValue (-v)
@@ -338,6 +338,12 @@ comparisonOperation location left op right = do
   leftOp <- evaluate right >>= (expectNumber location)
   return $ BooleanValue ((number leftOp) `op` (number rightOp))
 
+isEquals :: Expression -> Expression -> EvaluationResult
+isEquals left right = do
+  rightOp <- evaluate right
+  leftOp <- evaluate right
+  return $ BooleanValue (leftOp == rightOp)
+
 concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
 concatenateValues location left right = do
   rightOp <- evaluate right >>= (expectString location)
@@ -352,7 +358,7 @@ evaluate (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ BooleanVa
 evaluate (ExpressionLiteral (NumberLiteral v) _) = Right $ NumberValue v
 evaluate (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
 evaluate (Grouping expr _) = evaluate expr
-evaluate (Unary Bang expr _) = fmap (negateTruthy . isTruthy) $ evaluate expr
+evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
 evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
 evaluate (Binary left Minus right location) = mathOperation location left (-) right
 evaluate (Binary left Star right location) = mathOperation location left (*) right
@@ -361,11 +367,13 @@ evaluate (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
   in case sum of r@(Right _) -> r
                  (Left _) -> concatenateValues location left right
--- Greater, GreaterEqual, Less, LessEqual
 evaluate (Binary left Greater right location) = comparisonOperation location left (>) right
 evaluate (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right
 evaluate (Binary left Less right location) = comparisonOperation location left (<) right
 evaluate (Binary left LessEqual right location) = comparisonOperation location left (<=) right
+evaluate (Binary left EqualEqual right _) = isEquals left right
+evaluate (Binary left BangEqual right _) = fmap negateTruthy $ isEquals left right
+
 evaluate (Conditional condition thenBranch elseBranch location) = do
     isTruth <- fmap isTruthy (evaluate condition)
     if (boolean isTruth) then evaluate thenBranch
