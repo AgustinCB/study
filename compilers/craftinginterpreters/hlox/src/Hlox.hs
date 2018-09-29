@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult, Token, ParsingStep, ProgramError) where
 
+import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
@@ -350,7 +351,6 @@ concatenateValues location left right = do
   leftOp <- evaluate right >>= (expectString location)
   return $ StringValue ((string leftOp) ++ (string rightOp))
 
---data Expression = Binary { right :: Expression, operator :: TokenType, left :: Expression }
 evaluate :: Expression -> EvaluationResult
 evaluate (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
 evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
@@ -373,9 +373,8 @@ evaluate (Binary left Less right location) = comparisonOperation location left (
 evaluate (Binary left LessEqual right location) = comparisonOperation location left (<=) right
 evaluate (Binary left EqualEqual right _) = isEquals left right
 evaluate (Binary left BangEqual right _) = fmap negateTruthy $ isEquals left right
-
+evaluate (Binary left Comma right _) = liftM2 seq (evaluate left) (evaluate right)
 evaluate (Conditional condition thenBranch elseBranch location) = do
-    isTruth <- fmap isTruthy (evaluate condition)
-    if (boolean isTruth) then evaluate thenBranch
-                         else evaluate elseBranch
-evaluate _ = undefined
+  isTruth <- fmap isTruthy (evaluate condition)
+  if (boolean isTruth) then evaluate thenBranch
+                       else evaluate elseBranch
