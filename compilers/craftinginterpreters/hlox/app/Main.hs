@@ -17,8 +17,8 @@ normalize (Left o) = Left $ show o
 normalize (Right o) = Right o
 
 run :: String -> IO()
-run s = handleOutcome ((normalize $ scanTokens s) >>= (normalize . parseExpression))
-  where handleOutcome :: Either String ParsingStep -> IO()
+run s = handleOutcome ((normalize $ scanTokens s) >>= (normalize . parseExpression) >>= (normalize . evaluate . fst))
+  where handleOutcome :: Either String LoxValue -> IO()
         handleOutcome (Right o) = putStrLn (show o)
         handleOutcome (Left o) = die (show o)
 

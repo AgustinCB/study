@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, parseExpression, ScanningResult, ParsingResult, Token, ParsingStep, ProgramError) where
+module Hlox (scanTokens, evaluate, parseExpression,
+                LoxValue, ScanningResult, ParsingResult, Token, ParsingStep, ProgramError) where
 
 import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
@@ -302,7 +303,7 @@ partitionByToken t = span ((/= t) .tokenType)
 data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
-              | StringValue { string :: String } deriving Eq
+              | StringValue { string :: String } deriving (Eq, Show)
 type EvaluationResult = Either (ProgramError Expression) LoxValue
 
 isTruthy :: LoxValue -> LoxValue
