@@ -363,7 +363,11 @@ evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
 evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
 evaluate (Binary left Minus right location) = mathOperation location left (-) right
 evaluate (Binary left Star right location) = mathOperation location left (*) right
-evaluate (Binary left Slash right location) = mathOperation location left (/) right
+evaluate (Binary left Slash right location) =
+  let div = mathOperation location left (/) right
+      inf = 1/0
+  in case div of (Right (NumberValue inf)) -> Left $ ProgramError location "Division by zero!" []
+                 r -> r
 evaluate (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
   in case sum of r@(Right _) -> r

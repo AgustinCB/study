@@ -1,0 +1,1 @@
+1. I'd never, ever do that. I have experience in languages that allow you to do that (Javascript, PHP) and the result is horrible. It hides a lot of mistakes under type cohersion and those mistakes later bite you in the ass. I prefer a type system as strong as possible, even if Dynamic, as lox is. In that sense, I prefer taking Python's approach to this.
