@@ -40,3 +40,22 @@ diofantic a b c
         a' = a `div` d
         b' = b `div` d
         c'  = c `div` d
+
+-- Exercise 18
+factorize :: Integer -> [Integer]
+factorize number = filter (isFactor number) tries
+  where tries = [1..limit]
+        limit = number `div` 2
+        isFactor :: Integer -> Integer -> Bool
+        isFactor number factor = (isPrime factor) && ((mod number factor) == 0)
+
+isPrime :: Integer -> Bool
+isPrime 0 = False
+isPrime 1 = False
+isPrime 2 = True
+isPrime 3 = True
+isPrime n = foldr diffOne True r
+  where k = 10
+        r = [2..(min (n-2) (k+2))]
+        diffOne :: Integer -> Bool -> Bool
+        diffOne a acc = ((mod (a^(n-1)) n) == 1) && acc
