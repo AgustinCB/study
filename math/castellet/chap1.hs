@@ -59,3 +59,23 @@ isPrime n = foldr diffOne True r
         r = [2..(min (n-2) (k+2))]
         diffOne :: Integer -> Bool -> Bool
         diffOne a acc = ((mod (a^(n-1)) n) == 1) && acc
+
+-- Exercise 19
+primes = 2 : 3 : 5 : filter isPrime [6..]
+
+-- Exercise 20
+modMult :: Integer -> Integer -> Integer -> Integer
+modMult p n i = mod (n * i) p
+
+inverseOn :: Integer -> Integer -> Either String Integer
+inverseOn n p
+  | not $ isPrime p = Left "The module should be prime"
+  | n == 0          = Left "0 doesn't have inverse on Z/(p)"
+  | otherwise       = Right $ head $ filter (\i -> ((modMult p n i) == 1)) [1..(p-1)]
+
+-- Exercise 21
+squareRootOn :: Integer -> Integer -> Either String Integer
+squareRootOn n p
+  | not $ isPrime p = Left "The module should be prime"
+  | n == 0          = Left "0 doesn't have inverse on Z/(p)"
+  | otherwise       = Right $ head $ filter (\i -> ((modMult p i i) == n)) [1..(p-1)]
