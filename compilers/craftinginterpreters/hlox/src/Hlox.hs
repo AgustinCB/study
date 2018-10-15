@@ -105,8 +105,8 @@ createToken nextChar rest line
     | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
     | nextChar == '?'                       = Right $ oneCharTokenWithoutRest Question
     | nextChar == '\n'                      = createToken headRest tailRest (line + 1)
-    | elem nextChar [' ', '\r', '\t']       = createToken headRest tailRest (line + 1)
-    | nextChar == '"'                       = createStringToken tailRest line
+    | elem nextChar [' ', '\r', '\t']       = createToken headRest tailRest line
+    | nextChar == '"'                       = createStringToken rest line
     | isDigit nextChar                      = createNumberToken nextChar rest line
     | isAlpha nextChar || nextChar == '_'   = Right $ createIdentifierOrKeywordToken nextChar rest line
     | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character." rest
@@ -149,7 +149,7 @@ createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
               | (length $ filter (== '.') acc) > 1    =
                     Left $ ProgramError (SourceCodeLocation Nothing line) "Invalid number." rest
               | otherwise                             =
-                    Right $ (Token (numberToken (read acc)) acc (SourceCodeLocation Nothing line), [], line)
+                    Right $ (Token (numberToken (read acc)) acc (SourceCodeLocation Nothing line), rest, line)
 
 createStringToken :: String -> Int -> Either (ProgramError Char) TokenResult
 createStringToken s line
@@ -167,9 +167,10 @@ createIdentifierOrKeywordToken :: Char -> String -> Int -> TokenResult
 createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken word rest line
     where (word, rest) = extractWord (nextChar:input) []
           extractWord :: String -> String -> (String, String)
+          extractWord [] acc = (acc, [])
           extractWord (c:rest) acc
               | isIdentifier c    = extractWord rest (acc ++ [c])
-              | otherwise             = (acc, c:rest)
+              | otherwise         = (acc, c:rest)
           isIdentifier :: Char -> Bool
           isIdentifier c = isDigit c || isAlpha c || '_' == c
 
@@ -188,7 +189,7 @@ identifierOrKeywordToken word rest line
     | word == "return"= createKeywordToken Return word rest line
     | word == "super" = createKeywordToken Super word rest line
     | word == "this"  = createKeywordToken This word rest line
-    | word == "true"  = createKeywordToken (TokenLiteral $ KeywordLiteral FalseKeyword) word rest line
+    | word == "true"  = createKeywordToken (TokenLiteral $ KeywordLiteral TrueKeyword) word rest line
     | word == "var"   = createKeywordToken Var word rest line
     | word == "while" = createKeywordToken While word rest line
     | otherwise       = createIdentifierToken word rest line
@@ -367,7 +368,7 @@ evaluate (Binary left Star right location) = mathOperation location left (*) rig
 evaluate (Binary left Slash right location) =
   let div = mathOperation location left (/) right
       inf = 1/0
-  in case div of (Right (NumberValue inf)) -> Left $ ProgramError location "Division by zero!" []
+  in case div of r@(Right (NumberValue inf)) -> r --Left $ ProgramError location "Division by zero!" []
                  r -> r
 evaluate (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
