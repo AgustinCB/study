@@ -6,6 +6,7 @@ import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
+import Data.Maybe (listToMaybe)
 
 -- Language specs
 
@@ -91,29 +92,31 @@ createToken nextChar rest line
     | nextChar == '+'                       = Right $ oneCharTokenWithoutRest Plus
     | nextChar == ';'                       = Right $ oneCharTokenWithoutRest Semicolon
     | nextChar == '*'                       = Right $ oneCharTokenWithoutRest Star
-    | nextChar == '!' && (head rest) == '=' = Right $ twoCharTokenWithoutRest BangEqual
+    | nextChar == '!' && headRest == '='    = Right $ twoCharTokenWithoutRest BangEqual
     | nextChar == '!'                       = Right $ oneCharTokenWithoutRest Bang
-    | nextChar == '=' && (head rest) == '=' = Right $ twoCharTokenWithoutRest EqualEqual
+    | nextChar == '=' && headRest== '='     = Right $ twoCharTokenWithoutRest EqualEqual
     | nextChar == '='                       = Right $ oneCharTokenWithoutRest Equal
-    | nextChar == '<' && (head rest) == '=' = Right $ twoCharTokenWithoutRest LessEqual
+    | nextChar == '<' && headRest == '='    = Right $ twoCharTokenWithoutRest LessEqual
     | nextChar == '<'                       = Right $ oneCharTokenWithoutRest Less
-    | nextChar == '>' && (head rest) == '=' = Right $ twoCharTokenWithoutRest GreaterEqual
+    | nextChar == '>' && headRest == '='    = Right $ twoCharTokenWithoutRest GreaterEqual
     | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
-    | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
-    | nextChar == '/' && (head rest) == '*' = Right $ tokenWithRestAndLiteral Comment commentRest comment
+    | nextChar == '/' && headRest == '/'    = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
+    | nextChar == '/' && headRest == '*'    = Right $ tokenWithRestAndLiteral Comment commentRest comment
     | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
     | nextChar == '?'                       = Right $ oneCharTokenWithoutRest Question
-    | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
-    | elem nextChar [' ', '\r', '\t']       = createToken (head rest) (tail rest) (line + 1)
-    | nextChar == '"'                       = createStringToken (tail rest) line
+    | nextChar == '\n'                      = createToken headRest tailRest (line + 1)
+    | elem nextChar [' ', '\r', '\t']       = createToken headRest tailRest (line + 1)
+    | nextChar == '"'                       = createStringToken tailRest line
     | isDigit nextChar                      = createNumberToken nextChar rest line
     | isAlpha nextChar || nextChar == '_'   = Right $ createIdentifierOrKeywordToken nextChar rest line
     | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character." rest
     where
+        headRest = maybe '\0' id (listToMaybe rest)
+        tailRest = if rest == [] then [] else tail rest
         secondPartition = getSecondElement partitions
         firstPartition = getFirstElement partitions
         partitions = splitOn ('\n':[]) rest
-        (comment, commentRest) = getCommentAndRest (tail rest)
+        (comment, commentRest) = getCommentAndRest tailRest
         getCommentAndRest :: String -> (String, String)
         getCommentAndRest content = (getFirstElement partition, getSecondElement partition)
             where partition = splitOn "*/" content
@@ -128,7 +131,7 @@ createToken nextChar rest line
         oneCharTokenWithoutRest :: TokenType -> TokenResult
         oneCharTokenWithoutRest t = (createToken' t (nextChar : []), rest, line)
         twoCharTokenWithoutRest :: TokenType -> TokenResult
-        twoCharTokenWithoutRest t = (createToken' t (nextChar : (head rest) : []), rest, line)
+        twoCharTokenWithoutRest t = (createToken' t (nextChar : headRest : []), rest, line)
         createToken' :: TokenType -> String -> Token
         createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
