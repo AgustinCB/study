@@ -100,7 +100,7 @@ createToken nextChar rest line
     | nextChar == '>' && (head rest) == '=' = Right $ twoCharTokenWithoutRest GreaterEqual
     | nextChar == '>'                       = Right $ oneCharTokenWithoutRest Greater
     | nextChar == '/' && (head rest) == '/' = Right $ tokenWithRestAndLiteral Comment secondPartition firstPartition
-    | nextChar == '/' && (head rest) == '*' = Right $ tokenWithRestAndLiteral Comment rest comment
+    | nextChar == '/' && (head rest) == '*' = Right $ tokenWithRestAndLiteral Comment commentRest comment
     | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
     | nextChar == '?'                       = Right $ oneCharTokenWithoutRest Question
     | nextChar == '\n'                      = createToken (head rest) (tail rest) (line + 1)
@@ -113,7 +113,7 @@ createToken nextChar rest line
         secondPartition = getSecondElement partitions
         firstPartition = getFirstElement partitions
         partitions = splitOn ('\n':[]) rest
-        (comment, rest) = getCommentAndRest (tail rest)
+        (comment, commentRest) = getCommentAndRest (tail rest)
         getCommentAndRest :: String -> (String, String)
         getCommentAndRest content = (getFirstElement partition, getSecondElement partition)
             where partition = splitOn "*/" content
@@ -196,15 +196,12 @@ createIdentifierToken :: String -> String -> Int -> TokenResult
 createIdentifierToken value rest line = 
     (Token (Identifier value) value (SourceCodeLocation Nothing line), rest, line)
 
-scanToken :: String -> Int -> Either (ProgramError Char) TokenResult
-scanToken s l = createToken (head s) (tail s) l
-
 scanTokens :: String -> ScanningResult
 scanTokens s = scanTokens' s 1
     where
         scanTokens' :: String -> Int -> ScanningResult
         scanTokens' "" _ = Right []
-        scanTokens' s l = scanToken s l >>= tokenResultToParseOutcome
+        scanTokens' (h:t) l = (createToken h t l) >>= tokenResultToParseOutcome
         tokenResultToParseOutcome :: TokenResult -> ScanningResult
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
