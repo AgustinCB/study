@@ -12,11 +12,15 @@ parse ["-h"]  = putStrLn usage
 parse [file]  = runFile file
 parse _       = putStrLn usage
 
+normalize :: (Show s) => Either (ProgramError s) a -> Either String a
+normalize (Left o) = Left $ show o
+normalize (Right o) = Right o
+
 run :: String -> IO()
-run s = handleOutcome $ scanTokens s >>= parseExpression >>= (evaluate . fst)
-  where handleOutcome :: (Show r, Show o) => Either (ProgramError r) o -> IO()
+run s = handleOutcome $ (normalize $ scanTokens s) >>= (normalize . parseExpression) >>= (normalize . evaluate . fst)
+  where handleOutcome :: (Show s) => Either String s -> IO()
         handleOutcome (Right o) = putStrLn (show o)
-        handleOutcome (Left o) = die $ "There was an error! " ++  (show o)
+        handleOutcome (Left o) = die $ "There was an error! " ++  o
 
 runRepl :: IO()
 runRepl = sequence_ processInput
