@@ -135,6 +135,7 @@ createToken nextChar rest line
 createNumberToken :: Char -> String -> Int -> Either (ProgramError Char) TokenResult
 createNumberToken firstChar rest line = createNumberToken' [firstChar] rest
     where createNumberToken' :: String -> String -> Either (ProgramError Char) TokenResult
+          createNumberToken' acc [] = maybeFinish acc []
           createNumberToken' acc (head:r) = if (isDigit head || head == '.') then createNumberToken' (acc ++ [head]) r else maybeFinish acc (head:r)
           numberToken :: Double -> TokenType
           numberToken n = TokenLiteral $ NumberLiteral n
