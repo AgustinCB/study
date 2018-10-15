@@ -219,7 +219,7 @@ parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No inpu
 parseExpression list = parseComma list
 
 createBinaryResult :: TokenType -> SourceCodeLocation -> Expression -> ParsingResult -> ParsingResult
-createBinaryResult tokenType location expr = fmap (\r -> (Binary (fst r) tokenType expr location, snd r))
+createBinaryResult tokenType location expr = fmap (\r -> (Binary expr tokenType (fst r) location, snd r))
 
 concatenate :: [TokenType] -> Parser -> Expression -> [Token] -> ParsingResult
 concatenate _ _ expr [] = Right $ (expr, [])
@@ -332,26 +332,26 @@ type MathOperation = Double -> Double -> Double
 mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> EvaluationResult
 mathOperation location left op right = do
   rightOp <- evaluate right >>= (expectNumber location)
-  leftOp <- evaluate right >>= (expectNumber location)
+  leftOp <- evaluate left >>= (expectNumber location)
   return $ NumberValue ((number leftOp) `op` (number rightOp))
 
 type BooleanOperation = Double -> Double -> Bool
 comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> EvaluationResult
 comparisonOperation location left op right = do
   rightOp <- evaluate right >>= (expectNumber location)
-  leftOp <- evaluate right >>= (expectNumber location)
+  leftOp <- evaluate left >>= (expectNumber location)
   return $ BooleanValue ((number leftOp) `op` (number rightOp))
 
 isEquals :: Expression -> Expression -> EvaluationResult
 isEquals left right = do
   rightOp <- evaluate right
-  leftOp <- evaluate right
+  leftOp <- evaluate left
   return $ BooleanValue (leftOp == rightOp)
 
 concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
 concatenateValues location left right = do
   rightOp <- evaluate right >>= (expectString location)
-  leftOp <- evaluate right >>= (expectString location)
+  leftOp <- evaluate left >>= (expectString location)
   return $ StringValue ((string leftOp) ++ (string rightOp))
 
 evaluate :: Expression -> EvaluationResult
