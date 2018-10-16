@@ -131,7 +131,7 @@ createToken nextChar rest line
         oneCharTokenWithoutRest :: TokenType -> TokenResult
         oneCharTokenWithoutRest t = (createToken' t (nextChar : []), rest, line)
         twoCharTokenWithoutRest :: TokenType -> TokenResult
-        twoCharTokenWithoutRest t = (createToken' t (nextChar : headRest : []), rest, line)
+        twoCharTokenWithoutRest t = (createToken' t (nextChar : headRest : []), tailRest, line)
         createToken' :: TokenType -> String -> Token
         createToken' t s = Token t s $ SourceCodeLocation Nothing line
 
