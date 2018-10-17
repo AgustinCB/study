@@ -6,6 +6,14 @@ using Haskell.
 ## Grammar
 
 ```$xslt
+program         → statement* EOF ;
+
+statement       → exprStmt
+                | printStmt ;
+
+exprStmt        → expression ";" ;
+printStmt       → "print" expression ";" ;
+
 expression      → commaExpression ;
 commaExpression → ternary ( "," ternary )* ;
 ternary         → equality ( "?" expression <- ternary )? ;

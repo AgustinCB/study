@@ -65,6 +65,9 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     Grouping { expression :: Expression, expressionLocation :: SourceCodeLocation } |
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } deriving Show
 
+data Statement = StatementExpression Expression |
+    Print Statement deriving Show
+
 type TokenResult = (Token, String, Int)
 
 -- Program results
