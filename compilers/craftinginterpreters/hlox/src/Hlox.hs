@@ -66,7 +66,7 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } deriving Show
 
 data Statement = StatementExpression Expression |
-    Print Statement deriving Show
+    PrintStatement Statement deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -276,8 +276,8 @@ parsePrimary :: Parser
 parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (ExpressionLiteral literal location, rest)
 parsePrimary ((Token LeftParen _ location):rest) = let partition = partitionByToken RightParen rest
                                                        newExpr = fst partition
-                                                       rest = snd partition
-                                                   in case rest of
+                                                       newRest = snd partition
+                                                   in case newRest of
                                                        [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis" []
                                                        h:r -> fmap (\p -> (Grouping (fst p) location, r)) (parseExpression newExpr)
 parsePrimary (head@(Token headType _ headLocation):r)
