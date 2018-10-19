@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hlox (scanTokens, evaluate, parseExpression,
-                LoxValue, ScanningResult, ParsingResult, Token, ParsingStep, ProgramError) where
+                LoxValue, ScanningResult, ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError) where
 
 import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
@@ -213,18 +213,18 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ScanningResult
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
-type ParsingStep = (Expression, [Token])
-type ParsingResult = Either (ProgramError Token) ParsingStep
-type Parser = [Token] -> ParsingResult
+type ParsingExpressionStep = (Expression, [Token])
+type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
+type Parser = [Token] -> ParsingExpressionResult
 
-parseExpression :: [Token] -> ParsingResult
+parseExpression :: [Token] -> ParsingExpressionResult
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseExpression list = parseComma list
 
-createBinaryResult :: TokenType -> SourceCodeLocation -> Expression -> ParsingResult -> ParsingResult
+createBinaryResult :: TokenType -> SourceCodeLocation -> Expression -> ParsingExpressionResult -> ParsingExpressionResult
 createBinaryResult tokenType location expr = fmap (\r -> (Binary expr tokenType (fst r) location, snd r))
 
-concatenate :: [TokenType] -> Parser -> Expression -> [Token] -> ParsingResult
+concatenate :: [TokenType] -> Parser -> Expression -> [Token] -> ParsingExpressionResult
 concatenate _ _ expr [] = Right $ (expr, [])
 concatenate tokens parser expr (head:rest)
   | elem (tokenType head) tokens = createBinaryResult (tokenType head) (tokenLocation head) expr (parser rest)
@@ -241,12 +241,12 @@ consume needle error (head:tail)
 
 parseTernary :: Parser
 parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
-    where parseTernaryOperator :: ParsingStep -> ParsingResult
+    where parseTernaryOperator :: ParsingExpressionStep -> ParsingExpressionResult
           parseTernaryOperator (expr, [])   = Right $ (expr, [])
           parseTernaryOperator (expr, tokens@(head:rest))
             | (tokenType head) == Question  = createTernaryOperator expr rest
             | otherwise                     = Right $ (expr, tokens)
-          createTernaryOperator :: Expression -> [Token] -> ParsingResult
+          createTernaryOperator :: Expression -> [Token] -> ParsingExpressionResult
           createTernaryOperator equality tokens@(head:_) = do
             (thenBranch, rest) <- parseExpression tokens
             rest <- consume Colon "Expect ':' after then branch of conditional expression." rest
