@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, evaluate, parseExpression,
+module Hlox (scanTokens, evaluateExpression, parseExpression,
                 LoxValue, ScanningResult, ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError) where
 
 import Control.Monad (liftM2)
@@ -213,24 +213,24 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ScanningResult
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
-type ParsingExpressionStep = (Expression, [Token])
+type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
-type Parser = [Token] -> ParsingExpressionResult
+type ExpressionParser = [Token] -> ParsingExpressionResult
 
 parseExpression :: [Token] -> ParsingExpressionResult
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseExpression list = parseComma list
 
 createBinaryResult :: TokenType -> SourceCodeLocation -> Expression -> ParsingExpressionResult -> ParsingExpressionResult
-createBinaryResult tokenType location expr = fmap (\r -> (Binary expr tokenType (fst r) location, snd r))
+createBinaryResult tokenType location expr = fmap (\r -> (fst r, Binary expr tokenType (snd r) location))
 
-concatenate :: [TokenType] -> Parser -> Expression -> [Token] -> ParsingExpressionResult
-concatenate _ _ expr [] = Right $ (expr, [])
-concatenate tokens parser expr (head:rest)
+concatenate :: [TokenType] -> ExpressionParser -> [Token] -> Expression -> ParsingExpressionResult
+concatenate _ _ [] expr = Right $ ([], expr)
+concatenate tokens parser (head:rest) expr
   | elem (tokenType head) tokens = createBinaryResult (tokenType head) (tokenLocation head) expr (parser rest)
-  | otherwise                    = Right $ (expr, head:rest)
+  | otherwise                    = Right $ (head:rest, expr)
 
-parseComma :: Parser
+parseComma :: ExpressionParser
 parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
 
 consume :: TokenType -> String -> [Token] -> Either (ProgramError Token) [Token]
@@ -239,47 +239,47 @@ consume needle error (head:tail)
   | needle == (tokenType head)  = Right $ tail
   | otherwise                   = Left $ ProgramError (tokenLocation head) error tail
 
-parseTernary :: Parser
+parseTernary :: ExpressionParser
 parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
     where parseTernaryOperator :: ParsingExpressionStep -> ParsingExpressionResult
-          parseTernaryOperator (expr, [])   = Right $ (expr, [])
-          parseTernaryOperator (expr, tokens@(head:rest))
+          parseTernaryOperator ([], expr)   = Right $ ([], expr)
+          parseTernaryOperator (tokens@(head:rest), expr)
             | (tokenType head) == Question  = createTernaryOperator expr rest
-            | otherwise                     = Right $ (expr, tokens)
+            | otherwise                     = Right $ (tokens, expr)
           createTernaryOperator :: Expression -> [Token] -> ParsingExpressionResult
           createTernaryOperator equality tokens@(head:_) = do
-            (thenBranch, rest) <- parseExpression tokens
+            (rest, thenBranch) <- parseExpression tokens
             rest <- consume Colon "Expect ':' after then branch of conditional expression." rest
-            (elseBranch, rest) <- parseTernary rest
-            Right $ (Conditional equality thenBranch elseBranch (tokenLocation head), rest)
+            (rest, elseBranch) <- parseTernary rest
+            Right $ (rest, Conditional equality thenBranch elseBranch (tokenLocation head))
 
-parseEquality :: Parser
+parseEquality :: ExpressionParser
 parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)
 
-parseComparison :: Parser
+parseComparison :: ExpressionParser
 parseComparison list = (parseAddition list) >>=
                             uncurry (concatenate [Greater, GreaterEqual, Less, LessEqual] parseComparison)
 
-parseAddition :: Parser
+parseAddition :: ExpressionParser
 parseAddition list = (parseMultiplication list) >>= uncurry (concatenate [Minus, Plus] parseAddition)
 
-parseMultiplication :: Parser
+parseMultiplication :: ExpressionParser
 parseMultiplication list = (parseUnary list) >>= uncurry (concatenate [Slash, Star] parseMultiplication)
 
-parseUnary :: Parser
+parseUnary :: ExpressionParser
 parseUnary (head:rest)
-  | elem (tokenType head) [Bang, Minus] = fmap (\r -> (Unary (tokenType head) (fst r) (tokenLocation head), snd r)) result
+  | elem (tokenType head) [Bang, Minus] = fmap (\r -> (fst r, Unary (tokenType head) (snd r) (tokenLocation head))) result
   | otherwise                           = parsePrimary (head:rest)
     where result = parseUnary rest
 
-parsePrimary :: Parser
-parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (ExpressionLiteral literal location, rest)
+parsePrimary :: ExpressionParser
+parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (rest, ExpressionLiteral literal location)
 parsePrimary ((Token LeftParen _ location):rest) = let partition = partitionByToken RightParen rest
                                                        newExpr = fst partition
                                                        newRest = snd partition
                                                    in case newRest of
                                                        [] -> Left $ ProgramError (tokenLocation (head rest)) "Expecting right parenthesis" []
-                                                       h:r -> fmap (\p -> (Grouping (fst p) location, r)) (parseExpression newExpr)
+                                                       h:r -> fmap (\p -> (r, Grouping (snd p) location)) (parseExpression newExpr)
 parsePrimary (head@(Token headType _ headLocation):r)
   | elem headType [EqualEqual, BangEqual]                   = fastForward parseEquality r >>=
                                                                 Left . ProgramError headLocation "Equality without left side"
@@ -291,8 +291,8 @@ parsePrimary (head@(Token headType _ headLocation):r)
                                                                 Left . ProgramError headLocation "Multiplication without left side"
   | otherwise                                               = Left $ ProgramError headLocation "Expecting a literal!" r
 
-fastForward :: Parser -> [Token] -> Either (ProgramError Token) [Token]
-fastForward p ts = fmap snd $ p ts
+fastForward :: ExpressionParser -> [Token] -> Either (ProgramError Token) [Token]
+fastForward p ts = fmap fst $ p ts
 
 discardTillStatement :: [Token] -> [Token]
 discardTillStatement [] = []
@@ -334,57 +334,57 @@ expectString location _ = Left $ ProgramError location "Type error! Expecting a 
 type MathOperation = Double -> Double -> Double
 mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> EvaluationResult
 mathOperation location left op right = do
-  rightOp <- evaluate right >>= (expectNumber location)
-  leftOp <- evaluate left >>= (expectNumber location)
+  rightOp <- evaluateExpression right >>= (expectNumber location)
+  leftOp <- evaluateExpression left >>= (expectNumber location)
   return $ NumberValue ((number leftOp) `op` (number rightOp))
 
 type BooleanOperation = Double -> Double -> Bool
 comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> EvaluationResult
 comparisonOperation location left op right = do
-  rightOp <- evaluate right >>= (expectNumber location)
-  leftOp <- evaluate left >>= (expectNumber location)
+  rightOp <- evaluateExpression right >>= (expectNumber location)
+  leftOp <- evaluateExpression left >>= (expectNumber location)
   return $ BooleanValue ((number leftOp) `op` (number rightOp))
 
 isEquals :: Expression -> Expression -> EvaluationResult
 isEquals left right = do
-  rightOp <- evaluate right
-  leftOp <- evaluate left
+  rightOp <- evaluateExpression right
+  leftOp <- evaluateExpression left
   return $ BooleanValue (leftOp == rightOp)
 
 concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
 concatenateValues location left right = do
-  rightOp <- evaluate right >>= (expectString location)
-  leftOp <- evaluate left >>= (expectString location)
+  rightOp <- evaluateExpression right >>= (expectString location)
+  leftOp <- evaluateExpression left >>= (expectString location)
   return $ StringValue ((string leftOp) ++ (string rightOp))
 
-evaluate :: Expression -> EvaluationResult
-evaluate (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
-evaluate (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
-evaluate (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ BooleanValue False
-evaluate (ExpressionLiteral (NumberLiteral v) _) = Right $ NumberValue v
-evaluate (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
-evaluate (Grouping expr _) = evaluate expr
-evaluate (Unary Bang expr _) = fmap negateTruthy $ evaluate expr
-evaluate (Unary Minus expr location) = evaluate expr >>= (negateDouble location)
-evaluate (Binary left Minus right location) = mathOperation location left (-) right
-evaluate (Binary left Star right location) = mathOperation location left (*) right
-evaluate (Binary left Slash right location) =
+evaluateExpression :: Expression -> EvaluationResult
+evaluateExpression (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
+evaluateExpression (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
+evaluateExpression (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ BooleanValue False
+evaluateExpression (ExpressionLiteral (NumberLiteral v) _) = Right $ NumberValue v
+evaluateExpression (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
+evaluateExpression (Grouping expr _) = evaluateExpression expr
+evaluateExpression (Unary Bang expr _) = fmap negateTruthy $ evaluateExpression expr
+evaluateExpression (Unary Minus expr location) = evaluateExpression expr >>= (negateDouble location)
+evaluateExpression (Binary left Minus right location) = mathOperation location left (-) right
+evaluateExpression (Binary left Star right location) = mathOperation location left (*) right
+evaluateExpression (Binary left Slash right location) =
   let div = mathOperation location left (/) right
       inf = 1/0
   in case div of r@(Right (NumberValue inf)) -> r --Left $ ProgramError location "Division by zero!" []
                  r -> r
-evaluate (Binary left Plus right location) =
+evaluateExpression (Binary left Plus right location) =
   let sum = mathOperation location left (+) right
   in case sum of r@(Right _) -> r
                  (Left _) -> concatenateValues location left right
-evaluate (Binary left Greater right location) = comparisonOperation location left (>) right
-evaluate (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right
-evaluate (Binary left Less right location) = comparisonOperation location left (<) right
-evaluate (Binary left LessEqual right location) = comparisonOperation location left (<=) right
-evaluate (Binary left EqualEqual right _) = isEquals left right
-evaluate (Binary left BangEqual right _) = fmap negateTruthy $ isEquals left right
-evaluate (Binary left Comma right _) = liftM2 seq (evaluate left) (evaluate right)
-evaluate (Conditional condition thenBranch elseBranch location) = do
-  isTruth <- fmap isTruthy (evaluate condition)
-  if (boolean isTruth) then evaluate thenBranch
-                       else evaluate elseBranch
+evaluateExpression (Binary left Greater right location) = comparisonOperation location left (>) right
+evaluateExpression (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right
+evaluateExpression (Binary left Less right location) = comparisonOperation location left (<) right
+evaluateExpression (Binary left LessEqual right location) = comparisonOperation location left (<=) right
+evaluateExpression (Binary left EqualEqual right _) = isEquals left right
+evaluateExpression (Binary left BangEqual right _) = fmap negateTruthy $ isEquals left right
+evaluateExpression (Binary left Comma right _) = liftM2 seq (evaluateExpression left) (evaluateExpression right)
+evaluateExpression (Conditional condition thenBranch elseBranch location) = do
+  isTruth <- fmap isTruthy (evaluateExpression condition)
+  if (boolean isTruth) then evaluateExpression thenBranch
+                       else evaluateExpression elseBranch
