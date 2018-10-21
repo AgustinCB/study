@@ -4,6 +4,7 @@ module Hlox (scanTokens, evaluateExpression, parseExpression,
 
 import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
+import qualified Data.Map as Map
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (listToMaybe)
@@ -66,7 +67,7 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } deriving Show
 
 data Statement = StatementExpression Expression |
-    PrintStatement Statement deriving Show
+    PrintStatement Expression deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -213,11 +214,23 @@ scanTokens s = scanTokens' s 1
         tokenResultToParseOutcome :: TokenResult -> ScanningResult
         tokenResultToParseOutcome (token, rest, line) = fmap ((:) token) $ scanTokens' rest line
 
+type ParsingStatementStep = ([Token], Statement)
+type ParsingStatementResult = Either (ProgramError Token) ParsingStatementStep
+type StatementParser = [Token] -> ParsingStatementResult
+
+parseStatement :: StatementParser
+parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
+parseStatement ((Token Print _ _):rest) = fmap (fmap PrintStatement) (parseExpression rest)
+parseStatement list = do
+  (rest, expression) <- parseExpression list
+  newRest <- consume Semicolon "Expected semicolon" rest
+  return (newRest, StatementExpression expression)
+
 type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
 type ExpressionParser = [Token] -> ParsingExpressionResult
 
-parseExpression :: [Token] -> ParsingExpressionResult
+parseExpression :: ExpressionParser
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseExpression list = parseComma list
 
@@ -388,3 +401,14 @@ evaluateExpression (Conditional condition thenBranch elseBranch location) = do
   isTruth <- fmap isTruthy (evaluateExpression condition)
   if (boolean isTruth) then evaluateExpression thenBranch
                        else evaluateExpression elseBranch
+
+type LoxState = Map.Map String LoxValue
+
+zeroState :: LoxState
+zeroState = Map.empty
+
+evaluateStatement :: Statement -> LoxState -> IO LoxState
+evaluateStatement (PrintStatement expression) state =
+  let expressionString = case (evaluateExpression expression) of Right o -> show o
+                                                                 Left o -> show o
+  in putStr expressionString >> return state

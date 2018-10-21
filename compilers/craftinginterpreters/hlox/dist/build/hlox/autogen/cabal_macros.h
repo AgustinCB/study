@@ -44,15 +44,15 @@
   (major1) == 1 && (major2) == 20 && (minor) <= 8)
 #endif /* MIN_TOOL_VERSION_cpphs */
 
-/* tool gcc-8.2.0 */
+/* tool gcc-8.2.1 */
 #ifndef TOOL_VERSION_gcc
-#define TOOL_VERSION_gcc "8.2.0"
+#define TOOL_VERSION_gcc "8.2.1"
 #endif /* TOOL_VERSION_gcc */
 #ifndef MIN_TOOL_VERSION_gcc
 #define MIN_TOOL_VERSION_gcc(major1,major2,minor) (\
   (major1) <  8 || \
   (major1) == 8 && (major2) <  2 || \
-  (major1) == 8 && (major2) == 2 && (minor) <= 0)
+  (major1) == 8 && (major2) == 2 && (minor) <= 1)
 #endif /* MIN_TOOL_VERSION_gcc */
 
 /* tool ghc-8.4.3 */
@@ -144,7 +144,7 @@
 #endif /* MIN_TOOL_VERSION_strip */
 
 #ifndef CURRENT_COMPONENT_ID
-#define CURRENT_COMPONENT_ID "hlox-0.1.0.0-8Xl0CAuBQhv94nMMQvT0nI-hlox"
+#define CURRENT_COMPONENT_ID "hlox-0.1.0.0-87cotQ6hlmmHt28dVKE5FJ-hlox"
 #endif /* CURRENT_COMPONENT_ID */
 #ifndef CURRENT_PACKAGE_VERSION
 #define CURRENT_PACKAGE_VERSION "0.1.0.0"

@@ -30,7 +30,7 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/home/agustin/.cabal/bin"
-libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0-8Xl0CAuBQhv94nMMQvT0nI-hlox"
+libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0-87cotQ6hlmmHt28dVKE5FJ-hlox"
 dynlibdir  = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3"
 datadir    = "/home/agustin/.cabal/share/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
 libexecdir = "/home/agustin/.cabal/libexec/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
