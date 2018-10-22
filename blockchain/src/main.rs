@@ -1,9 +1,13 @@
+extern crate crypto;
 #[macro_use] extern crate failure;
 extern crate futures;
 extern crate hyper;
 extern crate serde;
 #[macro_use] extern crate serde_derive;
 extern crate serde_json;
+
+use crypto::digest::Digest;
+use crypto::sha2::Sha256;
 
 use failure::Error;
 
@@ -28,7 +32,7 @@ enum BlockchainError {
     NoGenesisBlock,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Hash, Serialize, Deserialize)]
 struct Transaction {
     sender: String,
     recipient: String,
@@ -46,7 +50,10 @@ struct Block {
 
 impl Block {
     pub(crate) fn hash(&self) -> Result<String, Error> {
-        serde_json::to_string(self).map_err(|e| Error::from(e))
+        let string = serde_json::to_string(self).map_err(|e| Error::from(e))?;
+        let mut digest = Sha256::new();
+        digest.input(string.as_bytes());
+        Ok(digest.result_str())
     }
 }
 
@@ -56,6 +63,15 @@ struct Blockchain {
 }
 
 impl Blockchain {
+    fn new() -> Result<Blockchain, Error> {
+        let mut b = Blockchain {
+            chain: vec![],
+            current_transactions: vec![],
+        };
+        b.new_block(100, Some("1".to_owned()))?;
+        Ok(b)
+    }
+
     fn add_transaction(&mut self, t: Transaction) -> Result<usize, Error> {
         self.current_transactions.push(t);
         self.chain.last().map(|b| b.id).ok_or(Error::from(BlockchainError::NoGenesisBlock))
@@ -101,10 +117,7 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>)
 }
 
 fn main() {
-    let blockchain = Blockchain {
-        chain: vec![],
-        current_transactions: vec![],
-    };
+    let blockchain = Blockchain::new().unwrap();
     let addr = "127.0.0.1:9999".parse().unwrap();
 
     hyper::rt::run(future::lazy(move || {
