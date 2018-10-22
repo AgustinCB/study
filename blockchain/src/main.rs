@@ -26,6 +26,26 @@ fn get_timestamp() -> Result<u64, Error> {
     Ok(start.duration_since(UNIX_EPOCH)?.as_secs())
 }
 
+fn is_valid_proof(new: usize, last: usize) -> bool {
+    let s = format!("{}{}", new, last);
+    let mut digest = Sha256::new();
+    digest.input(s.as_bytes());
+    let hash = digest.result_str();
+    hash
+        .chars()
+        .rev()
+        .take(4)
+        .fold(true, |acc, val| acc && (val == '0'))
+}
+
+fn new_proof(last_proof: usize) -> usize {
+    let mut result = 0;
+    while !is_valid_proof(result, last_proof) {
+        result += 1;
+    }
+    result
+}
+
 #[derive(Debug, Fail)]
 enum BlockchainError {
     #[fail(display = "No genesis block")]
@@ -68,7 +88,7 @@ impl Blockchain {
             chain: vec![],
             current_transactions: vec![],
         };
-        b.new_block(100, Some("1".to_owned()))?;
+        b.new_block(Some((100, "1".to_owned())))?;
         Ok(b)
     }
 
@@ -77,12 +97,12 @@ impl Blockchain {
         self.chain.last().map(|b| b.id).ok_or(Error::from(BlockchainError::NoGenesisBlock))
     }
 
-    fn new_block(&mut self, proof: usize, previous_hash: Option<String>) -> Result<&Block, Error> {
-        let previous_hash = if let Some(h) = previous_hash {
-            h
+    fn new_block(&mut self, options: Option<(usize, String)>) -> Result<&Block, Error> {
+        let (proof, previous_hash) = if let Some((p, h)) = options {
+            (p, h)
         } else {
             let block = self.chain.last().ok_or(Error::from(BlockchainError::NoGenesisBlock))?;
-            block.hash()?
+            (new_proof(block.proof), block.hash()?)
         };
         let block = Block {
             id: self.chain.len() + 1,
