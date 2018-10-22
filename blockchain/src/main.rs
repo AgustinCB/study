@@ -11,7 +11,7 @@ use crypto::sha2::Sha256;
 
 use failure::Error;
 
-use futures::{future, Future};
+use futures::{future, Future, Stream};
 
 use hyper::{Body, Client, Method, Request, Response, Server, StatusCode};
 use hyper::client::HttpConnector;
@@ -122,7 +122,15 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>)
 {
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/") => {
-            let body = Body::from("HOLA");
+            let body = Body::from("pong");
+            Box::new(future::ok(Response::new(body)))
+        },
+        (&Method::POST, "/transaction") => {
+            req.into_body().map(|chunk| {
+                let s = std::str::from_utf8(chunk.into_iter().collect::<Vec<u8>>().as_slice()).unwrap().to_owned();
+                println!("PEPEPE {}", s);
+            });
+            let body = Body::from("ok");
             Box::new(future::ok(Response::new(body)))
         },
         _ => {
