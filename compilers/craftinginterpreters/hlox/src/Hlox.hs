@@ -412,3 +412,9 @@ evaluateStatement (PrintStatement expression) state =
   let expressionString = case (evaluateExpression expression) of Right o -> show o
                                                                  Left o -> show o
   in putStr expressionString >> return state
+evaluateStatement (StatementExpression expression) state =
+  evaluateStatementExpression (evaluateExpression expression) >> return state
+
+evaluateStatementExpression :: EvaluationResult -> IO ()
+evaluateStatementExpression (Left o) = putStr (show o)
+evaluateStatementExpression (Right v) = return (v `seq` ())
