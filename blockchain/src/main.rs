@@ -1,6 +1,11 @@
 #[macro_use] extern crate failure;
 extern crate futures;
 extern crate hyper;
+extern crate serde;
+#[macro_use] extern crate serde_derive;
+extern crate serde_json;
+
+use failure::Error;
 
 use futures::{future, Future};
 
@@ -10,25 +15,39 @@ use hyper::service::service_fn;
 
 #[allow(unused, deprecated)]
 use std::ascii::AsciiExt;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn get_timestamp() -> Result<u64, Error> {
+    let start = SystemTime::now();
+    Ok(start.duration_since(UNIX_EPOCH)?.as_secs())
+}
 
 #[derive(Debug, Fail)]
 enum BlockchainError {
-    #[fail(display = "dummy error")]
-    DummyError,
+    #[fail(display = "No genesis block")]
+    NoGenesisBlock,
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 struct Transaction {
     sender: String,
     recipient: String,
     amount: usize,
 }
 
+#[derive(Serialize, Deserialize)]
 struct Block {
     id: usize,
-    timestamp: f64,
+    timestamp: u64,
     transactions: Vec<Transaction>,
     proof: usize,
     previous_hash: String,
+}
+
+impl Block {
+    pub(crate) fn hash(&self) -> Result<String, Error> {
+        serde_json::to_string(self).map_err(|e| Error::from(e))
+    }
 }
 
 struct Blockchain {
@@ -37,9 +56,28 @@ struct Blockchain {
 }
 
 impl Blockchain {
-    fn add_transaction(&mut self, t: Transaction) -> usize {
+    fn add_transaction(&mut self, t: Transaction) -> Result<usize, Error> {
         self.current_transactions.push(t);
-        self.chain.last().map(|b| b.id).unwrap_or(0)
+        self.chain.last().map(|b| b.id).ok_or(Error::from(BlockchainError::NoGenesisBlock))
+    }
+
+    fn new_block(&mut self, proof: usize, previous_hash: Option<String>) -> Result<&Block, Error> {
+        let previous_hash = if let Some(h) = previous_hash {
+            h
+        } else {
+            let block = self.chain.last().ok_or(Error::from(BlockchainError::NoGenesisBlock))?;
+            block.hash()?
+        };
+        let block = Block {
+            id: self.chain.len() + 1,
+            timestamp: get_timestamp()?,
+            transactions: self.current_transactions.clone(),
+            proof,
+            previous_hash,
+        };
+        self.current_transactions = vec![];
+        self.chain.push(block);
+        Ok(self.chain.last().unwrap())
     }
 }
 
