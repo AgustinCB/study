@@ -67,7 +67,8 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } deriving Show
 
 data Statement = StatementExpression Expression |
-    PrintStatement Expression deriving Show
+    PrintStatement Expression |
+    VariableDeclaration String (Maybe Expression) deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -218,13 +219,21 @@ type ParsingStatementStep = ([Token], Statement)
 type ParsingStatementResult = Either (ProgramError Token) ParsingStatementStep
 type StatementParser = [Token] -> ParsingStatementResult
 
-parseStatement :: StatementParser
-parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
-parseStatement ((Token Print _ _):rest) = fmap (fmap PrintStatement) (parseExpression rest)
-parseStatement list = do
+createStatementFromExpression :: (Expression -> Statement) -> [Token] -> ParsingStatementResult
+createStatementFromExpression f list = do
   (rest, expression) <- parseExpression list
   newRest <- consume Semicolon "Expected semicolon" rest
-  return (newRest, StatementExpression expression)
+  return (newRest, f expression)
+
+parseStatement :: StatementParser
+parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
+parseStatement ((Token Print _ _):list) = createStatementFromExpression PrintStatement list
+parseStatement ((Token Var _ _):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
+  Right $ (list, VariableDeclaration ident Nothing)
+parseStatement ((Token Var _ _):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
+  createStatementFromExpression ((VariableDeclaration ident) . Just) list
+parseStatement ((Token Var _ location):list) = Left $ ProgramError location "Invalid variable declaration!" []
+parseStatement list = createStatementFromExpression StatementExpression list
 
 type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep

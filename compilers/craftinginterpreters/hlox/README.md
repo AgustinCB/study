@@ -6,13 +6,22 @@ using Haskell.
 ## Grammar
 
 ```$xslt
-program         → statement* EOF ;
+program         → declaration* EOF ;
+
+declaration     → varDecl
+                | statement ;
 
 statement       → exprStmt
                 | printStmt ;
 
 exprStmt        → expression ";" ;
 printStmt       → "print" expression ";" ;
+varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+primary         → "true" | "false" | "nil" | "this"
+                | NUMBER | STRING
+                | "(" expression ")"
+                | IDENTIFIER ;
 
 expression      → commaExpression ;
 commaExpression → ternary ( "," ternary )* ;
