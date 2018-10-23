@@ -52,7 +52,7 @@ enum BlockchainError {
     NoGenesisBlock,
 }
 
-#[derive(Clone, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 struct Transaction {
     sender: String,
     recipient: String,
@@ -126,12 +126,13 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>)
             Box::new(future::ok(Response::new(body)))
         },
         (&Method::POST, "/transaction") => {
-            req.into_body().map(|chunk| {
+            let p = req.into_body().map(|chunk| {
                 let s = std::str::from_utf8(chunk.into_iter().collect::<Vec<u8>>().as_slice()).unwrap().to_owned();
-                println!("PEPEPE {}", s);
-            });
+                let t: Transaction = serde_json::from_str(&s).unwrap();
+                t
+            }).collect();
             let body = Body::from("ok");
-            Box::new(future::ok(Response::new(body)))
+            Box::new(p.then(|_| future::ok(Response::new(body))))
         },
         _ => {
             // Return 404 not found response.
@@ -145,10 +146,10 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>)
 }
 
 fn main() {
-    let blockchain = Blockchain::new().unwrap();
     let addr = "127.0.0.1:9999".parse().unwrap();
 
     hyper::rt::run(future::lazy(move || {
+        let blockchain = Blockchain::new().unwrap();
         // Share a `Client` with all `Service`s
         let client = Client::new();
 
