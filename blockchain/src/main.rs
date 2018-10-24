@@ -22,6 +22,8 @@ use std::ascii::AsciiExt;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const NODE_IDENTIFIER: &'static str = "UNIQUE ID HERE";
+
 fn get_timestamp() -> Result<u64, Error> {
     let start = SystemTime::now();
     Ok(start.duration_since(UNIX_EPOCH)?.as_secs())
@@ -60,7 +62,7 @@ struct Transaction {
     amount: usize,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Block {
     id: usize,
     timestamp: u64,
@@ -124,6 +126,24 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mu
     match (req.method(), req.uri().path()) {
         (&Method::GET, "/") => {
             let body = Body::from("pong");
+            Box::new(future::ok(Response::new(body)))
+        },
+        (&Method::GET, "/chain") => {
+            let content = serde_json::to_string(&blockchain.lock().unwrap().chain).unwrap();
+            let body = Body::from(content);
+            Box::new(future::ok(Response::new(body)))
+        },
+        (&Method::POST, "/mine") => {
+            let mut blockchain = blockchain.lock().unwrap();
+            let new_block = (*blockchain.new_block(None).unwrap()).clone();
+            let new_transaction = Transaction {
+                sender: String::from(""),
+                recipient: NODE_IDENTIFIER.to_string(),
+                amount: 1,
+            };
+            blockchain.add_transaction(new_transaction).unwrap();
+            let content = serde_json::to_string(&new_block).unwrap();
+            let body = Body::from(content);
             Box::new(future::ok(Response::new(body)))
         },
         (&Method::POST, "/transaction") => {
