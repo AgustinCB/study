@@ -135,14 +135,14 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mu
         },
         (&Method::POST, "/mine") => {
             let mut blockchain = blockchain.lock().unwrap();
-            let new_block = (*blockchain.new_block(None).unwrap()).clone();
             let new_transaction = Transaction {
                 sender: String::from(""),
                 recipient: NODE_IDENTIFIER.to_string(),
                 amount: 1,
             };
             blockchain.add_transaction(new_transaction).unwrap();
-            let content = serde_json::to_string(&new_block).unwrap();
+            let new_block = blockchain.new_block(None).unwrap();
+            let content = serde_json::to_string(new_block).unwrap();
             let body = Body::from(content);
             Box::new(future::ok(Response::new(body)))
         },
