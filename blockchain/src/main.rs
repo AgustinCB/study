@@ -19,6 +19,7 @@ use hyper::service::service_fn;
 
 #[allow(unused, deprecated)]
 use std::ascii::AsciiExt;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn get_timestamp() -> Result<u64, Error> {
@@ -117,7 +118,7 @@ impl Blockchain {
     }
 }
 
-fn response(req: Request<Body>, _client: &Client<HttpConnector>)
+fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mut Arc<Mutex<Blockchain>>)
     -> Box<Future<Item=Response<Body>, Error=hyper::Error> + Send>
 {
     match (req.method(), req.uri().path()) {
@@ -126,10 +127,11 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>)
             Box::new(future::ok(Response::new(body)))
         },
         (&Method::POST, "/transaction") => {
-            let p = req.into_body().map(|chunk| {
+            let b = blockchain.clone();
+            let p = req.into_body().map(move |chunk| {
                 let s = std::str::from_utf8(chunk.into_iter().collect::<Vec<u8>>().as_slice()).unwrap().to_owned();
                 let t: Transaction = serde_json::from_str(&s).unwrap();
-                t
+                b.lock().unwrap().add_transaction(t).unwrap();
             }).collect();
             let body = Body::from("ok");
             Box::new(p.then(|_| future::ok(Response::new(body))))
@@ -149,15 +151,16 @@ fn main() {
     let addr = "127.0.0.1:9999".parse().unwrap();
 
     hyper::rt::run(future::lazy(move || {
-        let blockchain = Blockchain::new().unwrap();
+        let blockchain = Arc::new(Mutex::new(Blockchain::new().unwrap()));
         // Share a `Client` with all `Service`s
         let client = Client::new();
 
         let new_service = move || {
             // Move a clone of `client` into the `service_fn`.
             let client = client.clone();
+            let blockchain = blockchain.clone();
             service_fn(move |req| {
-                response(req, &client)
+                response(req, &client, &mut blockchain.clone())
             })
         };
 
