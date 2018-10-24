@@ -423,7 +423,14 @@ evaluateStatement (PrintStatement expression) state =
   in putStr expressionString >> return state
 evaluateStatement (StatementExpression expression) state =
   evaluateStatementExpression (evaluateExpression expression) >> return state
+evaluateStatement (VariableDeclaration ident Nothing) state = return (Map.insert ident NilValue state)
+evaluateStatement (VariableDeclaration ident (Just expression)) state =
+  case (evaluateExpression expression) of Right o -> evaluateVariableDeclaration ident o state
+                                          Left o -> putStr (show o) >> return state
 
 evaluateStatementExpression :: EvaluationResult -> IO ()
 evaluateStatementExpression (Left o) = putStr (show o)
 evaluateStatementExpression (Right v) = return (v `seq` ())
+
+evaluateVariableDeclaration :: String -> LoxValue -> LoxState -> IO LoxState
+evaluateVariableDeclaration ident value state = value `seq` return (Map.insert ident value state)
