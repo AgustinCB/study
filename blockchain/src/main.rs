@@ -19,6 +19,8 @@ use hyper::service::service_fn;
 
 #[allow(unused, deprecated)]
 use std::ascii::AsciiExt;
+use std::collections::HashSet;
+use std::iter::{FromIterator, IntoIterator};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -83,6 +85,7 @@ impl Block {
 struct Blockchain {
     chain: Vec<Block>,
     current_transactions: Vec<Transaction>,
+    nodes: HashSet<String>,
 }
 
 impl Blockchain {
@@ -90,6 +93,7 @@ impl Blockchain {
         let mut b = Blockchain {
             chain: vec![],
             current_transactions: vec![],
+            nodes: HashSet::new(),
         };
         b.new_block(Some((100, "1".to_owned())))?;
         Ok(b)
@@ -145,6 +149,18 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mu
             let content = serde_json::to_string(new_block).unwrap();
             let body = Body::from(content);
             Box::new(future::ok(Response::new(body)))
+        },
+        (&Method::POST, "/nodes") => {
+            let b = blockchain.clone();
+            let p = req.into_body().map(move |chunk| {
+                let s = std::str::from_utf8(chunk.into_iter().collect::<Vec<u8>>().as_slice()).unwrap().to_owned();
+                let nodes: Vec<String> = serde_json::from_str(&s).unwrap();
+                let mut blockchain = b.lock().unwrap();
+                let new_nodes = HashSet::from_iter(blockchain.nodes.intersection(&HashSet::from_iter(nodes.into_iter())).map(|n| n.to_string()));
+                blockchain.nodes = new_nodes;
+            }).collect();
+            let body = Body::from("ok");
+            Box::new(p.then(|_| future::ok(Response::new(body))))
         },
         (&Method::POST, "/transaction") => {
             let b = blockchain.clone();
