@@ -64,7 +64,8 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     Binary { right :: Expression, operator :: TokenType, left :: Expression, expressionLocation :: SourceCodeLocation } |
     Unary { operator :: TokenType, operand :: Expression, expressionLocation :: SourceCodeLocation } |
     Grouping { expression :: Expression, expressionLocation :: SourceCodeLocation } |
-    ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } deriving Show
+    ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } |
+    VariableLiteral { identifier :: String, expressionLocation :: SourceCodeLocation } deriving Show
 
 data Statement = StatementExpression Expression |
     PrintStatement Expression |
@@ -296,6 +297,7 @@ parseUnary (head:rest)
 
 parsePrimary :: ExpressionParser
 parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (rest, ExpressionLiteral literal location)
+parsePrimary ((Token (Identifier ident) _ location):rest) = Right (rest, VariableLiteral ident location)
 parsePrimary ((Token LeftParen _ location):rest) = let partition = partitionByToken RightParen rest
                                                        newExpr = fst partition
                                                        newRest = snd partition
