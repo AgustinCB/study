@@ -122,6 +122,20 @@ impl Blockchain {
         self.chain.push(block);
         Ok(self.chain.last().unwrap())
     }
+    
+    fn valid_chain(chain: Vec<Block>) -> Result<bool, Error> {
+        for i in 1..chain.len() {
+            let block = &chain[i];
+            let previous_block = &chain[i-1];
+            if block.previous_hash != previous_block.hash()? {
+                return Ok(false);
+            }
+            if !is_valid_proof(previous_block.proof, block.proof) {
+                return Ok(false);
+            }
+        }
+        return Ok(true);
+    }
 }
 
 fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mut Arc<Mutex<Blockchain>>)
