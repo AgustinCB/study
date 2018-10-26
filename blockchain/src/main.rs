@@ -13,7 +13,7 @@ use failure::Error;
 
 use futures::{future, Future, Stream};
 
-use hyper::{Body, Client, Method, Request, Response, Server, StatusCode};
+use hyper::{Body, Client, Method, Request, Response, Server, StatusCode, Uri};
 use hyper::client::HttpConnector;
 use hyper::service::service_fn;
 
@@ -123,7 +123,7 @@ impl Blockchain {
         Ok(self.chain.last().unwrap())
     }
     
-    fn valid_chain(chain: Vec<Block>) -> Result<bool, Error> {
+    fn valid_chain(chain: &Vec<Block>) -> Result<bool, Error> {
         for i in 1..chain.len() {
             let block = &chain[i];
             let previous_block = &chain[i-1];
@@ -136,9 +136,39 @@ impl Blockchain {
         }
         return Ok(true);
     }
+
+    fn resolve_conflicts(&mut self, client: &Client<HttpConnector>) -> Result<bool, Error> {
+        let node_urls: Result<Vec<Uri>, _> = self.nodes.clone().into_iter().map(|n| n.parse()).collect();
+        let urls = node_urls.map_err(|e| Error::from(e))?;
+        let vs = future::join_all(urls.into_iter()
+            .map(|url| client.get(url).and_then(|b| {
+                b.into_body()
+                    .fold(String::from(""), |acc, c| {
+                        let v = String::from_utf8(c.into_iter().collect::<Vec<u8>>()).unwrap();
+                        future::ok::<String, hyper::Error>(acc.to_owned() + &v)
+                    })
+                    .map(|s| serde_json::from_str::<Vec<Block>>(&s).unwrap())
+            })));
+        let blockchains = vs.wait()?;
+        let start_value = self.chain.clone();
+        let new_blockchain = blockchains.into_iter().fold(start_value, |c, r| {
+            if c.len() < r.len() && Blockchain::valid_chain(&r).unwrap() {
+                r
+            } else {
+                c
+            }
+        });
+        let is_different = new_blockchain.len() != self.chain.len();
+        if is_different {
+            self.chain = (*new_blockchain).to_vec();
+        }
+        Ok(is_different)
+    }
 }
 
-fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mut Arc<Mutex<Blockchain>>)
+#[derive(Serialize)]
+struct ResolveResponse { status_changed: bool }
+fn response(req: Request<Body>, client: &Client<HttpConnector>, blockchain: &mut Arc<Mutex<Blockchain>>)
     -> Box<Future<Item=Response<Body>, Error=hyper::Error> + Send>
 {
     match (req.method(), req.uri().path()) {
@@ -175,6 +205,12 @@ fn response(req: Request<Body>, _client: &Client<HttpConnector>, blockchain: &mu
             }).collect();
             let body = Body::from("ok");
             Box::new(p.then(|_| future::ok(Response::new(body))))
+        },
+        (&Method::POST, "/resolve") => {
+            let response = ResolveResponse { status_changed: blockchain.lock().unwrap().resolve_conflicts(client).unwrap() };
+            let content = serde_json::to_string(&response).unwrap();
+            let body = Body::from(content);
+            Box::new(future::ok(Response::new(body)))
         },
         (&Method::POST, "/transaction") => {
             let b = blockchain.clone();
