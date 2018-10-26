@@ -152,7 +152,9 @@ impl Blockchain {
         let blockchains = vs.wait()?;
         let start_value = self.chain.clone();
         let new_blockchain = blockchains.into_iter().fold(start_value, |c, r| {
-            if c.len() < r.len() && Blockchain::valid_chain(&r).unwrap() {
+            if c.len() < r.len() && 
+                c[0].hash().unwrap() == r[0].hash().unwrap() &&
+                Blockchain::valid_chain(&r).unwrap() {
                 r
             } else {
                 c
