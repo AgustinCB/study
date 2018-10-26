@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, evaluateExpression, parseExpression,
-                LoxValue, ScanningResult, ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError) where
+module Hlox (scanTokens, evaluateExpression, parseExpression, LoxValue, ScanningResult, LoxState,
+             ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError, zeroState) where
 
 import Control.Monad (liftM2)
 import Data.Char (isDigit, isAlpha)
@@ -333,7 +333,8 @@ data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String } deriving (Eq, Show)
-type EvaluationResult = Either (ProgramError Expression) LoxValue
+type EvaluationResult = Either (ProgramError Expression) (LoxState, LoxValue)
+type LoxState = Map.Map String LoxValue
 
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
@@ -343,96 +344,105 @@ isTruthy _ = BooleanValue True
 negateTruthy :: LoxValue -> LoxValue
 negateTruthy e = BooleanValue $ not . boolean $ isTruthy e
 
-negateDouble :: SourceCodeLocation -> LoxValue -> EvaluationResult
-negateDouble _ (NumberValue v) = Right $ NumberValue (-v)
-negateDouble location _ = Left $ ProgramError location "Can only negate numbers" []
+negateDouble :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+negateDouble _ s (NumberValue v) = Right $ (s, NumberValue (-v))
+negateDouble location _ _ = Left $ ProgramError location "Can only negate numbers" []
 
-expectNumber :: SourceCodeLocation -> LoxValue -> EvaluationResult
-expectNumber _ n@(NumberValue v ) = Right $ n
-expectNumber location _ = Left $ ProgramError location "Type error! Expecting a double!" []
+expectNumber :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+expectNumber _ s n@(NumberValue v) = Right $ (s, n)
+expectNumber location _ _ = Left $ ProgramError location "Type error! Expecting a double!" []
 
-expectString :: SourceCodeLocation -> LoxValue -> EvaluationResult
-expectString _ n@(StringValue v ) = Right $ n
-expectString location _ = Left $ ProgramError location "Type error! Expecting a string!" []
+expectString :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+expectString _ s n@(StringValue v ) = Right $ (s, n)
+expectString location _ _ = Left $ ProgramError location "Type error! Expecting a string!" []
 
 type MathOperation = Double -> Double -> Double
-mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> EvaluationResult
-mathOperation location left op right = do
-  rightOp <- evaluateExpression right >>= (expectNumber location)
-  leftOp <- evaluateExpression left >>= (expectNumber location)
-  return $ NumberValue ((number leftOp) `op` (number rightOp))
+mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> LoxState -> EvaluationResult
+mathOperation location left op right s = do
+  (_, rightOp) <- evaluateExpression s right >>= uncurry (expectNumber location)
+  (_, leftOp) <- evaluateExpression s left >>= uncurry (expectNumber location)
+  return $ (s, NumberValue ((number leftOp) `op` (number rightOp)))
 
 type BooleanOperation = Double -> Double -> Bool
-comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> EvaluationResult
-comparisonOperation location left op right = do
-  rightOp <- evaluateExpression right >>= (expectNumber location)
-  leftOp <- evaluateExpression left >>= (expectNumber location)
-  return $ BooleanValue ((number leftOp) `op` (number rightOp))
+comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> LoxState -> EvaluationResult
+comparisonOperation location left op right s = do
+  (_, rightOp) <- evaluateExpression s right >>= uncurry (expectNumber location)
+  (_, leftOp) <- evaluateExpression s left >>= uncurry (expectNumber location)
+  return $ (s, BooleanValue ((number leftOp) `op` (number rightOp)))
 
-isEquals :: Expression -> Expression -> EvaluationResult
-isEquals left right = do
-  rightOp <- evaluateExpression right
-  leftOp <- evaluateExpression left
-  return $ BooleanValue (leftOp == rightOp)
+isEquals :: Expression -> Expression -> LoxState -> EvaluationResult
+isEquals left right s = do
+  (_, rightOp) <- evaluateExpression s right
+  (_, leftOp) <- evaluateExpression s left
+  return $ (s, BooleanValue (leftOp == rightOp))
 
-concatenateValues :: SourceCodeLocation -> Expression -> Expression -> EvaluationResult
-concatenateValues location left right = do
-  rightOp <- evaluateExpression right >>= (expectString location)
-  leftOp <- evaluateExpression left >>= (expectString location)
-  return $ StringValue ((string leftOp) ++ (string rightOp))
+concatenateValues :: SourceCodeLocation -> Expression -> Expression -> LoxState -> EvaluationResult
+concatenateValues location left right s = do
+  (_, rightOp) <- evaluateExpression s right >>= uncurry (expectString location)
+  (_, leftOp) <- evaluateExpression s left >>= uncurry (expectString location)
+  return $ (s, StringValue ((string leftOp) ++ (string rightOp)))
 
-evaluateExpression :: Expression -> EvaluationResult
-evaluateExpression (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ NilValue
-evaluateExpression (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ BooleanValue True
-evaluateExpression (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ BooleanValue False
-evaluateExpression (ExpressionLiteral (NumberLiteral v) _) = Right $ NumberValue v
-evaluateExpression (ExpressionLiteral (StringLiteral s) _) = Right $ StringValue s
-evaluateExpression (Grouping expr _) = evaluateExpression expr
-evaluateExpression (Unary Bang expr _) = fmap negateTruthy $ evaluateExpression expr
-evaluateExpression (Unary Minus expr location) = evaluateExpression expr >>= (negateDouble location)
-evaluateExpression (Binary left Minus right location) = mathOperation location left (-) right
-evaluateExpression (Binary left Star right location) = mathOperation location left (*) right
-evaluateExpression (Binary left Slash right location) =
-  let div = mathOperation location left (/) right
+maybeToEvaluationResult :: ProgramError Expression -> LoxState -> Maybe LoxValue -> EvaluationResult
+maybeToEvaluationResult _ s (Just v) = Right (s, v)
+maybeToEvaluationResult e _ Nothing = Left e
+
+evaluateExpression :: LoxState -> Expression -> EvaluationResult
+evaluateExpression s (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ (s, NilValue)
+evaluateExpression s (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ (s, BooleanValue True)
+evaluateExpression s (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ (s, BooleanValue False)
+evaluateExpression s (ExpressionLiteral (NumberLiteral v) _) = Right $ (s, NumberValue v)
+evaluateExpression s (ExpressionLiteral (StringLiteral string) _) = Right $ (s, StringValue string)
+evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationResult (ProgramError l "Variable not found!" []) state
+                                                        $ Map.lookup ident state
+evaluateExpression s (Grouping expr _) = evaluateExpression s expr
+evaluateExpression s (Unary Bang expr _) = do
+  (ns, value) <- evaluateExpression s expr
+  return $ (ns, negateTruthy value)
+evaluateExpression s (Unary Minus expr location) = evaluateExpression s expr >>= uncurry (negateDouble location)
+evaluateExpression s (Binary left Minus right location) = mathOperation location left (-) right s
+evaluateExpression s (Binary left Star right location) = mathOperation location left (*) right s
+evaluateExpression s (Binary left Slash right location) =
+  let div = mathOperation location left (/) right s
       inf = 1/0
-  in case div of r@(Right (NumberValue inf)) -> r --Left $ ProgramError location "Division by zero!" []
+  in case div of r@(Right (_, (NumberValue inf))) -> Left $ ProgramError location "Division by zero!" []
                  r -> r
-evaluateExpression (Binary left Plus right location) =
-  let sum = mathOperation location left (+) right
+evaluateExpression s (Binary left Plus right location) =
+  let sum = mathOperation location left (+) right s
   in case sum of r@(Right _) -> r
-                 (Left _) -> concatenateValues location left right
-evaluateExpression (Binary left Greater right location) = comparisonOperation location left (>) right
-evaluateExpression (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right
-evaluateExpression (Binary left Less right location) = comparisonOperation location left (<) right
-evaluateExpression (Binary left LessEqual right location) = comparisonOperation location left (<=) right
-evaluateExpression (Binary left EqualEqual right _) = isEquals left right
-evaluateExpression (Binary left BangEqual right _) = fmap negateTruthy $ isEquals left right
-evaluateExpression (Binary left Comma right _) = liftM2 seq (evaluateExpression left) (evaluateExpression right)
-evaluateExpression (Conditional condition thenBranch elseBranch location) = do
-  isTruth <- fmap isTruthy (evaluateExpression condition)
-  if (boolean isTruth) then evaluateExpression thenBranch
-                       else evaluateExpression elseBranch
-
-type LoxState = Map.Map String LoxValue
+                 (Left _) -> concatenateValues location left right s
+evaluateExpression s (Binary left Greater right location) = comparisonOperation location left (>) right s
+evaluateExpression s (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right s
+evaluateExpression s (Binary left Less right location) = comparisonOperation location left (<) right s
+evaluateExpression s (Binary left LessEqual right location) = comparisonOperation location left (<=) right s
+evaluateExpression s (Binary left EqualEqual right _) = isEquals left right s
+evaluateExpression s (Binary left BangEqual right _) = do
+  (ns, value) <- isEquals left right s
+  return $ (ns, negateTruthy value)
+evaluateExpression s (Binary left Comma right _) = liftM2 seq (evaluateExpression s left) (evaluateExpression s right)
+evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
+  (ns, value) <- evaluateExpression s condition
+  isTruth <- fmap isTruthy $ Right value
+  if (boolean isTruth) then evaluateExpression s thenBranch
+                       else evaluateExpression s elseBranch
 
 zeroState :: LoxState
 zeroState = Map.empty
 
 evaluateStatement :: Statement -> LoxState -> IO LoxState
 evaluateStatement (PrintStatement expression) state =
-  let expressionString = case (evaluateExpression expression) of Right o -> show o
-                                                                 Left o -> show o
+  let expressionString = case (evaluateExpression state expression) of Right (_, o) -> show o
+                                                                       Left o -> show o
   in putStr expressionString >> return state
 evaluateStatement (StatementExpression expression) state =
-  evaluateStatementExpression (evaluateExpression expression) >> return state
+  evaluateStatementExpression (evaluateExpression state expression)
 evaluateStatement (VariableDeclaration ident Nothing) state = return (Map.insert ident NilValue state)
 evaluateStatement (VariableDeclaration ident (Just expression)) state =
-  case (evaluateExpression expression) of Right o -> evaluateVariableDeclaration ident o state
-                                          Left o -> putStr (show o) >> return state
+  case (evaluateExpression state expression) of Right o -> (uncurry (evaluateVariableDeclaration ident)) o
+                                                Left o -> putStr (show o) >> return state
 
-evaluateStatementExpression :: EvaluationResult -> IO ()
-evaluateStatementExpression (Left o) = putStr (show o)
-evaluateStatementExpression (Right v) = return (v `seq` ())
+evaluateStatementExpression :: EvaluationResult -> IO LoxState
+evaluateStatementExpression (Left o) = putStr (show o) >> return zeroState
+evaluateStatementExpression (Right (s, v)) = return (v `seq` s)
 
-evaluateVariableDeclaration :: String -> LoxValue -> LoxState -> IO LoxState
-evaluateVariableDeclaration ident value state = value `seq` return (Map.insert ident value state)
+evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> IO LoxState
+evaluateVariableDeclaration ident state value = value `seq` return (Map.insert ident value state)

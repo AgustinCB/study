@@ -16,21 +16,26 @@ normalize :: (Show s) => Either (ProgramError s) a -> Either String a
 normalize (Left o) = Left $ show o
 normalize (Right o) = Right o
 
-run :: String -> IO()
-run s = handleOutcome $ (normalize $ scanTokens s) >>= (normalize . parseExpression) >>= (normalize . evaluateExpression . snd)
-  where handleOutcome :: (Show s) => Either String s -> IO()
-        handleOutcome (Right o) = putStrLn (show o)
+run :: LoxState -> String -> IO LoxState
+run state s = handleOutcome $ (normalize $ scanTokens s) >>=
+                (normalize . parseExpression) >>=
+                (normalize . (evaluateExpression state) . snd)
+  where handleOutcome :: Either String (LoxState, LoxValue) -> IO LoxState
+        handleOutcome (Right (s, v)) = putStrLn (show v) >> return s
         handleOutcome (Left o) = die $ "There was an error! " ++  o
 
-runRepl :: IO()
-runRepl = sequence_ processInput
-  where processInput :: [IO()]
-        processInput = (getUserInput >>= run) : processInput
+runRepl :: IO ()
+runRepl = (processInput zeroState) >> return ()
+  where processInput :: LoxState -> IO [LoxState]
+        processInput state = do
+          s <- (getUserInput >>= run state)
+          r <- (processInput s)
+          return $ s:r
         getUserInput :: IO String
         getUserInput = putStr "> " >> hFlush stdout >> getLine
 
-runFile :: String -> IO()
-runFile f = readFile f >>= run
+runFile :: String -> IO ()
+runFile f = readFile f >>= run zeroState >> return ()
 
 main :: IO ()
 main = getArgs >>= parse
