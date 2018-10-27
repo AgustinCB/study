@@ -67,9 +67,10 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } |
     VariableLiteral { identifier :: String, expressionLocation :: SourceCodeLocation } deriving Show
 
-data Statement = StatementExpression Expression |
-    PrintStatement Expression |
-    VariableDeclaration String (Maybe Expression) deriving Show
+data Statement = StatementExpression SourceCodeLocation Expression |
+    PrintStatement SourceCodeLocation Expression |
+    VariableDeclaration SourceCodeLocation String (Maybe Expression) |
+    VariableAssignment SourceCodeLocation String Expression deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -228,13 +229,15 @@ createStatementFromExpression f list = do
 
 parseStatement :: StatementParser
 parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
-parseStatement ((Token Print _ _):list) = createStatementFromExpression PrintStatement list
-parseStatement ((Token Var _ _):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
-  Right $ (list, VariableDeclaration ident Nothing)
-parseStatement ((Token Var _ _):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
-  createStatementFromExpression ((VariableDeclaration ident) . Just) list
+parseStatement ((Token Print _ l):list) = createStatementFromExpression (PrintStatement l) list
+parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
+  Right $ (list, VariableDeclaration l ident Nothing)
+parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
+  createStatementFromExpression ((VariableDeclaration l ident) . Just) list
 parseStatement ((Token Var _ location):list) = Left $ ProgramError location "Invalid variable declaration!" []
-parseStatement list = createStatementFromExpression StatementExpression list
+parseStatement ((Token (Identifier ident) _ l):(Token Equal _ _):list) =
+  createStatementFromExpression (VariableAssignment l ident) list
+parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
 
 type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
@@ -430,15 +433,18 @@ zeroState :: LoxState
 zeroState = Map.empty
 
 evaluateStatement :: LoxState -> Statement -> EvaluationResult
-evaluateStatement state (PrintStatement expression) =
+evaluateStatement state (PrintStatement _ expression) =
   fmap printAndReturnState (evaluateExpression state expression)
   where printAndReturnState :: (LoxState, LoxValue) -> IO LoxState
         printAndReturnState (s, v) = putStr ((show v) ++ "\n") >> return s
-evaluateStatement state (StatementExpression expression) =
+evaluateStatement state (StatementExpression _ expression) =
   evaluateStatementExpression (evaluateExpression state expression)
-evaluateStatement state (VariableDeclaration ident Nothing) = Right $ return (Map.insert ident NilValue state)
-evaluateStatement state (VariableDeclaration ident (Just expression)) =
+evaluateStatement state (VariableDeclaration _ ident Nothing) = Right $ return (Map.insert ident NilValue state)
+evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
+evaluateStatement state (VariableAssignment location ident expression)
+  | Map.member ident state  = fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
+  | otherwise               = Left $ ProgramError location "Variable not found!" []
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression (Left o) = Left o
