@@ -3,6 +3,8 @@ import System.Environment
 import System.Exit
 import System.IO
 
+import Control.Monad (join)
+
 usage :: String
 usage = "usage: hlox [script]"
 
@@ -17,12 +19,15 @@ normalize (Left o) = Left $ show o
 normalize (Right o) = Right o
 
 run :: LoxState -> String -> IO LoxState
-run state s = handleOutcome $ (normalize $ scanTokens s) >>=
-                (normalize . parseStatement) >>=
-                (normalize . (evaluateStatement state) . snd)
-  where handleOutcome :: Either String (IO LoxState) -> IO LoxState
-        handleOutcome (Right s) = s
-        handleOutcome (Left o) = putStr ("There was an error! " ++  o ++ "\n") >> return state
+run state s = handleOutcome $ case tokenResult of Right (_, s) -> fmap normalize $ evaluateStatement state s
+                                                  Left e -> return $ Left e
+  where handleOutcome :: IO (Either String LoxState) -> IO LoxState
+        handleOutcome = join . (fmap handleOutcome')
+        handleOutcome' :: Either String LoxState -> IO LoxState
+        handleOutcome' (Right s) = return s
+        handleOutcome' (Left o) = putStr ("There was an error! " ++  o ++ "\n") >> return state
+        tokenResult :: Either String ([Token], Statement)
+        tokenResult = (normalize $ scanTokens s) >>= (normalize . parseStatement)
 
 runRepl :: IO ()
 runRepl = (processInput zeroState) >> return ()

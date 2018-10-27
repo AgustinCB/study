@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, evaluateStatement, parseStatement, LoxValue, ScanningResult, LoxState,
+module Hlox (scanTokens, evaluateStatement, parseStatement, Statement, ScanningResult, LoxState,
              ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError, zeroState) where
 
 import Control.Monad (liftM2)
@@ -71,7 +71,8 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
 
 data Statement = StatementExpression SourceCodeLocation Expression |
     PrintStatement SourceCodeLocation Expression |
-    VariableDeclaration SourceCodeLocation String (Maybe Expression)  deriving Show
+    VariableDeclaration SourceCodeLocation String (Maybe Expression) |
+    BlockStatement SourceCodeLocation [Statement] deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -236,6 +237,9 @@ parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon 
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
   createStatementFromExpression ((VariableDeclaration l ident) . Just) list
 parseStatement ((Token Var _ location):list) = Left $ ProgramError location "Invalid variable declaration!" []
+parseStatement ((Token LeftBrace _ l):list) = do
+  newRest <- consume RightBrace "Expected '}' after block" list
+  return (newRest, BlockStatement l [])
 parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
 
 type ParsingExpressionStep = ([Token], Expression)
@@ -346,7 +350,7 @@ data LoxValue = NilValue
               | NumberValue { number :: Double }
               | StringValue { string :: String } deriving (Eq, Show)
 type EvaluationExpressionResult = Either (ProgramError Expression) (LoxState, LoxValue)
-type EvaluationResult = Either (ProgramError Expression) (IO LoxState)
+type EvaluationResult = Either (ProgramError Expression) LoxState
 type LoxState = Map.Map String LoxValue
 
 isTruthy :: LoxValue -> LoxValue
@@ -447,20 +451,21 @@ evaluateExpression s (VariableAssignment ident expression location)
 zeroState :: LoxState
 zeroState = Map.empty
 
-evaluateStatement :: LoxState -> Statement -> EvaluationResult
+evaluateStatement :: LoxState -> Statement -> IO EvaluationResult
 evaluateStatement state (PrintStatement _ expression) =
-  fmap printAndReturnState (evaluateExpression state expression)
-  where printAndReturnState :: (LoxState, LoxValue) -> IO LoxState
-        printAndReturnState (s, v) = putStr ((show v) ++ "\n") >> return s
+  case (evaluateExpression state expression) of Left e -> return $ Left e
+                                                Right (s, v) -> putStr ((show v) ++ "\n") >> (return $ Right s)
 evaluateStatement state (StatementExpression _ expression) =
-  evaluateStatementExpression (evaluateExpression state expression)
-evaluateStatement state (VariableDeclaration _ ident Nothing) = Right $ return (Map.insert ident NilValue state)
+  return $ evaluateStatementExpression (evaluateExpression state expression)
+evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (Map.insert ident NilValue state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
-  fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
+  return $ fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
+evaluateStatement state (BlockStatement _ statements) = foldr processNext (return $ Right state) statements
+  where processNext :: Statement -> IO EvaluationResult -> IO EvaluationResult
+        processNext s e = evaluateStatement state s
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
-evaluateStatementExpression (Left o) = Left o
-evaluateStatementExpression (Right (s, v)) = return (v `seq` (return s))
+evaluateStatementExpression o = fmap (uncurry (flip seq)) o
 
-evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> IO LoxState
-evaluateVariableDeclaration ident state value = value `seq` return (Map.insert ident value state)
+evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> LoxState
+evaluateVariableDeclaration ident state value = value `seq` (Map.insert ident value state)
