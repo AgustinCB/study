@@ -18,11 +18,11 @@ normalize (Right o) = Right o
 
 run :: LoxState -> String -> IO LoxState
 run state s = handleOutcome $ (normalize $ scanTokens s) >>=
-                (normalize . parseExpression) >>=
-                (normalize . (evaluateExpression state) . snd)
-  where handleOutcome :: Either String (LoxState, LoxValue) -> IO LoxState
-        handleOutcome (Right (s, v)) = putStrLn (show v) >> return s
-        handleOutcome (Left o) = die $ "There was an error! " ++  o
+                (normalize . parseStatement) >>=
+                (normalize . (evaluateStatement state) . snd)
+  where handleOutcome :: Either String (IO LoxState) -> IO LoxState
+        handleOutcome (Right s) = s
+        handleOutcome (Left o) = putStr ("There was an error! " ++  o) >> return state
 
 runRepl :: IO ()
 runRepl = (processInput zeroState) >> return ()

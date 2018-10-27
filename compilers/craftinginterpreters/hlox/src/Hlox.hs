@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-module Hlox (scanTokens, evaluateExpression, parseExpression, LoxValue, ScanningResult, LoxState,
+module Hlox (scanTokens, evaluateStatement, parseStatement, LoxValue, ScanningResult, LoxState,
              ParsingExpressionResult, Token, ParsingExpressionStep, ProgramError, zeroState) where
 
 import Control.Monad (liftM2)
@@ -333,7 +333,8 @@ data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String } deriving (Eq, Show)
-type EvaluationResult = Either (ProgramError Expression) (LoxState, LoxValue)
+type EvaluationExpressionResult = Either (ProgramError Expression) (LoxState, LoxValue)
+type EvaluationResult = Either (ProgramError Expression) (IO LoxState)
 type LoxState = Map.Map String LoxValue
 
 isTruthy :: LoxValue -> LoxValue
@@ -344,55 +345,55 @@ isTruthy _ = BooleanValue True
 negateTruthy :: LoxValue -> LoxValue
 negateTruthy e = BooleanValue $ not . boolean $ isTruthy e
 
-negateDouble :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+negateDouble :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 negateDouble _ s (NumberValue v) = Right $ (s, NumberValue (-v))
 negateDouble location _ _ = Left $ ProgramError location "Can only negate numbers" []
 
-expectNumber :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+expectNumber :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 expectNumber _ s n@(NumberValue v) = Right $ (s, n)
 expectNumber location _ _ = Left $ ProgramError location "Type error! Expecting a double!" []
 
-expectString :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationResult
+expectString :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 expectString _ s n@(StringValue v ) = Right $ (s, n)
 expectString location _ _ = Left $ ProgramError location "Type error! Expecting a string!" []
 
 type MathOperation = Double -> Double -> Double
-mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> LoxState -> EvaluationResult
+mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> LoxState -> EvaluationExpressionResult
 mathOperation location left op right s = do
   (_, rightOp) <- evaluateExpression s right >>= uncurry (expectNumber location)
   (_, leftOp) <- evaluateExpression s left >>= uncurry (expectNumber location)
   return $ (s, NumberValue ((number leftOp) `op` (number rightOp)))
 
 type BooleanOperation = Double -> Double -> Bool
-comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> LoxState -> EvaluationResult
+comparisonOperation :: SourceCodeLocation -> Expression -> BooleanOperation -> Expression -> LoxState -> EvaluationExpressionResult
 comparisonOperation location left op right s = do
   (_, rightOp) <- evaluateExpression s right >>= uncurry (expectNumber location)
   (_, leftOp) <- evaluateExpression s left >>= uncurry (expectNumber location)
   return $ (s, BooleanValue ((number leftOp) `op` (number rightOp)))
 
-isEquals :: Expression -> Expression -> LoxState -> EvaluationResult
+isEquals :: Expression -> Expression -> LoxState -> EvaluationExpressionResult
 isEquals left right s = do
   (_, rightOp) <- evaluateExpression s right
   (_, leftOp) <- evaluateExpression s left
   return $ (s, BooleanValue (leftOp == rightOp))
 
-concatenateValues :: SourceCodeLocation -> Expression -> Expression -> LoxState -> EvaluationResult
+concatenateValues :: SourceCodeLocation -> Expression -> Expression -> LoxState -> EvaluationExpressionResult
 concatenateValues location left right s = do
   (_, rightOp) <- evaluateExpression s right >>= uncurry (expectString location)
   (_, leftOp) <- evaluateExpression s left >>= uncurry (expectString location)
   return $ (s, StringValue ((string leftOp) ++ (string rightOp)))
 
-maybeToEvaluationResult :: ProgramError Expression -> LoxState -> Maybe LoxValue -> EvaluationResult
-maybeToEvaluationResult _ s (Just v) = Right (s, v)
-maybeToEvaluationResult e _ Nothing = Left e
+maybeToEvaluationExpressionResult :: ProgramError Expression -> LoxState -> Maybe LoxValue -> EvaluationExpressionResult
+maybeToEvaluationExpressionResult _ s (Just v) = Right (s, v)
+maybeToEvaluationExpressionResult e _ Nothing = Left e
 
-evaluateExpression :: LoxState -> Expression -> EvaluationResult
+evaluateExpression :: LoxState -> Expression -> EvaluationExpressionResult
 evaluateExpression s (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ (s, NilValue)
 evaluateExpression s (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right $ (s, BooleanValue True)
 evaluateExpression s (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ (s, BooleanValue False)
 evaluateExpression s (ExpressionLiteral (NumberLiteral v) _) = Right $ (s, NumberValue v)
 evaluateExpression s (ExpressionLiteral (StringLiteral string) _) = Right $ (s, StringValue string)
-evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationResult (ProgramError l "Variable not found!" []) state
+evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationExpressionResult (ProgramError l "Variable not found!" []) state
                                                         $ Map.lookup ident state
 evaluateExpression s (Grouping expr _) = evaluateExpression s expr
 evaluateExpression s (Unary Bang expr _) = do
@@ -428,21 +429,20 @@ evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
 zeroState :: LoxState
 zeroState = Map.empty
 
-evaluateStatement :: Statement -> LoxState -> IO LoxState
-evaluateStatement (PrintStatement expression) state =
-  let expressionString = case (evaluateExpression state expression) of Right (_, o) -> show o
-                                                                       Left o -> show o
-  in putStr expressionString >> return state
-evaluateStatement (StatementExpression expression) state =
+evaluateStatement :: LoxState -> Statement -> EvaluationResult
+evaluateStatement state (PrintStatement expression) =
+  fmap printAndReturnState (evaluateExpression state expression)
+  where printAndReturnState :: (LoxState, LoxValue) -> IO LoxState
+        printAndReturnState (s, v) = putStr (show v) >> return s
+evaluateStatement state (StatementExpression expression) =
   evaluateStatementExpression (evaluateExpression state expression)
-evaluateStatement (VariableDeclaration ident Nothing) state = return (Map.insert ident NilValue state)
-evaluateStatement (VariableDeclaration ident (Just expression)) state =
-  case (evaluateExpression state expression) of Right o -> (uncurry (evaluateVariableDeclaration ident)) o
-                                                Left o -> putStr (show o) >> return state
+evaluateStatement state (VariableDeclaration ident Nothing) = Right $ return (Map.insert ident NilValue state)
+evaluateStatement state (VariableDeclaration ident (Just expression)) =
+  fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
 
-evaluateStatementExpression :: EvaluationResult -> IO LoxState
-evaluateStatementExpression (Left o) = putStr (show o) >> return zeroState
-evaluateStatementExpression (Right (s, v)) = return (v `seq` s)
+evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
+evaluateStatementExpression (Left o) = Left o
+evaluateStatementExpression (Right (s, v)) = return (v `seq` (return s))
 
 evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> IO LoxState
 evaluateVariableDeclaration ident state value = value `seq` return (Map.insert ident value state)
