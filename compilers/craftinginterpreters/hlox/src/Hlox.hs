@@ -65,12 +65,13 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
     Unary { operator :: TokenType, operand :: Expression, expressionLocation :: SourceCodeLocation } |
     Grouping { expression :: Expression, expressionLocation :: SourceCodeLocation } |
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } |
-    VariableLiteral { identifier :: String, expressionLocation :: SourceCodeLocation } deriving Show
+    VariableLiteral { identifier :: String, expressionLocation :: SourceCodeLocation } |
+    VariableAssignment { identifier :: String, expression :: Expression, expressionLocation :: SourceCodeLocation }
+    deriving Show
 
 data Statement = StatementExpression SourceCodeLocation Expression |
     PrintStatement SourceCodeLocation Expression |
-    VariableDeclaration SourceCodeLocation String (Maybe Expression) |
-    VariableAssignment SourceCodeLocation String Expression deriving Show
+    VariableDeclaration SourceCodeLocation String (Maybe Expression)  deriving Show
 
 type TokenResult = (Token, String, Int)
 
@@ -235,8 +236,6 @@ parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon 
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
   createStatementFromExpression ((VariableDeclaration l ident) . Just) list
 parseStatement ((Token Var _ location):list) = Left $ ProgramError location "Invalid variable declaration!" []
-parseStatement ((Token (Identifier ident) _ l):(Token Equal _ _):list) =
-  createStatementFromExpression (VariableAssignment l ident) list
 parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
 
 type ParsingExpressionStep = ([Token], Expression)
@@ -245,7 +244,7 @@ type ExpressionParser = [Token] -> ParsingExpressionResult
 
 parseExpression :: ExpressionParser
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
-parseExpression list = parseComma list
+parseExpression list = parseAssignment list
 
 createBinaryResult :: TokenType -> SourceCodeLocation -> Expression -> ParsingExpressionResult -> ParsingExpressionResult
 createBinaryResult tokenType location expr = fmap (\r -> (fst r, Binary expr tokenType (snd r) location))
@@ -256,14 +255,24 @@ concatenate tokens parser (head:rest) expr
   | elem (tokenType head) tokens = createBinaryResult (tokenType head) (tokenLocation head) expr (parser rest)
   | otherwise                    = Right $ (head:rest, expr)
 
-parseComma :: ExpressionParser
-parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
-
 consume :: TokenType -> String -> [Token] -> Either (ProgramError Token) [Token]
 consume needle error [] = Left $ ProgramError (SourceCodeLocation Nothing 1) error []
 consume needle error (head:tail)
   | needle == (tokenType head)  = Right $ tail
   | otherwise                   = Left $ ProgramError (tokenLocation head) error tail
+
+parseAssignment :: ExpressionParser
+parseAssignment tokens = do
+  (rest, variable) <- parseComma tokens
+  case rest of (Token Equal _ l):[] -> Left $ ProgramError l "No right side in assignment" []
+               (Token Equal _ _):r -> do
+                 (newRest, value) <- parseAssignment r
+                 case variable of (VariableLiteral ident l) -> Right (newRest, (VariableAssignment ident value l))
+                                  a -> Left $ ProgramError (expressionLocation a) "Invalid assignment target" newRest
+               _ -> Right (rest, variable)
+
+parseComma :: ExpressionParser
+parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
 
 parseTernary :: ExpressionParser
 parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
@@ -413,7 +422,8 @@ evaluateExpression s (Binary left Slash right location) =
 evaluateExpression s (Binary left Plus right location) =
   let sum = mathOperation location left (+) right s
   in case sum of r@(Right _) -> r
-                 (Left _) -> concatenateValues location left right s
+                 (Left (ProgramError _ "Type error! Expecting a double!" _)) -> concatenateValues location left right s
+                 e@(Left _) -> e
 evaluateExpression s (Binary left Greater right location) = comparisonOperation location left (>) right s
 evaluateExpression s (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right s
 evaluateExpression s (Binary left Less right location) = comparisonOperation location left (<) right s
@@ -428,6 +438,11 @@ evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
   isTruth <- fmap isTruthy $ Right value
   if (boolean isTruth) then evaluateExpression s thenBranch
                        else evaluateExpression s elseBranch
+evaluateExpression s (VariableAssignment ident expression location)
+  | Map.member ident s  = do
+    (rest, value) <- evaluateExpression s expression
+    Right (Map.insert ident value s, value)
+  | otherwise           = Left $ ProgramError location "Variable not found!" []
 
 zeroState :: LoxState
 zeroState = Map.empty
@@ -442,9 +457,6 @@ evaluateStatement state (StatementExpression _ expression) =
 evaluateStatement state (VariableDeclaration _ ident Nothing) = Right $ return (Map.insert ident NilValue state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
-evaluateStatement state (VariableAssignment location ident expression)
-  | Map.member ident state  = fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
-  | otherwise               = Left $ ProgramError location "Variable not found!" []
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression (Left o) = Left o

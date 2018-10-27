@@ -23,7 +23,8 @@ primary         → "true" | "false" | "nil" | "this"
                 | "(" expression ")"
                 | IDENTIFIER ;
 
-expression      → commaExpression ;
+expression      → assignment ;
+assignment      → IDENTIFIER "=" assignment | commaExpression ;
 commaExpression → ternary ( "," ternary )* ;
 ternary         → equality ( "?" expression <- ternary )? ;
 equality        → comparison ( ( "!=" | "==" ) comparison )* ;
