@@ -433,7 +433,7 @@ evaluateStatement :: LoxState -> Statement -> EvaluationResult
 evaluateStatement state (PrintStatement expression) =
   fmap printAndReturnState (evaluateExpression state expression)
   where printAndReturnState :: (LoxState, LoxValue) -> IO LoxState
-        printAndReturnState (s, v) = putStr (show v) >> return s
+        printAndReturnState (s, v) = putStr ((show v) ++ "\n") >> return s
 evaluateStatement state (StatementExpression expression) =
   evaluateStatementExpression (evaluateExpression state expression)
 evaluateStatement state (VariableDeclaration ident Nothing) = Right $ return (Map.insert ident NilValue state)

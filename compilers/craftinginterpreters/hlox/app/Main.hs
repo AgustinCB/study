@@ -22,7 +22,7 @@ run state s = handleOutcome $ (normalize $ scanTokens s) >>=
                 (normalize . (evaluateStatement state) . snd)
   where handleOutcome :: Either String (IO LoxState) -> IO LoxState
         handleOutcome (Right s) = s
-        handleOutcome (Left o) = putStr ("There was an error! " ++  o) >> return state
+        handleOutcome (Left o) = putStr ("There was an error! " ++  o ++ "\n") >> return state
 
 runRepl :: IO ()
 runRepl = (processInput zeroState) >> return ()
