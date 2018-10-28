@@ -349,8 +349,8 @@ data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String } deriving (Eq)
-type EvaluationExpressionResult = Either (ProgramError Expression) (LoxState, LoxValue)
-type EvaluationResult = Either (ProgramError Expression) LoxState
+type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
+type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
 type LoxState = Map.Map String LoxValue
 
 instance Show LoxValue where
@@ -369,15 +369,15 @@ negateTruthy e = BooleanValue $ not . boolean $ isTruthy e
 
 negateDouble :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 negateDouble _ s (NumberValue v) = Right $ (s, NumberValue (-v))
-negateDouble location _ _ = Left $ ProgramError location "Can only negate numbers" []
+negateDouble location s _ = Left (s, ProgramError location "Can only negate numbers" [])
 
 expectNumber :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 expectNumber _ s n@(NumberValue v) = Right $ (s, n)
-expectNumber location _ _ = Left $ ProgramError location "Type error! Expecting a double!" []
+expectNumber location s _ = Left (s, ProgramError location "Type error! Expecting a double!" [])
 
 expectString :: SourceCodeLocation -> LoxState -> LoxValue -> EvaluationExpressionResult
 expectString _ s n@(StringValue v ) = Right $ (s, n)
-expectString location _ _ = Left $ ProgramError location "Type error! Expecting a string!" []
+expectString location s _ = Left (s, ProgramError location "Type error! Expecting a string!" [])
 
 type MathOperation = Double -> Double -> Double
 mathOperation :: SourceCodeLocation -> Expression -> MathOperation -> Expression -> LoxState -> EvaluationExpressionResult
@@ -407,7 +407,7 @@ concatenateValues location left right s = do
 
 maybeToEvaluationExpressionResult :: ProgramError Expression -> LoxState -> Maybe LoxValue -> EvaluationExpressionResult
 maybeToEvaluationExpressionResult _ s (Just v) = Right (s, v)
-maybeToEvaluationExpressionResult e _ Nothing = Left e
+maybeToEvaluationExpressionResult e s Nothing = Left (s, e)
 
 evaluateExpression :: LoxState -> Expression -> EvaluationExpressionResult
 evaluateExpression s (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ (s, NilValue)
@@ -427,12 +427,12 @@ evaluateExpression s (Binary left Star right location) = mathOperation location 
 evaluateExpression s (Binary left Slash right location) =
   let div = mathOperation location left (/) right s
       inf = 1/0
-  in case div of r@(Right (_, (NumberValue inf))) -> Left $ ProgramError location "Division by zero!" []
+  in case div of r@(Right (s, (NumberValue inf))) -> Left (s, ProgramError location "Division by zero!" [])
                  r -> r
 evaluateExpression s (Binary left Plus right location) =
   let sum = mathOperation location left (+) right s
   in case sum of r@(Right _) -> r
-                 (Left (ProgramError _ "Type error! Expecting a double!" _)) -> concatenateValues location left right s
+                 Left (s, ProgramError _ "Type error! Expecting a double!" _) -> concatenateValues location left right s
                  e@(Left _) -> e
 evaluateExpression s (Binary left Greater right location) = comparisonOperation location left (>) right s
 evaluateExpression s (Binary left GreaterEqual right location) = comparisonOperation location left (>=) right s
@@ -452,7 +452,7 @@ evaluateExpression s (VariableAssignment ident expression location)
   | Map.member ident s  = do
     (rest, value) <- evaluateExpression s expression
     Right (Map.insert ident value s, value)
-  | otherwise           = Left $ ProgramError location "Variable not found!" []
+  | otherwise           = Left (s, ProgramError location "Variable not found!" [])
 
 zeroState :: LoxState
 zeroState = Map.empty

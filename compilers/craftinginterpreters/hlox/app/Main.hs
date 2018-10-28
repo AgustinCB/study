@@ -33,10 +33,10 @@ run state content = runStatements state $ stringToStatements content
         runStatements _ (Left error) = putStr ("There was a parsing error! " ++ error ++ "\n") >> return state
         runStatements s (Right statements) = foldl runStatement (return s) statements
         runStatement :: IO LoxState -> Statement -> IO LoxState
-        runStatement state statement = state >>= ((flip evaluateStatement) statement) >>= (resultToIOState state)
-        resultToIOState :: (Show s) => IO LoxState -> Either (ProgramError s) LoxState -> IO LoxState
-        resultToIOState s (Left error) = putStr ("There was an error! " ++  (show error) ++ "\n") >> return zeroState
-        resultToIOState _ (Right newState) = return newState
+        runStatement state statement = state >>= ((flip evaluateStatement) statement) >>= resultToIOState
+        resultToIOState :: (Show s) => Either (LoxState, (ProgramError s)) LoxState -> IO LoxState
+        resultToIOState (Left (s, error)) = putStr ("There was an error! " ++  (show error) ++ "\n") >> return s
+        resultToIOState (Right newState) = return newState
 
 runRepl :: IO ()
 runRepl = (processInput zeroState) >> return ()
