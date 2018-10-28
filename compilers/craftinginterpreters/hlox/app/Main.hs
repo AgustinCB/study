@@ -3,6 +3,7 @@ import System.Environment
 import System.Exit
 import System.IO
 
+import Control.Applicative (liftA2)
 import Control.Monad (join)
 
 usage :: String
@@ -18,16 +19,24 @@ normalize :: (Show s) => Either (ProgramError s) a -> Either String a
 normalize (Left o) = Left $ show o
 normalize (Right o) = Right o
 
+stringToStatements :: String -> Either String [Statement]
+stringToStatements content = (normalize $ scanTokens content) >>= tokensToResult
+  where tokensToResult :: [Token] -> Either String [Statement]
+        tokensToResult tokens = (normalize $ parseStatement tokens) >>= uncurry tokensAndStatementToResult
+        tokensAndStatementToResult :: [Token] -> Statement -> Either String [Statement]
+        tokensAndStatementToResult [] statement = Right [statement]
+        tokensAndStatementToResult tokens statement = liftA2 (:) (Right statement) (tokensToResult tokens)
+
 run :: LoxState -> String -> IO LoxState
-run state s = handleOutcome $ case tokenResult of Right (_, s) -> fmap normalize $ evaluateStatement state s
-                                                  Left e -> return $ Left e
-  where handleOutcome :: IO (Either String LoxState) -> IO LoxState
-        handleOutcome = join . (fmap handleOutcome')
-        handleOutcome' :: Either String LoxState -> IO LoxState
-        handleOutcome' (Right s) = return s
-        handleOutcome' (Left o) = putStr ("There was an error! " ++  o ++ "\n") >> return state
-        tokenResult :: Either String ([Token], Statement)
-        tokenResult = (normalize $ scanTokens s) >>= (normalize . parseStatement)
+run state content = runStatements state $ stringToStatements content
+  where runStatements :: LoxState -> Either String [Statement] -> IO LoxState
+        runStatements _ (Left error) = putStr ("There was an error! " ++ error ++ "\n") >> return state
+        runStatements s (Right statements) = foldl runStatement (return s) statements
+        runStatement :: IO LoxState -> Statement -> IO LoxState
+        runStatement state statement = state >>= ((flip evaluateStatement) statement) >>= ((resultToIOState state) . normalize)
+        resultToIOState :: IO LoxState -> Either String LoxState -> IO LoxState
+        resultToIOState s (Left error) = putStr ("There was an error! " ++  error ++ "\n") >> s
+        resultToIOState _ (Right newState) = return newState
 
 runRepl :: IO ()
 runRepl = (processInput zeroState) >> return ()
