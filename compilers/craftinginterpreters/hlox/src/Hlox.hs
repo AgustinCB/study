@@ -348,10 +348,16 @@ partitionByToken t = span ((/= t) .tokenType)
 data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
-              | StringValue { string :: String } deriving (Eq, Show)
+              | StringValue { string :: String } deriving (Eq)
 type EvaluationExpressionResult = Either (ProgramError Expression) (LoxState, LoxValue)
 type EvaluationResult = Either (ProgramError Expression) LoxState
 type LoxState = Map.Map String LoxValue
+
+instance Show LoxValue where
+  show NilValue = "nil"
+  show (BooleanValue b) = show b
+  show (NumberValue n) = show n
+  show (StringValue s) = s
 
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
