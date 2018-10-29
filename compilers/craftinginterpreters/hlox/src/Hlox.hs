@@ -460,7 +460,7 @@ zeroState = Map.empty
 evaluateStatement :: LoxState -> Statement -> IO EvaluationResult
 evaluateStatement state (PrintStatement _ expression) =
   case (evaluateExpression state expression) of Left e -> return $ Left e
-                                                Right (s, v) -> putStr ((show v) ++ "\n") >> (return $ Right s)
+                                                Right (s, v) -> putStrLn (show v) >> (return $ Right s)
 evaluateStatement state (StatementExpression _ expression) =
   return $ evaluateStatementExpression (evaluateExpression state expression)
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (Map.insert ident NilValue state)

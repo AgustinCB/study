@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(dirname "$(readlink -f "$0")")
+
+cd "$ROOT"/..
+cabal build
+cd "$ROOT"
+
+ls -1 "$ROOT"/*.lox | tr '\n' '\0' | xargs -0 -I {} "$ROOT"/run-test {}
