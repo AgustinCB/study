@@ -8,6 +8,7 @@ import qualified Data.Map as Map
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (listToMaybe)
+import Debug.Trace (trace)
 
 -- Language specs
 
@@ -223,6 +224,9 @@ type ParsingStatementStep = ([Token], Statement)
 type ParsingStatementResult = Either (ProgramError Token) ParsingStatementStep
 type StatementParser = [Token] -> ParsingStatementResult
 
+isToken :: TokenType -> Token -> Bool
+isToken needle token = (tokenType token) == needle
+
 createStatementFromExpression :: (Expression -> Statement) -> [Token] -> ParsingStatementResult
 createStatementFromExpression f list = do
   (rest, expression) <- parseExpression list
@@ -236,8 +240,11 @@ parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon 
   Right $ (list, VariableDeclaration l ident Nothing)
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
   createStatementFromExpression ((VariableDeclaration l ident) . Just) list
-parseStatement ((Token Var _ location):list) = Left $ ProgramError location "Invalid variable declaration!" []
+parseStatement ((Token Var _ l):list) = Left $ ProgramError l "Invalid variable declaration!" []
+parseStatement ((Token LeftBrace _ l):[]) = Left $ ProgramError l "Expected '}' after block" []
+parseStatement ((Token LeftBrace _ l):(Token RightBrace _ _):r) = Right $ (r, BlockStatement l [])
 parseStatement ((Token LeftBrace _ l):list) = do
+  let blockTokens = takeWhile (not . (isToken RightBrace)) list
   newRest <- consume RightBrace "Expected '}' after block" list
   return (newRest, BlockStatement l [])
 parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
