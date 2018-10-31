@@ -1,5 +1,6 @@
 print "BEFORE";
 {
+  print "ON THE BLOCK";
   var a;
   print a;
   print a=3;

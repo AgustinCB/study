@@ -233,6 +233,10 @@ createStatementFromExpression f list = do
   newRest <- consume Semicolon "Expected semicolon" rest
   return (newRest, f expression)
 
+tokensToStatements :: [Token] -> Either (ProgramError Token) [Statement]
+tokensToStatements [] = Right []
+tokensToStatements tokens = parseStatement tokens >>= \p -> liftM2 (:) (Right $ snd p) (tokensToStatements (fst p))
+
 parseStatement :: StatementParser
 parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseStatement ((Token Print _ l):list) = createStatementFromExpression (PrintStatement l) list
@@ -244,9 +248,10 @@ parseStatement ((Token Var _ l):list) = Left $ ProgramError l "Invalid variable 
 parseStatement ((Token LeftBrace _ l):[]) = Left $ ProgramError l "Expected '}' after block" []
 parseStatement ((Token LeftBrace _ l):(Token RightBrace _ _):r) = Right $ (r, BlockStatement l [])
 parseStatement ((Token LeftBrace _ l):list) = do
-  let blockTokens = takeWhile (not . (isToken RightBrace)) list
-  newRest <- consume RightBrace "Expected '}' after block" list
-  return (newRest, BlockStatement l [])
+  let (blockTokens, rest) = partitionByToken RightBrace list
+  statements <- tokensToStatements blockTokens
+  newRest <- consume RightBrace "Expected '}' after block" rest
+  return (newRest, BlockStatement l statements)
 parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
 
 type ParsingExpressionStep = ([Token], Expression)
@@ -473,9 +478,10 @@ evaluateStatement state (StatementExpression _ expression) =
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (Map.insert ident NilValue state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   return $ fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
-evaluateStatement state (BlockStatement _ statements) = foldr processNext (return $ Right state) statements
-  where processNext :: Statement -> IO EvaluationResult -> IO EvaluationResult
-        processNext s e = evaluateStatement state s
+evaluateStatement state (BlockStatement _ statements) = foldl processNext (return $ Right state) statements
+  where processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
+        processNext e s = e >>= \r -> case r of Right state -> evaluateStatement state s
+                                                e -> return $ e
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression o = fmap (uncurry (flip seq)) o
