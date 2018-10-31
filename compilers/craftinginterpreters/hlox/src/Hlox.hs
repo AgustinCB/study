@@ -233,9 +233,12 @@ createStatementFromExpression f list = do
   newRest <- consume Semicolon "Expected semicolon" rest
   return (newRest, f expression)
 
-tokensToStatements :: [Token] -> Either (ProgramError Token) [Statement]
-tokensToStatements [] = Right []
-tokensToStatements tokens = parseStatement tokens >>= \p -> liftM2 (:) (Right $ snd p) (tokensToStatements (fst p))
+blockStatements :: [Token] -> [ParsingStatementResult]
+blockStatements [] = []
+blockStatements ((Token RightBrace _ _):r) = []
+blockStatements ts = let h = parseStatement ts
+                     in case h of Right p -> ((Right p) : (blockStatements (fst p)))
+                                  Left e -> (Left e):(blockStatements (rest e))
 
 parseStatement :: StatementParser
 parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
@@ -248,8 +251,9 @@ parseStatement ((Token Var _ l):list) = Left $ ProgramError l "Invalid variable 
 parseStatement ((Token LeftBrace _ l):[]) = Left $ ProgramError l "Expected '}' after block" []
 parseStatement ((Token LeftBrace _ l):(Token RightBrace _ _):r) = Right $ (r, BlockStatement l [])
 parseStatement ((Token LeftBrace _ l):list) = do
-  let (blockTokens, rest) = partitionByToken RightBrace list
-  statements <- tokensToStatements blockTokens
+  parseResults <- sequence $ blockStatements list
+  let (rest, statements) = case parseResults of [] -> (list, [])
+                                                l -> (fst $ (last l), map snd l)
   newRest <- consume RightBrace "Expected '}' after block" rest
   return (newRest, BlockStatement l statements)
 parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
