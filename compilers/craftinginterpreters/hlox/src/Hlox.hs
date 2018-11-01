@@ -362,6 +362,7 @@ partitionByToken t = span ((/= t) .tokenType)
 
 -- Evaluation
 data LoxValue = NilValue
+              | Uninitialized
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String } deriving (Eq)
@@ -394,6 +395,7 @@ popScope (LoxState maybeParent _) = foldl (const id) zeroState maybeParent
 
 instance Show LoxValue where
   show NilValue = "nil"
+  show Uninitialized = "uninitialized"
   show (BooleanValue b) = show b
   show (NumberValue n) = show n
   show (StringValue s) = s
@@ -444,9 +446,10 @@ concatenateValues location left right s = do
   (_, leftOp) <- evaluateExpression s left >>= uncurry (expectString location)
   return $ (s, StringValue ((string leftOp) ++ (string rightOp)))
 
-maybeToEvaluationExpressionResult :: ProgramError Expression -> LoxState -> Maybe LoxValue -> EvaluationExpressionResult
-maybeToEvaluationExpressionResult _ s (Just v) = Right (s, v)
-maybeToEvaluationExpressionResult e s Nothing = Left (s, e)
+maybeToEvaluationExpressionResult :: SourceCodeLocation -> String -> LoxState -> Maybe LoxValue -> EvaluationExpressionResult
+maybeToEvaluationExpressionResult l _ s (Just Uninitialized) = Left (s, ProgramError l "Variable not initialized!" [])
+maybeToEvaluationExpressionResult _ _ s (Just v) = Right (s, v)
+maybeToEvaluationExpressionResult l e s Nothing = Left (s, ProgramError l e [])
 
 evaluateExpression :: LoxState -> Expression -> EvaluationExpressionResult
 evaluateExpression s (ExpressionLiteral (KeywordLiteral NilKeyword) _) = Right $ (s, NilValue)
@@ -454,7 +457,7 @@ evaluateExpression s (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = Right 
 evaluateExpression s (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right $ (s, BooleanValue False)
 evaluateExpression s (ExpressionLiteral (NumberLiteral v) _) = Right $ (s, NumberValue v)
 evaluateExpression s (ExpressionLiteral (StringLiteral string) _) = Right $ (s, StringValue string)
-evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationExpressionResult (ProgramError l "Variable not found!" []) state
+evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationExpressionResult l "Variable not found!" state
                                                         $ stateLookup ident state
 evaluateExpression s (Grouping expr _) = evaluateExpression s expr
 evaluateExpression s (Unary Bang expr _) = do
@@ -499,7 +502,7 @@ evaluateStatement state (PrintStatement _ expression) =
                                                 Right (s, v) -> putStrLn (show v) >> (return $ Right s)
 evaluateStatement state (StatementExpression _ expression) =
   return $ evaluateStatementExpression (evaluateExpression state expression)
-evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident NilValue state)
+evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident Uninitialized state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   return $ fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
 evaluateStatement state (BlockStatement _ statements) =
