@@ -367,7 +367,30 @@ data LoxValue = NilValue
               | StringValue { string :: String } deriving (Eq)
 type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
 type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
-type LoxState = Map.Map String LoxValue
+data LoxState = LoxState { enclosing :: Maybe LoxState, values :: Map.Map String LoxValue }
+
+zeroState :: LoxState
+zeroState = LoxState Nothing Map.empty
+
+stateLookup :: String -> LoxState -> Maybe LoxValue
+stateLookup ident (LoxState Nothing state) = Map.lookup ident state
+stateLookup ident (LoxState (Just parent) state) = case (Map.lookup ident state) of Just v -> Just v
+                                                                                    Nothing -> stateLookup ident parent
+
+stateMember :: String -> LoxState -> Bool
+stateMember ident (LoxState Nothing state) = Map.member ident state
+stateMember ident (LoxState (Just parent) state)
+  | Map.member ident state = True
+  | otherwise              = stateMember ident parent
+
+stateInsert :: String -> LoxValue -> LoxState -> LoxState
+stateInsert ident value (LoxState parent state) = LoxState parent $ Map.insert ident value state
+
+addScope :: LoxState -> LoxState
+addScope state = LoxState (Just state) Map.empty
+
+popScope :: LoxState -> LoxState
+popScope (LoxState maybeParent _) = foldl (const id) zeroState maybeParent
 
 instance Show LoxValue where
   show NilValue = "nil"
@@ -432,7 +455,7 @@ evaluateExpression s (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = Right
 evaluateExpression s (ExpressionLiteral (NumberLiteral v) _) = Right $ (s, NumberValue v)
 evaluateExpression s (ExpressionLiteral (StringLiteral string) _) = Right $ (s, StringValue string)
 evaluateExpression state (VariableLiteral ident l) = maybeToEvaluationExpressionResult (ProgramError l "Variable not found!" []) state
-                                                        $ Map.lookup ident state
+                                                        $ stateLookup ident state
 evaluateExpression s (Grouping expr _) = evaluateExpression s expr
 evaluateExpression s (Unary Bang expr _) = do
   (ns, value) <- evaluateExpression s expr
@@ -465,13 +488,10 @@ evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
   if (boolean isTruth) then evaluateExpression s thenBranch
                        else evaluateExpression s elseBranch
 evaluateExpression s (VariableAssignment ident expression location)
-  | Map.member ident s  = do
+  | stateMember ident s  = do
     (rest, value) <- evaluateExpression s expression
-    Right (Map.insert ident value s, value)
+    Right (stateInsert ident value s, value)
   | otherwise           = Left (s, ProgramError location "Variable not found!" [])
-
-zeroState :: LoxState
-zeroState = Map.empty
 
 evaluateStatement :: LoxState -> Statement -> IO EvaluationResult
 evaluateStatement state (PrintStatement _ expression) =
@@ -479,10 +499,11 @@ evaluateStatement state (PrintStatement _ expression) =
                                                 Right (s, v) -> putStrLn (show v) >> (return $ Right s)
 evaluateStatement state (StatementExpression _ expression) =
   return $ evaluateStatementExpression (evaluateExpression state expression)
-evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (Map.insert ident NilValue state)
+evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident NilValue state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   return $ fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
-evaluateStatement state (BlockStatement _ statements) = foldl processNext (return $ Right state) statements
+evaluateStatement state (BlockStatement _ statements) =
+  fmap (\r -> fmap popScope r) (foldl processNext (return $ Right $ addScope state) statements)
   where processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
         processNext e s = e >>= \r -> case r of Right state -> evaluateStatement state s
                                                 e -> return $ e
@@ -491,4 +512,4 @@ evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression o = fmap (uncurry (flip seq)) o
 
 evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> LoxState
-evaluateVariableDeclaration ident state value = value `seq` (Map.insert ident value state)
+evaluateVariableDeclaration ident state value = value `seq` (stateInsert ident value state)
