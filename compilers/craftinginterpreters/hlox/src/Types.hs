@@ -81,3 +81,6 @@ type ParsingStatementStep = ([Token], Statement)
 type ParsingStatementResult = Either (ProgramError Token) ParsingStatementStep
 type StatementParser = [Token] -> ParsingStatementResult
 
+type ParsingExpressionStep = ([Token], Expression)
+type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
+type ExpressionParser = [Token] -> ParsingExpressionResult

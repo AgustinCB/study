@@ -34,5 +34,6 @@ library
   ghc-option:          -dynamic
   exposed-modules:     Hlox
   other-modules:       Lexer
+                     , Parser
                      , Types
   default-language:    Haskell2010
