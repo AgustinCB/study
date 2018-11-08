@@ -33,4 +33,6 @@ library
   hs-source-dirs:      src
   ghc-option:          -dynamic
   exposed-modules:     Hlox
+  other-modules:       Lexer
+                     , Types
   default-language:    Haskell2010
