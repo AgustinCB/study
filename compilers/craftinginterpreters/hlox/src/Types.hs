@@ -1,5 +1,7 @@
 module Types where
 
+import qualified Data.Map as Map
+
 data DataKeyword = TrueKeyword | FalseKeyword | NilKeyword deriving (Show, Eq)
 
 data Literal = StringLiteral String |
@@ -84,3 +86,22 @@ type StatementParser = [Token] -> ParsingStatementResult
 type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
 type ExpressionParser = [Token] -> ParsingExpressionResult
+
+data LoxValue = NilValue
+              | Uninitialized
+              | BooleanValue { boolean :: Bool }
+              | NumberValue { number :: Double }
+              | StringValue { string :: String } deriving (Eq)
+type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
+type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
+data LoxState = LoxState { enclosing :: Maybe LoxState, values :: Map.Map String LoxValue }
+
+type MathOperation = Double -> Double -> Double
+type BooleanOperation = Double -> Double -> Bool
+
+instance Show LoxValue where
+  show NilValue = "nil"
+  show Uninitialized = "uninitialized"
+  show (BooleanValue b) = show b
+  show (NumberValue n) = show n
+  show (StringValue s) = s
