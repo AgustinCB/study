@@ -15,11 +15,20 @@ blockStatements :: [Token] -> [ParsingStatementResult]
 blockStatements [] = []
 blockStatements ((Token RightBrace _ _):r) = []
 blockStatements ts = let h = parseStatement ts
-                     in case h of Right p -> ((Right p) : (blockStatements (fst p)))
+                     in case h of Right p -> ((Right p):(blockStatements (fst p)))
                                   Left e -> (Left e):(blockStatements (rest e))
 
 parseStatement :: StatementParser
 parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
+parseStatement ((Token If _ l):list) = do
+  rest1 <- consume LeftParen "Expected '(' after if token" list
+  (rest2, condition) <- parseExpression rest1
+  rest3 <- consume RightParen "Expected ')' after if condition" rest2
+  (rest4, thenStatement) <- parseStatement rest3
+  case rest4 of ((Token Else _ _):rest5) -> do
+                                              (rest6, elseStatement) <- parseStatement rest5
+                                              return $ (rest6, IfStatement l condition thenStatement (Just elseStatement))
+                rest -> return $ (rest, IfStatement l condition thenStatement Nothing)
 parseStatement ((Token Print _ l):list) = createStatementFromExpression (PrintStatement l) list
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
   Right $ (list, VariableDeclaration l ident Nothing)

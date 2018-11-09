@@ -63,7 +63,8 @@ data Expression = Conditional { condition :: Expression, thenBranch :: Expressio
 data Statement = StatementExpression SourceCodeLocation Expression |
     PrintStatement SourceCodeLocation Expression |
     VariableDeclaration SourceCodeLocation String (Maybe Expression) |
-    BlockStatement SourceCodeLocation [Statement] deriving Show
+    BlockStatement SourceCodeLocation [Statement] |
+    IfStatement SourceCodeLocation Expression Statement (Maybe Statement) deriving Show
 
 type TokenResult = (Token, String, Int)
 
