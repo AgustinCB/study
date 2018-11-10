@@ -130,6 +130,16 @@ evaluateStatement state (StatementExpression _ expression) =
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident Uninitialized state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   return $ fmap (uncurry (evaluateVariableDeclaration ident)) (evaluateExpression state expression)
+evaluateStatement state (IfStatement _ condition thenBranch (Just elseBranch)) =
+  evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
+                                                                  evaluateStatement s thenBranch
+                                                                else
+                                                                  evaluateStatement s elseBranch)
+evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
+  evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
+                                                                  evaluateStatement s thenBranch
+                                                                else
+                                                                  return $ Right s)
 evaluateStatement state (BlockStatement _ statements) =
   fmap (\r -> fmap popScope r) (foldl processNext (return $ Right $ addScope state) statements)
   where processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
@@ -141,3 +151,7 @@ evaluateStatementExpression o = fmap (uncurry (flip seq)) o
 
 evaluateVariableDeclaration :: String -> LoxState -> LoxValue -> LoxState
 evaluateVariableDeclaration ident state value = value `seq` (stateInsert ident value state)
+
+evaluateStatementAfterExpression :: LoxState -> Expression -> (LoxState -> LoxValue -> IO EvaluationResult) -> IO EvaluationResult
+evaluateStatementAfterExpression s e f = case (evaluateExpression s e) of Right (newState, value) -> f newState value
+                                                                          Left e -> return $ Left e
