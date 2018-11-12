@@ -64,7 +64,8 @@ data Statement = StatementExpression SourceCodeLocation Expression |
     PrintStatement SourceCodeLocation Expression |
     VariableDeclaration SourceCodeLocation String (Maybe Expression) |
     BlockStatement SourceCodeLocation [Statement] |
-    IfStatement SourceCodeLocation Expression Statement (Maybe Statement) deriving Show
+    IfStatement SourceCodeLocation Expression Statement (Maybe Statement) |
+    WhileStatement SourceCodeLocation Expression Statement deriving Show
 
 type TokenResult = (Token, String, Int)
 

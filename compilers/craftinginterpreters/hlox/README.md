@@ -14,12 +14,14 @@ declaration     → varDecl
 statement       → exprStmt
                 | ifStmt
                 | printStmt
+                | whileStmt
                 | block ;
 
 block           → "{" declaration* "}" ;
 ifStmt          → "if" "(" expression ")" statement ( "else" statement )? ;
 exprStmt        → expression ";" ;
 printStmt       → "print" expression ";" ;
+whileStmt       → "while" "(" expression ")" statement ;
 varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 primary         → "true" | "false" | "nil" | "this"

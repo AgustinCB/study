@@ -29,6 +29,12 @@ parseStatement ((Token If _ l):list) = do
                                               (rest6, elseStatement) <- parseStatement rest5
                                               return $ (rest6, IfStatement l condition thenStatement (Just elseStatement))
                 rest -> return $ (rest, IfStatement l condition thenStatement Nothing)
+parseStatement ((Token While _ l):list) = do
+  rest1 <- consume LeftParen "Expected '(' after if token" list
+  (rest2, condition) <- parseExpression rest1
+  rest3 <- consume RightParen "Expected ')' after if condition" rest2
+  (rest4, statement) <- parseStatement rest3
+  return $ (rest4, WhileStatement l condition statement)
 parseStatement ((Token Print _ l):list) = createStatementFromExpression (PrintStatement l) list
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
   Right $ (list, VariableDeclaration l ident Nothing)

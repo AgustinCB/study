@@ -152,6 +152,13 @@ evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
                                                                   evaluateStatement s thenBranch
                                                                 else
                                                                   return $ Right s)
+evaluateStatement state w@(WhileStatement _ condition body) =
+  evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
+                                                                  evaluateStatement s body >>= (\r ->
+                                                                    case r of Right nw -> evaluateStatement s w
+                                                                              e -> return $ e)
+                                                                else
+                                                                  return $ Right s)
 evaluateStatement state (BlockStatement _ statements) =
   fmap (\r -> fmap popScope r) (foldl processNext (return $ Right $ addScope state) statements)
   where processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
