@@ -78,7 +78,7 @@ parseComma :: ExpressionParser
 parseComma list = (parseTernary list) >>= uncurry (concatenate [Comma] parseComma)
 
 parseTernary :: ExpressionParser
-parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
+parseTernary tokens = parseOr tokens >>= parseTernaryOperator
     where parseTernaryOperator :: ParsingExpressionStep -> ParsingExpressionResult
           parseTernaryOperator ([], expr)   = Right $ ([], expr)
           parseTernaryOperator (tokens@(head:rest), expr)
@@ -90,6 +90,12 @@ parseTernary tokens = parseEquality tokens >>= parseTernaryOperator
             rest <- consume Colon "Expect ':' after then branch of conditional expression." rest
             (rest, elseBranch) <- parseTernary rest
             Right $ (rest, Conditional equality thenBranch elseBranch (tokenLocation head))
+
+parseOr :: ExpressionParser
+parseOr list = (parseAnd list) >>= uncurry (concatenate [And] parseOr)
+
+parseAnd :: ExpressionParser
+parseAnd list = (parseEquality list) >>= uncurry (concatenate [And] parseAnd)
 
 parseEquality :: ExpressionParser
 parseEquality list = (parseComparison list) >>= uncurry (concatenate [BangEqual, EqualEqual] parseEquality)

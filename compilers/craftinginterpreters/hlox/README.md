@@ -28,9 +28,11 @@ primary         → "true" | "false" | "nil" | "this"
                 | IDENTIFIER ;
 
 expression      → assignment ;
-assignment      → IDENTIFIER "=" assignment | commaExpression ;
+assignment      → IDENTIFIER "=" (assignment | commaExpression) ;
 commaExpression → ternary ( "," ternary )* ;
-ternary         → equality ( "?" expression <- ternary )? ;
+ternary         → logicOr ( "?" expression <- ternary )? ;
+logicOr         → logicAnd ( "or" logicAnd )* ;
+logicAnd        → equality ( "and" logicAnd )* ;
 equality        → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison      → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
 addition        → multiplication ( ( "-" | "+" ) multiplication )* ;
