@@ -92,7 +92,7 @@ parseTernary tokens = parseOr tokens >>= parseTernaryOperator
             Right $ (rest, Conditional equality thenBranch elseBranch (tokenLocation head))
 
 parseOr :: ExpressionParser
-parseOr list = (parseAnd list) >>= uncurry (concatenate [And] parseOr)
+parseOr list = (parseAnd list) >>= uncurry (concatenate [Or] parseOr)
 
 parseAnd :: ExpressionParser
 parseAnd list = (parseEquality list) >>= uncurry (concatenate [And] parseAnd)

@@ -4,6 +4,8 @@ import Control.Monad (liftM2)
 import qualified Data.Map as Map
 import Types
 
+import Debug.Trace (trace)
+
 zeroState :: LoxState
 zeroState = LoxState Nothing Map.empty
 
@@ -110,6 +112,16 @@ evaluateExpression s (Binary left BangEqual right _) = do
   (ns, value) <- isEquals left right s
   return $ (ns, negateTruthy value)
 evaluateExpression s (Binary left Comma right _) = liftM2 seq (evaluateExpression s left) (evaluateExpression s right)
+evaluateExpression s (Binary left And right _) = do
+  (ns, value) <- evaluateExpression s left
+  isTruth <- fmap isTruthy $ Right value
+  if (boolean isTruth) then evaluateExpression s right
+                       else return $ (ns, value)
+evaluateExpression s (Binary left Or right _) = do
+  (ns, value) <- evaluateExpression s left
+  isTruth <- fmap isTruthy $ Right value
+  if (boolean isTruth) then return $ (ns, value)
+                       else evaluateExpression s right
 evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
   (ns, value) <- evaluateExpression s condition
   isTruth <- fmap isTruthy $ Right value
