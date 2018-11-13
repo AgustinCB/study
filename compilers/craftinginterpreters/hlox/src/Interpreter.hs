@@ -155,7 +155,7 @@ evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
 evaluateStatement state w@(WhileStatement _ condition body) =
   evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
                                                                   evaluateStatement s body >>= (\r ->
-                                                                    case r of Right nw -> evaluateStatement s w
+                                                                    case r of Right ns -> evaluateStatement ns w
                                                                               e -> return $ e)
                                                                 else
                                                                   return $ Right s)

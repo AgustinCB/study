@@ -1,0 +1,6 @@
+var counter = true;
+
+while (counter)
+  print counter = false;
+
+print "HOLA";
