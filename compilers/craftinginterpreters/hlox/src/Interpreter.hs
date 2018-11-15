@@ -23,6 +23,12 @@ stateMember ident (LoxState (Just parent) state)
 stateInsert :: String -> LoxValue -> LoxState -> LoxState
 stateInsert ident value (LoxState parent state) = LoxState parent $ Map.insert ident value state
 
+stateReplace :: String -> LoxValue -> LoxState -> LoxState
+stateReplace ident value (LoxState Nothing state) = LoxState Nothing $ Map.insert ident value state
+stateReplace ident value (LoxState (Just parent) state) =
+  case (Map.lookup ident state) of Just v -> LoxState (Just parent) $ Map.insert ident value state
+                                   Nothing -> (LoxState (Just (stateInsert ident value parent)) state)
+
 addScope :: LoxState -> LoxState
 addScope state = LoxState (Just state) Map.empty
 
@@ -130,7 +136,7 @@ evaluateExpression s (Conditional condition thenBranch elseBranch location) = do
 evaluateExpression s (VariableAssignment ident expression location)
   | stateMember ident s  = do
     (rest, value) <- evaluateExpression s expression
-    Right (stateInsert ident value s, value)
+    Right (stateReplace ident value s, value)
   | otherwise           = Left (s, ProgramError location "Variable not found!" [])
 
 evaluateStatement :: LoxState -> Statement -> IO EvaluationResult

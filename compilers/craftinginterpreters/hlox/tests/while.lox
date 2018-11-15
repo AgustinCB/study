@@ -1,6 +1,7 @@
-var counter = true;
+var counter = 0;
 
-while (counter)
-  print counter = false;
-
-print "HOLA";
+while (counter < 5) {
+    print "HOLA";
+    counter = counter + 1;
+}
+print "CHAU";
