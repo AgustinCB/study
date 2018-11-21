@@ -1,6 +1,9 @@
 module Parser where
 
+import Control.Monad (liftM4)
 import Types
+
+import Debug.Trace (trace)
 
 isToken :: TokenType -> Token -> Bool
 isToken needle token = (tokenType token) == needle
@@ -18,6 +21,12 @@ blockStatements ts = let h = parseStatement ts
                      in case h of Right p -> ((Right p):(blockStatements (fst p)))
                                   Left e -> (Left e):(blockStatements (rest e))
 
+createForBlock :: Statement -> Statement -> Statement -> Statement -> Statement
+createForBlock init (StatementExpression _ e) incr body = BlockStatement l [init, whileStatement]
+  where l = statementLocation init
+        whileStatement = WhileStatement l e blockStatement
+        blockStatement = BlockStatement (statementLocation body) [body, incr]
+
 parseStatement :: StatementParser
 parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
 parseStatement ((Token If _ l):list) = do
@@ -29,6 +38,30 @@ parseStatement ((Token If _ l):list) = do
                                               (rest6, elseStatement) <- parseStatement rest5
                                               return $ (rest6, IfStatement l condition thenStatement (Just elseStatement))
                 rest -> return $ (rest, IfStatement l condition thenStatement Nothing)
+parseStatement ((Token For _ l):list) =
+  let rest1 = consume LeftParen "Expected '(' after if token" list
+      tempInit = case rest1 of Right ((Token Semicolon _ l):r) ->
+                                 Right (r, StatementExpression l $ ExpressionLiteral (KeywordLiteral NilKeyword) l)
+                               Right r -> parseStatement r
+                               Left e -> Left e
+      init = case tempInit of Right (r, s@(VariableDeclaration _ _ _)) -> Right $ (r, s)
+                              Right (r, s@(StatementExpression _ _)) -> Right $ (r, s)
+                              Right _ -> Left $ ProgramError l "Invalid statement for initialization!" []
+                              Left e -> Left e
+      cond = readStatementExpressionFollowedByToken Semicolon init
+      incr = readStatementExpressionFollowedByToken RightParen cond
+      body = incr >>= \p -> parseStatement (fst p)
+      forInfo = liftM4 (\a -> \b -> \c -> \d -> (snd a, snd b, snd c, snd d, fst d)) init cond incr body
+  in case forInfo of Right (initialize, condition, increment, body, rest) ->
+                        Right (rest, createForBlock initialize condition increment body)
+                     Left e -> Left e
+  where readStatementExpressionFollowedByToken :: TokenType -> ParsingStatementResult -> ParsingStatementResult
+        readStatementExpressionFollowedByToken _ (Left e) = Left e
+        readStatementExpressionFollowedByToken expected (Right (all@((Token t _ l):rest), statement))
+          | expected == t   = Right (rest, StatementExpression l (ExpressionLiteral (KeywordLiteral NilKeyword) l))
+          | otherwise       = parseExpression all
+                                >>= \p -> Right (fst p, StatementExpression l (snd p))
+                                >>= \p -> (fmap (\r -> (r, (snd p))) (consume expected ("Expected '" ++ (show expected) ++ "'") (fst p)))
 parseStatement ((Token While _ l):list) = do
   rest1 <- consume LeftParen "Expected '(' after if token" list
   (rest2, condition) <- parseExpression rest1
@@ -140,7 +173,8 @@ parsePrimary (head@(Token headType _ headLocation):r)
                                                                 Left . ProgramError headLocation "Addition without left side"
   | elem headType [Slash, Star]                             = fastForward parseMultiplication r >>=
                                                                 Left . ProgramError headLocation "Multiplication without left side"
-  | otherwise                                               = Left $ ProgramError headLocation "Expecting a literal!" r
+  | otherwise                                               = Left $ ProgramError headLocation
+                                                                        ("Expecting a literal, but got " ++ (show head) ++ "!") r
 
 fastForward :: ExpressionParser -> [Token] -> Either (ProgramError Token) [Token]
 fastForward p ts = fmap fst $ p ts

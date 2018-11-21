@@ -67,6 +67,14 @@ data Statement = StatementExpression SourceCodeLocation Expression |
     IfStatement SourceCodeLocation Expression Statement (Maybe Statement) |
     WhileStatement SourceCodeLocation Expression Statement deriving Show
 
+statementLocation :: Statement -> SourceCodeLocation
+statementLocation (StatementExpression l _) = l
+statementLocation (PrintStatement l _) = l
+statementLocation (VariableDeclaration l _ _) = l
+statementLocation (BlockStatement l _) = l
+statementLocation (IfStatement l _ _ _) = l
+statementLocation (WhileStatement l _ _) = l
+
 type TokenResult = (Token, String, Int)
 
 -- Program results
