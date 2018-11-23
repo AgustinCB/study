@@ -14,12 +14,12 @@ createStatementFromExpression f list = do
   newRest <- consume Semicolon "Expected semicolon" rest
   return (newRest, f expression)
 
-blockStatements :: [Token] -> [ParsingStatementResult]
-blockStatements [] = []
-blockStatements ((Token RightBrace _ _):r) = []
-blockStatements ts = let h = parseStatement ts
-                     in case h of Right p -> ((Right p):(blockStatements (fst p)))
-                                  Left e -> (Left e):(blockStatements (rest e))
+blockStatements :: [Token] -> Bool -> [ParsingStatementResult]
+blockStatements [] _ = []
+blockStatements ((Token RightBrace _ _):r) _ = []
+blockStatements ts canBreak = let h = parseStatement ts canBreak
+                     in case h of Right p -> ((Right p):(blockStatements (fst p) canBreak))
+                                  Left e -> (Left e):(blockStatements (rest e) canBreak)
 
 createForBlock :: Statement -> Statement -> Statement -> Statement -> Statement
 createForBlock init (StatementExpression _ e) incr body = BlockStatement l [init, whileStatement]
@@ -28,21 +28,21 @@ createForBlock init (StatementExpression _ e) incr body = BlockStatement l [init
         blockStatement = BlockStatement (statementLocation body) [body, incr]
 
 parseStatement :: StatementParser
-parseStatement [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
-parseStatement ((Token If _ l):list) = do
+parseStatement [] _ = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
+parseStatement ((Token If _ l):list) canBreak = do
   rest1 <- consume LeftParen "Expected '(' after if token" list
   (rest2, condition) <- parseExpression rest1
   rest3 <- consume RightParen "Expected ')' after if condition" rest2
-  (rest4, thenStatement) <- parseStatement rest3
+  (rest4, thenStatement) <- parseStatement rest3 canBreak
   case rest4 of ((Token Else _ _):rest5) -> do
-                                              (rest6, elseStatement) <- parseStatement rest5
+                                              (rest6, elseStatement) <- parseStatement rest5 canBreak
                                               return $ (rest6, IfStatement l condition thenStatement (Just elseStatement))
                 rest -> return $ (rest, IfStatement l condition thenStatement Nothing)
-parseStatement ((Token For _ l):list) =
+parseStatement ((Token For _ l):list) _ =
   let rest1 = consume LeftParen "Expected '(' after if token" list
       tempInit = case rest1 of Right ((Token Semicolon _ l):r) ->
                                  Right (r, StatementExpression l $ ExpressionLiteral (KeywordLiteral NilKeyword) l)
-                               Right r -> parseStatement r
+                               Right r -> parseStatement r False
                                Left e -> Left e
       init = case tempInit of Right (r, s@(VariableDeclaration _ _ _)) -> Right $ (r, s)
                               Right (r, s@(StatementExpression _ _)) -> Right $ (r, s)
@@ -50,7 +50,7 @@ parseStatement ((Token For _ l):list) =
                               Left e -> Left e
       cond = readStatementExpressionFollowedByToken Semicolon init
       incr = readStatementExpressionFollowedByToken RightParen cond
-      body = incr >>= \p -> parseStatement (fst p)
+      body = incr >>= \p -> parseStatement (fst p) True
       forInfo = liftM4 (\a -> \b -> \c -> \d -> (snd a, snd b, snd c, snd d, fst d)) init cond incr body
   in case forInfo of Right (initialize, condition, increment, body, rest) ->
                         Right (rest, createForBlock initialize condition increment body)
@@ -62,27 +62,30 @@ parseStatement ((Token For _ l):list) =
           | otherwise       = parseExpression all
                                 >>= \p -> Right (fst p, StatementExpression l (snd p))
                                 >>= \p -> (fmap (\r -> (r, (snd p))) (consume expected ("Expected '" ++ (show expected) ++ "'") (fst p)))
-parseStatement ((Token While _ l):list) = do
+parseStatement ((Token While _ l):list) _ = do
   rest1 <- consume LeftParen "Expected '(' after if token" list
   (rest2, condition) <- parseExpression rest1
   rest3 <- consume RightParen "Expected ')' after if condition" rest2
-  (rest4, statement) <- parseStatement rest3
+  (rest4, statement) <- parseStatement rest3 True
   return $ (rest4, WhileStatement l condition statement)
-parseStatement ((Token Print _ l):list) = createStatementFromExpression (PrintStatement l) list
-parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) =
+parseStatement ((Token Break _ l):(Token Semicolon _ _):r) True = Right $ (r, BreakStatement l)
+parseStatement ((Token Break _ l):(Token Semicolon _ _):r) False = Left $ ProgramError l "Break statement can't go here" r
+parseStatement ((Token Break _ l):r) _ = Left $ ProgramError l "Expected semicolon after break statement" r
+parseStatement ((Token Print _ l):list) _ = createStatementFromExpression (PrintStatement l) list
+parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) _ =
   Right $ (list, VariableDeclaration l ident Nothing)
-parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) =
+parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) _ =
   createStatementFromExpression ((VariableDeclaration l ident) . Just) list
-parseStatement ((Token Var _ l):list) = Left $ ProgramError l "Invalid variable declaration!" []
-parseStatement ((Token LeftBrace _ l):[]) = Left $ ProgramError l "Expected '}' after block" []
-parseStatement ((Token LeftBrace _ l):(Token RightBrace _ _):r) = Right $ (r, BlockStatement l [])
-parseStatement ((Token LeftBrace _ l):list) = do
-  parseResults <- sequence $ blockStatements list
+parseStatement ((Token Var _ l):list) _ = Left $ ProgramError l "Invalid variable declaration!" []
+parseStatement ((Token LeftBrace _ l):[]) _ = Left $ ProgramError l "Expected '}' after block" []
+parseStatement ((Token LeftBrace _ l):(Token RightBrace _ _):r) _ = Right $ (r, BlockStatement l [])
+parseStatement ((Token LeftBrace _ l):list) canBreak = do
+  parseResults <- sequence $ blockStatements list canBreak
   let (rest, statements) = case parseResults of [] -> (list, [])
                                                 l -> (fst $ (last l), map snd l)
   newRest <- consume RightBrace "Expected '}' after block" rest
   return (newRest, BlockStatement l statements)
-parseStatement list@((Token _ _ l):_) = createStatementFromExpression (StatementExpression l) list
+parseStatement list@((Token _ _ l):_) _ = createStatementFromExpression (StatementExpression l) list
 
 parseExpression :: ExpressionParser
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []

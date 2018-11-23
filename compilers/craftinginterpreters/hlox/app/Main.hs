@@ -25,7 +25,7 @@ normalize (Right o) = Right o
 stringToStatements :: String -> Either String [Statement]
 stringToStatements content = (normalize $ scanTokens content) >>= tokensToResult
   where tokensToResult :: [Token] -> Either String [Statement]
-        tokensToResult tokens = (normalize $ parseStatement tokens) >>= uncurry tokensAndStatementToResult
+        tokensToResult tokens = (normalize $ parseStatement tokens False) >>= uncurry tokensAndStatementToResult
         tokensAndStatementToResult :: [Token] -> Statement -> Either String [Statement]
         tokensAndStatementToResult [] statement = Right [statement]
         tokensAndStatementToResult tokens statement = liftA2 (:) (Right statement) (tokensToResult tokens)

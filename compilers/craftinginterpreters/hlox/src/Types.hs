@@ -94,7 +94,7 @@ instance Show (ProgramError a) where
 
 type ParsingStatementStep = ([Token], Statement)
 type ParsingStatementResult = Either (ProgramError Token) ParsingStatementStep
-type StatementParser = [Token] -> ParsingStatementResult
+type StatementParser = [Token] -> Bool -> ParsingStatementResult
 
 type ParsingExpressionStep = ([Token], Expression)
 type ParsingExpressionResult = Either (ProgramError Token) ParsingExpressionStep
