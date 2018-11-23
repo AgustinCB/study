@@ -11,6 +11,9 @@ program         → declaration* EOF ;
 declaration     → varDecl
                 | statement ;
 
+declWithBreak   → varDecl
+                | statementWithBreak ;
+
 statement       → exprStmt
                 | forStmt
                 | ifStmt
@@ -18,14 +21,26 @@ statement       → exprStmt
                 | whileStmt
                 | block ;
 
+stmtWithBreak   → exprStmt
+                | forStmt
+                | ifStmtWithBreak
+                | printStmt
+                | whileStmt
+                | blockWithBreak
+                | breakStmt ;
+
+breakStmt       → break ";" ;
 forStmt         → "for" "(" ( varDecl | exprStmt | ";" )
                      expression? ";"
-                     expression? ")" statement ;
+                     expression? ")" statementWithBreak ;
 block           → "{" declaration* "}" ;
+blockWithBreak  → "{" declWithBreak* "}" ;
 ifStmt          → "if" "(" expression ")" statement ( "else" statement )? ;
+ifStmtWithBreak → "if" "(" expression ")" statementWithBreak 
+                        ( "else" statementWithBreak )? ;
 exprStmt        → expression ";" ;
 printStmt       → "print" expression ";" ;
-whileStmt       → "while" "(" expression ")" statement ;
+whileStmt       → "while" "(" expression ")" statementWithBreak ;
 varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 primary         → "true" | "false" | "nil" | "this"
