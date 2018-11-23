@@ -34,6 +34,7 @@ data TokenType =
     Else |
     Fun |
     For |
+    Break |
     If |
     Or |
     Print |
@@ -65,7 +66,8 @@ data Statement = StatementExpression SourceCodeLocation Expression |
     VariableDeclaration SourceCodeLocation String (Maybe Expression) |
     BlockStatement SourceCodeLocation [Statement] |
     IfStatement SourceCodeLocation Expression Statement (Maybe Statement) |
-    WhileStatement SourceCodeLocation Expression Statement deriving Show
+    WhileStatement SourceCodeLocation Expression Statement |
+    BreakStatement SourceCodeLocation deriving Show
 
 statementLocation :: Statement -> SourceCodeLocation
 statementLocation (StatementExpression l _) = l
@@ -74,6 +76,7 @@ statementLocation (VariableDeclaration l _ _) = l
 statementLocation (BlockStatement l _) = l
 statementLocation (IfStatement l _ _ _) = l
 statementLocation (WhileStatement l _ _) = l
+statementLocation (BreakStatement l) = l
 
 type TokenResult = (Token, String, Int)
 

@@ -104,6 +104,7 @@ createIdentifierOrKeywordToken nextChar input line = identifierOrKeywordToken wo
 identifierOrKeywordToken :: String -> String -> Int -> TokenResult
 identifierOrKeywordToken word rest line
     | word == "and"   = createKeywordToken And word rest line
+    | word == "break"   = createKeywordToken Break word rest line
     | word == "class" = createKeywordToken Class word rest line
     | word == "else"  = createKeywordToken Else word rest line
     | word == "false" = createKeywordToken (TokenLiteral $ KeywordLiteral FalseKeyword) word rest line
