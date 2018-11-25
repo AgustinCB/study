@@ -107,7 +107,11 @@ data LoxValue = NilValue
               | StringValue { string :: String } deriving (Eq)
 type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
 type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
-data LoxState = LoxState { enclosing :: Maybe LoxState, values :: Map.Map String LoxValue } deriving Show
+data LoxState = LoxState {
+    brokeLoop :: Bool,
+    enclosing :: Maybe LoxState,
+    values :: Map.Map String LoxValue
+} deriving Show
 
 type MathOperation = Double -> Double -> Double
 type BooleanOperation = Double -> Double -> Bool
