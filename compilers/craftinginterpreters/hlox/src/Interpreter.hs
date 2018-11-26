@@ -169,12 +169,23 @@ evaluateStatement state w@(WhileStatement _ condition body) =
                                                   e -> return $ e)
                                 else return $ Right s
 evaluateStatement state (BlockStatement _ statements) =
-  fmap (\r -> fmap popScope r) $ last results
-  where results :: [IO EvaluationResult]
+  fmap (\r -> fmap popScope r) $ fmap last executedResults
+  where executedResults = takeIOWhileIncluding notLeftNorBrokeLoop results
         results = scanl processNext (return $ Right $ addScope state) statements
+        notLeftNorBrokeLoop :: EvaluationResult -> Bool
+        notLeftNorBrokeLoop (Left _) = False
+        notLeftNorBrokeLoop (Right (LoxState brokeLoop _ _)) = not brokeLoop
         processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
         processNext e s = e >>= \r -> case r of Right state -> evaluateStatement state s
                                                 e -> return $ e
+
+takeIOWhileIncluding :: (a -> Bool) -> [IO a] -> IO [a]
+takeIOWhileIncluding _ [] = return []
+takeIOWhileIncluding cond (h:r) = do
+  element <- h
+  if cond element then do elements <- takeIOWhileIncluding cond r
+                          return $ element:elements
+                  else return $ [element]
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression o = fmap (uncurry (flip seq)) o
