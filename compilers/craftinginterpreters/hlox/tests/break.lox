@@ -1,0 +1,44 @@
+var i = 0;
+while (i < 5) {
+  print "HOLA";
+  break;
+  i = i + 1;
+}
+
+print "CHAU";
+
+for (var i = 0; i < 5; i = i + 1) {
+  print "HOLA";
+  break;
+}
+
+print "CHAU";
+
+for (var i = 0; i < 5; i = i + 1) {
+  print "HOLA";
+  if (i == 1) break;
+}
+
+print "CHAU";
+
+for (var i = 0; i < 5; i = i + 1) {
+  print "HOLA";
+  for (var i = 0; i < 5; i = i + 1) {
+    print "INNER HOLA";
+    break;
+  }
+  break;
+}
+
+print "CHAU";
+
+for (var i = 0; i < 5; i = i + 1) {
+  print "HOLA";
+  for (var i = 0; i < 5; i = i + 1) {
+    print "INNER HOLA";
+    if (i == 1) break;
+  }
+  break;
+}
+
+print "CHAU";

@@ -33,7 +33,10 @@ addScope :: LoxState -> LoxState
 addScope state = LoxState (brokeLoop state) (Just state) Map.empty
 
 popScope :: LoxState -> LoxState
-popScope (LoxState _ maybeParent _) = foldl (const id) zeroState maybeParent
+popScope (LoxState brokeLoop maybeParent _) = withBrokeLoop brokeLoop $ foldl (const id) zeroState maybeParent
+
+withBrokeLoop :: Bool -> LoxState -> LoxState
+withBrokeLoop b (LoxState _ p s) = LoxState b p s
 
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
@@ -164,28 +167,26 @@ evaluateStatement state w@(WhileStatement _ condition body) =
   where evaluateWhileBody :: LoxState -> LoxValue -> IO EvaluationResult
         evaluateWhileBody s v = if boolean $ (isTruthy v)
                                     then (evaluateStatement s body) >>= (\r ->
-                                        case r of Right (LoxState True p s) -> return $ Right (LoxState False p s)
+                                        case r of Right (LoxState True p ns) -> return $ Right (LoxState False p ns)
                                                   Right ns -> evaluateStatement ns w
                                                   e -> return $ e)
                                 else return $ Right s
 evaluateStatement state (BlockStatement _ statements) =
-  fmap (\r -> fmap popScope r) $ fmap last executedResults
-  where executedResults = takeIOWhileIncluding notLeftNorBrokeLoop results
-        results = scanl processNext (return $ Right $ addScope state) statements
-        notLeftNorBrokeLoop :: EvaluationResult -> Bool
+  fmap (\r -> fmap popScope r) $ foldlTill processNext notLeftNorBrokeLoop (return $ Right $ addScope state) statements
+  where notLeftNorBrokeLoop :: EvaluationResult -> Bool
         notLeftNorBrokeLoop (Left _) = False
         notLeftNorBrokeLoop (Right (LoxState brokeLoop _ _)) = not brokeLoop
         processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
         processNext e s = e >>= \r -> case r of Right state -> evaluateStatement state s
                                                 e -> return $ e
 
-takeIOWhileIncluding :: (a -> Bool) -> [IO a] -> IO [a]
-takeIOWhileIncluding _ [] = return []
-takeIOWhileIncluding cond (h:r) = do
-  element <- h
-  if cond element then do elements <- takeIOWhileIncluding cond r
-                          return $ element:elements
-                  else return $ [element]
+foldlTill :: (Monad m, Show b) => (m b -> a -> m b) -> (b -> Bool) -> m b -> [a] -> m b
+foldlTill f pred zero foldable = lgo zero foldable
+  where lgo z []     =  z
+        lgo z (x:xs) = do
+          res <- f z x
+          if pred res then lgo (return res) xs
+                      else return res
 
 evaluateStatementExpression :: EvaluationExpressionResult -> EvaluationResult
 evaluateStatementExpression o = fmap (uncurry (flip seq)) o
