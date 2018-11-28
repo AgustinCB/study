@@ -60,6 +60,8 @@ addition        → multiplication ( ( "-" | "+" ) multiplication )* ;
 multiplication  → unary ( ( "/" | "*" ) unary )* ;
 unary           → ( "!" | "-" ) unary
                 | primary ;
+call            → primary ( "(" arguments? ")" )* ;
+arguments       → expression ( "," expression )* ;
 primary         → NUMBER | STRING | "false" | "true" | "nil"
                 | "(" expression ")"
                 | ( "!=" | "==" ) equality

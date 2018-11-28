@@ -54,6 +54,7 @@ data Token = Token {
 
 data Expression = Conditional { condition :: Expression, thenBranch :: Expression, elseBranch :: Expression, expressionLocation :: SourceCodeLocation } |
     Binary { right :: Expression, operator :: TokenType, left :: Expression, expressionLocation :: SourceCodeLocation } |
+    Call { callee :: Expression, arguments :: [Expression], expressionLocation :: SourceCodeLocation } |
     Unary { operator :: TokenType, operand :: Expression, expressionLocation :: SourceCodeLocation } |
     Grouping { expression :: Expression, expressionLocation :: SourceCodeLocation } |
     ExpressionLiteral { value :: Literal, expressionLocation :: SourceCodeLocation } |
