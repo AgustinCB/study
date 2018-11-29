@@ -167,7 +167,9 @@ parseCall' callee r = Right (r, callee)
 
 parseCall'' :: Expression -> [Expression] -> ExpressionParser
 parseCall'' callee _ [] = Left $ ProgramError (expressionLocation callee) "Expecting right parenthesis" []
-parseCall'' callee args ((Token RightParen _ l):r) = Right $ (r, Call callee (reverse args) l)
+parseCall'' callee args ((Token RightParen _ l):r)
+ | length args > 8 = Right $ (r, Call callee (reverse args) l)
+ | otherwise       = Left $ ProgramError l "Function call with more than eight arguments" r
 parseCall'' callee args ((Token Comma _ _):r) = parseCall'' callee args r
 parseCall'' callee args r = parseExpression r >>= (uncurry $ \r -> \a -> parseCall'' callee (a:args) r)
 
