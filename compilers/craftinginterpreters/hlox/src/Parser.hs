@@ -159,18 +159,17 @@ parseUnary (head:rest)
     where result = parseUnary rest
 
 parseCall :: ExpressionParser
-parseCall l = do
-  (rest, callee) <- parsePrimary l
-  case rest of ((Token LeftParen _ _):r) -> parseCall' callee [] r
-               _ -> Right (rest, callee)
+parseCall l = parsePrimary l >>= uncurry (flip parseCall')
 
-parseCall' :: Expression -> [Expression] -> ExpressionParser
-parseCall' callee _ [] = Left $ ProgramError (expressionLocation callee) "Expecting right parenthesis" []
-parseCall' callee args ((Token RightParen _ l):r) = Right $ (r, Call callee (reverse args) l)
-parseCall' callee args l = do
-  (newRest, arg) <- parseExpression l
-  case newRest of ((Token Comma _ _):r) -> parseCall' callee (arg:args) r
-                  l -> parseCall' callee (arg:args) l
+parseCall' :: Expression -> ExpressionParser
+parseCall' callee ((Token LeftParen _ _ ):r) = parseCall'' callee [] r >>= uncurry (flip parseCall')
+parseCall' callee r = Right (r, callee)
+
+parseCall'' :: Expression -> [Expression] -> ExpressionParser
+parseCall'' callee _ [] = Left $ ProgramError (expressionLocation callee) "Expecting right parenthesis" []
+parseCall'' callee args ((Token RightParen _ l):r) = Right $ (r, Call callee (reverse args) l)
+parseCall'' callee args ((Token Comma _ _):r) = parseCall'' callee args r
+parseCall'' callee args r = parseExpression r >>= (uncurry $ \r -> \a -> parseCall'' callee (a:args) r)
 
 parsePrimary :: ExpressionParser
 parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (rest, ExpressionLiteral literal location)
