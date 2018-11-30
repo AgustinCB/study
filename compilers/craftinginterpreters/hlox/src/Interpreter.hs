@@ -141,6 +141,19 @@ evaluateExpression s (VariableAssignment ident expression location)
     (rest, value) <- evaluateExpression s expression
     Right (stateReplace ident value s, value)
   | otherwise           = Left (s, ProgramError location "Variable not found!" [])
+evaluateExpression initialState (Call calleeExpression argumentExpressions l) = do
+  (s, callee) <- evaluateExpression initialState calleeExpression
+  arguments <- evaluateMultipleExpressionsInSequence s argumentExpressions
+  let callState = if length arguments == 0 then s else (fst (last arguments))
+  call l callState callee (fmap snd arguments)
+
+call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> EvaluationExpressionResult
+call l s _ _ = Left (s, ProgramError l "Only functions or classes can be called!" [])
+
+evaluateMultipleExpressionsInSequence :: LoxState -> [Expression] -> Either (LoxState, (ProgramError Expression)) [(LoxState, LoxValue)]
+evaluateMultipleExpressionsInSequence state [] = Right []
+evaluateMultipleExpressionsInSequence state (h:t) = evaluateExpression state h >>= (uncurry $ (\s -> \v ->
+                                                      fmap ((:) (s,v)) (evaluateMultipleExpressionsInSequence s t)))
 
 evaluateStatement :: LoxState -> Statement -> IO EvaluationResult
 evaluateStatement state (PrintStatement _ expression) =
