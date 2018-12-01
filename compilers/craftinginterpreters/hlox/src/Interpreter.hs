@@ -148,6 +148,9 @@ evaluateExpression initialState (Call calleeExpression argumentExpressions l) = 
   call l callState callee (fmap snd arguments)
 
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> EvaluationExpressionResult
+call l s (FunctionValue arity f) args
+  | arity /= length args    = Left (s, ProgramError l "Wrong number of arguments!" [])
+  | otherwise               = Right $ f s args
 call l s _ _ = Left (s, ProgramError l "Only functions or classes can be called!" [])
 
 evaluateMultipleExpressionsInSequence :: LoxState -> [Expression] -> Either (LoxState, (ProgramError Expression)) [(LoxState, LoxValue)]

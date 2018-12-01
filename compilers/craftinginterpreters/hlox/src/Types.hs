@@ -105,7 +105,17 @@ data LoxValue = NilValue
               | Uninitialized
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
-              | StringValue { string :: String } deriving (Eq)
+              | StringValue { string :: String }
+              | FunctionValue { arity :: Int, function :: LoxState -> [LoxValue] -> (LoxState, LoxValue) }
+
+instance Eq LoxValue where
+  NilValue == NilValue                  = True
+  Uninitialized == Uninitialized        = True
+  (BooleanValue b) == (BooleanValue b1) = b == b1
+  (NumberValue n) == (NumberValue n1)   = n == n1
+  (StringValue s) == (StringValue s1)   = s == s1
+  _ == _                                = False
+
 type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
 type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
 data LoxState = LoxState {
