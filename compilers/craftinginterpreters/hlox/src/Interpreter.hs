@@ -2,12 +2,15 @@ module Interpreter where
 
 import Control.Monad (liftM2)
 import qualified Data.Map as Map
+import Data.Time.Clock.POSIX (getPOSIXTime)
 import Types
 
 import Debug.Trace (trace)
 
+clock = FunctionValue 0 (\s -> \args -> ((((,) s)) . NumberValue . fromIntegral . round . (* 1000)) <$> getPOSIXTime)
+
 zeroState :: LoxState
-zeroState = LoxState False Nothing Map.empty
+zeroState = LoxState False Nothing $ Map.fromList [("clock", clock)]
 
 stateLookup :: String -> LoxState -> Maybe LoxValue
 stateLookup ident (LoxState _ Nothing state) = Map.lookup ident state

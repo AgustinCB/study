@@ -29,6 +29,7 @@ library
   -- other-extensions:    
   build-depends:       base >=4.11 && <4.12,
                        split,
+                       time,
                        containers
   hs-source-dirs:      src
   ghc-option:          -dynamic
