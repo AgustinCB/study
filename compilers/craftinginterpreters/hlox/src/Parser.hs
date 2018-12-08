@@ -72,6 +72,9 @@ parseStatement ((Token Break _ l):(Token Semicolon _ _):r) True = Right $ (r, Br
 parseStatement ((Token Break _ l):(Token Semicolon _ _):r) False = Left $ ProgramError l "Break statement can't go here" r
 parseStatement ((Token Break _ l):r) _ = Left $ ProgramError l "Expected semicolon after break statement" r
 parseStatement ((Token Print _ l):list) _ = createStatementFromExpression (PrintStatement l) list
+parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):(Token LeftParen _ _):list) = undefined
+parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):_) = Left $ ProgramError l "Expected a parenthesis name!" []
+parseStatement ((Token Fun _ l):list) = Left $ ProgramError l "Expected a function name!" []
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) _ =
   Right $ (list, VariableDeclaration l ident Nothing)
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) _ =

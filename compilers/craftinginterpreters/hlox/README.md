@@ -9,6 +9,7 @@ using Haskell.
 program         → declaration* EOF ;
 
 declaration     → varDecl
+                | funDecl
                 | statement ;
 
 declWithBreak   → varDecl
@@ -42,6 +43,10 @@ exprStmt        → expression ";" ;
 printStmt       → "print" expression ";" ;
 whileStmt       → "while" "(" expression ")" statementWithBreak ;
 varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
+
+funDecl         → "fun" function ;
+function        → IDENTIFIER "(" parameters? ")" block ;
+parameters      → IDENTIFIER ( "," IDENTIFIER )* ;
 
 primary         → "true" | "false" | "nil" | "this"
                 | NUMBER | STRING
