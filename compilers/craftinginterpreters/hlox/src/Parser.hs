@@ -72,9 +72,11 @@ parseStatement ((Token Break _ l):(Token Semicolon _ _):r) True = Right $ (r, Br
 parseStatement ((Token Break _ l):(Token Semicolon _ _):r) False = Left $ ProgramError l "Break statement can't go here" r
 parseStatement ((Token Break _ l):r) _ = Left $ ProgramError l "Expected semicolon after break statement" r
 parseStatement ((Token Print _ l):list) _ = createStatementFromExpression (PrintStatement l) list
-parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):(Token LeftParen _ _):list) = undefined
-parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):_) = Left $ ProgramError l "Expected a parenthesis name!" []
-parseStatement ((Token Fun _ l):list) = Left $ ProgramError l "Expected a function name!" []
+parseStatement ((Token Fun _ l):(name@(Token (Identifier ident) _ _)):(Token LeftParen _ _):list) _ = do
+  (rest, parameters) <- parseParameters 8 list []
+  return (rest, FunctionDeclaration l name parameters [])
+parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):_) _ = Left $ ProgramError l "Expected a parenthesis name!" []
+parseStatement ((Token Fun _ l):list) _ = Left $ ProgramError l "Expected a function name!" []
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) _ =
   Right $ (list, VariableDeclaration l ident Nothing)
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Equal _ _):list) _ =
@@ -89,6 +91,15 @@ parseStatement ((Token LeftBrace _ l):list) canBreak = do
   newRest <- consume RightBrace "Expected '}' after block" rest
   return (newRest, BlockStatement l statements)
 parseStatement list@((Token _ _ l):_) _ = createStatementFromExpression (StatementExpression l) list
+
+parseParameters :: Integer -> [Token] -> [Token] -> Either (ProgramError Token) ([Token], [Token])
+parseParameters _ ((Token RightParen _ _):r) acc = Right (r, reverse acc)
+parseParameters 0 ((Token Comma _ l):r) acc = Left $ ProgramError l "More parameters than the limit!" r
+parseParameters 0 ((Token t _ l):r) acc = Left $ ProgramError l ("Unexpected token " ++ (show t) ++ "!") r
+parseParameters 0 [] ((Token _ _ l):_) = Left $ ProgramError l "Unexpected end of string" []
+parseParameters n (t@(Token (Identifier _) _ l):(Token Comma _ _):r) acc = parseParameters (n-1) r (t:acc)
+parseParameters n ((Token (Identifier _) _ l):r) acc = Left $ ProgramError l "Expected comma!" []
+parseParameters n ((Token _ _ l):r) acc = Left $ ProgramError l "Expected Identifier!" []
 
 parseExpression :: ExpressionParser
 parseExpression [] = Left $ ProgramError (SourceCodeLocation Nothing 1) "No input!" []
