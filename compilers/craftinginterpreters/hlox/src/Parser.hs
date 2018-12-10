@@ -72,9 +72,11 @@ parseStatement ((Token Break _ l):(Token Semicolon _ _):r) True = Right $ (r, Br
 parseStatement ((Token Break _ l):(Token Semicolon _ _):r) False = Left $ ProgramError l "Break statement can't go here" r
 parseStatement ((Token Break _ l):r) _ = Left $ ProgramError l "Expected semicolon after break statement" r
 parseStatement ((Token Print _ l):list) _ = createStatementFromExpression (PrintStatement l) list
-parseStatement ((Token Fun _ l):(name@(Token (Identifier ident) _ _)):(Token LeftParen _ _):list) _ = do
-  (rest, parameters) <- parseParameters 8 list []
-  return (rest, FunctionDeclaration l name parameters [])
+parseStatement ((Token Fun _ l):(name@(Token (Identifier ident) _ _)):(Token LeftParen _ _):list) c = do
+  (rest', parameters) <- parseParameters 8 list []
+  (rest, statement) <- parseStatement rest' c
+  case statement of BlockStatement l ss -> return (rest, FunctionDeclaration l name parameters ss)
+                    _ -> Left $ ProgramError l "Expected block as function body!" []
 parseStatement ((Token Fun _ l):(Token (Identifier ident) _ _):_) _ = Left $ ProgramError l "Expected a parenthesis name!" []
 parseStatement ((Token Fun _ l):list) _ = Left $ ProgramError l "Expected a function name!" []
 parseStatement ((Token Var _ l):(Token (Identifier ident) _ _):(Token Semicolon _ _):list) _ =
