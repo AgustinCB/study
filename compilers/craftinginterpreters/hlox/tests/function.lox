@@ -1,0 +1,10 @@
+fun test () {
+  print "hola";
+}
+
+fun test(num, num1) {
+  print num + num1;
+}
+
+test();
+test(1,2);
