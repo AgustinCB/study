@@ -179,6 +179,10 @@ evaluateStatement state (StatementExpression _ expression) =
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident Uninitialized state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (fmap (uncurry (evaluateVariableDeclaration ident))) (evaluateExpression state expression)
+evaluateStatement state (FunctionDeclaration l (Token (Identifier name) _ _) params body) =
+  return $ Right (stateInsert name (FunctionValue (length params) loxFunction) state)
+  where loxFunction :: LoxState -> [LoxValue] -> IO (LoxState, LoxValue)
+        loxFunction = undefined
 evaluateStatement state (IfStatement _ condition thenBranch (Just elseBranch)) =
   evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
                                                                   evaluateStatement s thenBranch
