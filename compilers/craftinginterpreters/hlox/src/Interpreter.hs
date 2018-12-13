@@ -179,10 +179,12 @@ evaluateStatement state (StatementExpression _ expression) =
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident Uninitialized state)
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (fmap (uncurry (evaluateVariableDeclaration ident))) (evaluateExpression state expression)
-evaluateStatement state (FunctionDeclaration l (Token (Identifier name) _ _) params body) =
-  return $ Right (stateInsert name (FunctionValue (length params) loxFunction) state)
+evaluateStatement state (FunctionDeclaration l (Token (Identifier ident) _ _) names body) =
+  return $ Right (stateInsert ident (FunctionValue (length names) loxFunction) state)
   where loxFunction :: LoxState -> [LoxValue] -> IO (LoxState, LoxValue)
-        loxFunction = undefined
+        loxFunction initialState params =
+          let functionScope = foldr (\p -> \s -> stateInsert (name (tokenType (snd p))) (fst p) s) initialState (zip params names)
+          in undefined
 evaluateStatement state (IfStatement _ condition thenBranch (Just elseBranch)) =
   evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
                                                                   evaluateStatement s thenBranch

@@ -45,7 +45,7 @@ data TokenType =
     Var |
     While |
     Comment |
-    Identifier String |
+    Identifier { name :: String } |
     TokenLiteral Literal deriving (Show, Eq)
 data Token = Token {
       tokenType :: TokenType
