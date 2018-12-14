@@ -107,7 +107,7 @@ data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String }
-              | FunctionValue { arity :: Int, function :: LoxState -> [LoxValue] -> IO (LoxState, LoxValue) }
+              | FunctionValue { arity :: Int, function :: LoxState -> [LoxValue] -> IO EvaluationExpressionResult }
 
 instance Eq LoxValue where
   NilValue == NilValue                  = True

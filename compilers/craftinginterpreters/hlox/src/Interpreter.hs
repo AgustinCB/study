@@ -7,7 +7,7 @@ import Types
 
 import Debug.Trace (trace)
 
-clock = FunctionValue 0 (\s -> \args -> ((((,) s)) . NumberValue . fromIntegral . round . (* 1000)) <$> getPOSIXTime)
+clock = FunctionValue 0 (\s -> \args -> (Right . (((,) s)) . NumberValue . fromIntegral . round . (* 1000)) <$> getPOSIXTime)
 
 zeroState :: LoxState
 zeroState = LoxState False Nothing $ Map.fromList [("clock", clock)]
@@ -161,7 +161,7 @@ evaluateExpression initialState (Call calleeExpression argumentExpressions l) =
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO EvaluationExpressionResult
 call l s (FunctionValue arity f) args
   | arity /= length args    = return $ Left (s, ProgramError l "Wrong number of arguments!" [])
-  | otherwise               = fmap Right $ f s args
+  | otherwise               = f s args
 call l s _ _ = return $ Left (s, ProgramError l "Only functions or classes can be called!" [])
 
 evaluateMultipleExpressionsInSequence :: LoxState -> [Expression] -> IO (Either (LoxState, (ProgramError Expression)) [(LoxState, LoxValue)])
@@ -181,10 +181,10 @@ evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (fmap (uncurry (evaluateVariableDeclaration ident))) (evaluateExpression state expression)
 evaluateStatement state (FunctionDeclaration l (Token (Identifier ident) _ _) names body) =
   return $ Right (stateInsert ident (FunctionValue (length names) loxFunction) state)
-  where loxFunction :: LoxState -> [LoxValue] -> IO (LoxState, LoxValue)
+  where loxFunction :: LoxState -> [LoxValue] -> IO EvaluationExpressionResult
         loxFunction initialState params =
           let functionScope = foldr (\p -> \s -> stateInsert (name (tokenType (snd p))) (fst p) s) initialState (zip params names)
-          in undefined
+          in fmap (\v -> fmap (\s -> (s, NilValue)) v) (evaluateStatement functionScope (BlockStatement l body))
 evaluateStatement state (IfStatement _ condition thenBranch (Just elseBranch)) =
   evaluateStatementAfterExpression state condition (\s -> \v -> if boolean $ (isTruthy v) then
                                                                   evaluateStatement s thenBranch
