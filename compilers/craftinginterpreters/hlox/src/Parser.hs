@@ -100,6 +100,7 @@ parseParameters 0 ((Token Comma _ l):r) acc = Left $ ProgramError l "More parame
 parseParameters 0 ((Token t _ l):r) acc = Left $ ProgramError l ("Unexpected token " ++ (show t) ++ "!") r
 parseParameters 0 [] ((Token _ _ l):_) = Left $ ProgramError l "Unexpected end of string" []
 parseParameters n (t@(Token (Identifier _) _ l):(Token Comma _ _):r) acc = parseParameters (n-1) r (t:acc)
+parseParameters n (t@(Token (Identifier _) _ l):(Token RightParen _ _):r) acc = Right (r, reverse $ (t:acc))
 parseParameters n ((Token (Identifier _) _ l):r) acc = Left $ ProgramError l "Expected comma!" []
 parseParameters n ((Token _ _ l):r) acc = Left $ ProgramError l "Expected Identifier!" []
 
@@ -184,8 +185,8 @@ parseCall' callee r = Right (r, callee)
 parseCall'' :: Expression -> [Expression] -> ExpressionParser
 parseCall'' callee _ [] = Left $ ProgramError (expressionLocation callee) "Expecting right parenthesis" []
 parseCall'' callee args ((Token RightParen _ l):r)
- | length args > 8 = Right $ (r, Call callee (reverse args) l)
- | otherwise       = Left $ ProgramError l "Function call with more than eight arguments" r
+ | length args <= 8 = Right $ (r, Call callee (reverse args) l)
+ | otherwise        = Left $ ProgramError l "Function call with more than eight arguments" r
 parseCall'' callee args ((Token Comma _ _):r) = parseCall'' callee args r
 parseCall'' callee args r = parseExpression r >>= (uncurry $ \r -> \a -> parseCall'' callee (a:args) r)
 

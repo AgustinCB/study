@@ -2,9 +2,9 @@ fun test () {
   print "hola";
 }
 
-fun test(num, num1) {
+fun test1(num, num1) {
   print num + num1;
 }
 
 test();
-test(1,2);
+test1(1,2);
