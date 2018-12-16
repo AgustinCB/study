@@ -188,7 +188,7 @@ parseCall'' callee args ((Token RightParen _ l):r)
  | length args <= 8 = Right $ (r, Call callee (reverse args) l)
  | otherwise        = Left $ ProgramError l "Function call with more than eight arguments" r
 parseCall'' callee args ((Token Comma _ _):r) = parseCall'' callee args r
-parseCall'' callee args r = parseExpression r >>= (uncurry $ \r -> \a -> parseCall'' callee (a:args) r)
+parseCall'' callee args r = parseTernary r >>= (uncurry $ \r -> \a -> parseCall'' callee (a:args) r)
 
 parsePrimary :: ExpressionParser
 parsePrimary ((Token (TokenLiteral literal) _ location):rest) = Right (rest, ExpressionLiteral literal location)

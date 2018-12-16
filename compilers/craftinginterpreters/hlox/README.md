@@ -66,7 +66,7 @@ multiplication  → unary ( ( "/" | "*" ) unary )* ;
 unary           → ( "!" | "-" ) unary
                 | primary ;
 call            → primary ( "(" arguments? ")" )* ;
-arguments       → expression ( "," expression )* ;
+arguments       → ternary ( "," ternary )* ;
 primary         → NUMBER | STRING | "false" | "true" | "nil"
                 | "(" expression ")"
                 | ( "!=" | "==" ) equality
