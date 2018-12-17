@@ -69,6 +69,7 @@ data Statement = StatementExpression SourceCodeLocation Expression |
     BlockStatement SourceCodeLocation [Statement] |
     IfStatement SourceCodeLocation Expression Statement (Maybe Statement) |
     WhileStatement SourceCodeLocation Expression Statement |
+    ReturnStatement SourceCodeLocation (Maybe Expression) |
     BreakStatement SourceCodeLocation deriving Show
 
 statementLocation :: Statement -> SourceCodeLocation
@@ -134,3 +135,4 @@ instance Show LoxValue where
   show (BooleanValue b) = show b
   show (NumberValue n) = show n
   show (StringValue s) = s
+  show (FunctionValue _ _) = "[function]"

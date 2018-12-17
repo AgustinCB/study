@@ -20,6 +20,7 @@ statement       → exprStmt
                 | ifStmt
                 | printStmt
                 | whileStmt
+                | returnStmt
                 | block ;
 
 stmtWithBreak   → exprStmt
@@ -27,6 +28,7 @@ stmtWithBreak   → exprStmt
                 | ifStmtWithBreak
                 | printStmt
                 | whileStmt
+                | returnStmt
                 | blockWithBreak
                 | breakStmt ;
 
@@ -42,6 +44,7 @@ ifStmtWithBreak → "if" "(" expression ")" statementWithBreak
 exprStmt        → expression ";" ;
 printStmt       → "print" expression ";" ;
 whileStmt       → "while" "(" expression ")" statementWithBreak ;
+returnStmt      → "return" expression? ";" ;
 varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 funDecl         → "fun" function ;
