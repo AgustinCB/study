@@ -195,6 +195,7 @@ evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
                                                                   evaluateStatement s thenBranch
                                                                 else
                                                                   return $ Right s)
+evaluateStatement state (ReturnStatement l _) = return $ Left (state, ProgramError l "Unexpected return statement!" [])
 evaluateStatement (LoxState _ p s) (BreakStatement _) = return $ Right (LoxState True p s)
 evaluateStatement state w@(WhileStatement _ condition body) =
   evaluateStatementAfterExpression state condition evaluateWhileBody
