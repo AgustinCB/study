@@ -121,6 +121,7 @@ instance Eq LoxValue where
 type EvaluationExpressionResult = Either (LoxState, (ProgramError Expression)) (LoxState, LoxValue)
 type EvaluationResult = Either (LoxState, (ProgramError Expression)) LoxState
 data LoxState = LoxState {
+    returnValue :: Maybe LoxValue,
     brokeLoop :: Bool,
     enclosing :: Maybe LoxState,
     values :: Map.Map String LoxValue
