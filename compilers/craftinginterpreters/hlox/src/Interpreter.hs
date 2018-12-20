@@ -160,7 +160,9 @@ evaluateExpression initialState (Call calleeExpression argumentExpressions l) =
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO EvaluationExpressionResult
 call l s (FunctionValue arity f) args
   | arity /= length args    = return $ Left (s, ProgramError l ("Wrong number of arguments! Expected: " ++ (show arity) ++ " Got: " ++ (show $ length args)) [])
-  | otherwise               = f s args
+  | otherwise               = fmap (\r -> case r of Right q -> Right q
+                                                    Left (s, ProgramError l "Unexpected return statement!" r) -> Right (s, foldr (const id) NilValue $ returnValue s)
+                                                    Left e -> Left e) $ f s args
 call l s _ _ = return $ Left (s, ProgramError l "Only functions or classes can be called!" [])
 
 evaluateMultipleExpressionsInSequence :: LoxState -> [Expression] -> IO (Either (LoxState, (ProgramError Expression)) [(LoxState, LoxValue)])
