@@ -68,8 +68,11 @@ parseStatement ((Token While _ l):list) _ = do
   rest3 <- consume RightParen "Expected ')' after if condition" rest2
   (rest4, statement) <- parseStatement rest3 True
   return $ (rest4, WhileStatement l condition statement)
-parseStatement ((Token Return _ l):(Token Semicolon _ _):r) True = Right (r, ReturnStatement l Nothing)
-parseStatement ((Token Return _ l):r) True = parseExpression r >>= (uncurry $ \r -> \e -> Right (r, ReturnStatement l (Just e)))
+parseStatement ((Token Return _ l):(Token Semicolon _ _):r) _ = Right (r, ReturnStatement l Nothing)
+parseStatement ((Token Return _ l):r) _ = do
+  (rest, result) <- parseExpression r >>= (uncurry $ \r -> \e -> Right (r, ReturnStatement l (Just e)))
+  newRest <- consume Semicolon "Expected semicolon" rest
+  return (newRest, result)
 parseStatement ((Token Break _ l):(Token Semicolon _ _):r) True = Right (r, BreakStatement l)
 parseStatement ((Token Break _ l):(Token Semicolon _ _):r) False = Left $ ProgramError l "Break statement can't go here" r
 parseStatement ((Token Break _ l):r) _ = Left $ ProgramError l "Expected semicolon after break statement" r

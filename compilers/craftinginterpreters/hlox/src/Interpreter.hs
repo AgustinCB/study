@@ -35,6 +35,9 @@ stateReplace ident value (LoxState r l (Just parent) state) =
 addScope :: LoxState -> LoxState
 addScope state = LoxState (returnValue state) (brokeLoop state) (Just state) Map.empty
 
+addReturn :: LoxState -> Maybe LoxValue -> LoxState
+addReturn state returnValue = LoxState returnValue (brokeLoop state) (enclosing state) Map.empty
+
 popScope :: LoxState -> LoxState
 popScope (LoxState returnValue brokeLoop maybeParent _) =
   let s = foldl (const id) zeroState maybeParent
@@ -196,7 +199,10 @@ evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
                                                                   evaluateStatement s thenBranch
                                                                 else
                                                                   return $ Right s)
-evaluateStatement state (ReturnStatement l _) = return $ Left (state, ProgramError l "Unexpected return statement!" [])
+evaluateStatement state (ReturnStatement l (Just e)) =
+  fmap (\r -> case r of Right (s, r) -> Left ((addReturn s $ Just r), ProgramError l "Unexpected return statement!" [])
+                        Left e -> Left e) $ evaluateExpression state e
+evaluateStatement state (ReturnStatement l Nothing) = return $ Left (state, ProgramError l "Unexpected return statement!" [])
 evaluateStatement (LoxState r _ p s) (BreakStatement _) = return $ Right (LoxState r True p s)
 evaluateStatement state w@(WhileStatement _ condition body) =
   evaluateStatementAfterExpression state condition evaluateWhileBody
