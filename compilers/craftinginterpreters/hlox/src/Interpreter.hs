@@ -164,7 +164,7 @@ call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO Evaluatio
 call l s (FunctionValue arity f) args
   | arity /= length args    = return $ Left (s, ProgramError l ("Wrong number of arguments! Expected: " ++ (show arity) ++ " Got: " ++ (show $ length args)) [])
   | otherwise               = fmap (\r -> case r of Right q -> Right q
-                                                    Left (s, ProgramError l "Unexpected return statement!" r) -> Right (s, foldr (const id) NilValue $ returnValue s)
+                                                    Left (s, ProgramError l "Unexpected return statement!" r) -> Right (s, foldl (const id) NilValue $ returnValue s)
                                                     Left e -> Left e) $ f s args
 call l s _ _ = return $ Left (s, ProgramError l "Only functions or classes can be called!" [])
 
@@ -200,7 +200,7 @@ evaluateStatement state (IfStatement _ condition thenBranch Nothing) =
                                                                 else
                                                                   return $ Right s)
 evaluateStatement state (ReturnStatement l (Just e)) =
-  fmap (\r -> case r of Right (s, r) -> Left ((addReturn s $ Just r), ProgramError l "Unexpected return statement!" [])
+  fmap (\r -> case r of Right (s, r) -> Left (addReturn s $ Just r, ProgramError l "Unexpected return statement!" [])
                         Left e -> Left e) $ evaluateExpression state e
 evaluateStatement state (ReturnStatement l Nothing) = return $ Left (state, ProgramError l "Unexpected return statement!" [])
 evaluateStatement (LoxState r _ p s) (BreakStatement _) = return $ Right (LoxState r True p s)
