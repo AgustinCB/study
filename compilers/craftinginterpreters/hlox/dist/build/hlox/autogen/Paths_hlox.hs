@@ -30,10 +30,10 @@ version = Version [0,1,0,0] []
 bindir, libdir, dynlibdir, datadir, libexecdir, sysconfdir :: FilePath
 
 bindir     = "/home/agustin/.cabal/bin"
-libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0-JfreMWhn0SuE1HELcWvMGc-hlox"
-dynlibdir  = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.4.3"
-datadir    = "/home/agustin/.cabal/share/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
-libexecdir = "/home/agustin/.cabal/libexec/x86_64-linux-ghc-8.4.3/hlox-0.1.0.0"
+libdir     = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.6.3/hlox-0.1.0.0-4JyccRKqzMVIKobtpjy2Wt-hlox"
+dynlibdir  = "/home/agustin/.cabal/lib/x86_64-linux-ghc-8.6.3"
+datadir    = "/home/agustin/.cabal/share/x86_64-linux-ghc-8.6.3/hlox-0.1.0.0"
+libexecdir = "/home/agustin/.cabal/libexec/x86_64-linux-ghc-8.6.3/hlox-0.1.0.0"
 sysconfdir = "/home/agustin/.cabal/etc"
 
 getBinDir, getLibDir, getDynLibDir, getDataDir, getLibexecDir, getSysconfDir :: IO FilePath

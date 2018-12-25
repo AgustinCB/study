@@ -52,7 +52,7 @@ createToken nextChar rest line
         getSecondElement _ = ""
         getFirstElement :: [String] -> String
         getFirstElement [] = ""
-        getFirstElement (s:[]) = s
+        getFirstElement (s:_) = s
         tokenWithRestAndLiteral :: TokenType -> String -> String -> TokenResult
         tokenWithRestAndLiteral t r l = (createToken' t l, r, line + 1)
         oneCharTokenWithoutRest :: TokenType -> TokenResult

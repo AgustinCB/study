@@ -23,7 +23,7 @@ normalize (Left o) = Left $ show o
 normalize (Right o) = Right o
 
 stringToStatements :: String -> Either String [Statement]
-stringToStatements content = (normalize $ scanTokens content) >>= tokensToResult
+stringToStatements content = (normalize $ scanTokens content) >>= (tokensToResult . (filter (not . isComment)))
   where tokensToResult :: [Token] -> Either String [Statement]
         tokensToResult tokens = (normalize $ parseStatement tokens False) >>= uncurry tokensAndStatementToResult
         tokensAndStatementToResult :: [Token] -> Statement -> Either String [Statement]
