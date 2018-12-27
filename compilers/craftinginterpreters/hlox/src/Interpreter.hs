@@ -10,7 +10,7 @@ import Debug.Trace (trace)
 clock = FunctionValue 0 (\s -> \args -> (Right . (((,) s)) . NumberValue . fromIntegral . round . (* 1000)) <$> getPOSIXTime)
 
 zeroState :: LoxState
-zeroState = LoxState Nothing False Nothing $ Map.fromList [("clock", clock)]
+zeroState = LoxState Nothing False Nothing $ Map.fromList [("clock", clock (LoxState Nothing False Nothing Map.empty))]
 
 stateLookup :: String -> LoxState -> Maybe LoxValue
 stateLookup ident (LoxState _ _ Nothing state) = Map.lookup ident state
@@ -161,7 +161,7 @@ evaluateExpression initialState (Call calleeExpression argumentExpressions l) =
               Left e -> return $ Left e)
 
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO EvaluationExpressionResult
-call l s (FunctionValue arity f) args
+call l s (FunctionValue arity f _) args
   | arity /= length args    = return $ Left (s, ProgramError l ("Wrong number of arguments! Expected: " ++ (show arity) ++ " Got: " ++ (show $ length args)) [])
   | otherwise               = fmap (\r -> case r of Right q -> Right q
                                                     Left (s, ProgramError l "Unexpected return statement!" r) -> Right (s, foldl (const id) NilValue $ returnValue s)
@@ -184,7 +184,7 @@ evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (
 evaluateStatement state (VariableDeclaration _ ident (Just expression)) =
   fmap (fmap (uncurry (evaluateVariableDeclaration ident))) (evaluateExpression state expression)
 evaluateStatement state (FunctionDeclaration l (Token (Identifier ident) _ _) names body) =
-  return $ Right (stateInsert ident (FunctionValue (length names) loxFunction) state)
+  return $ Right (stateInsert ident (FunctionValue (length names) loxFunction state) state)
   where loxFunction :: LoxState -> [LoxValue] -> IO EvaluationExpressionResult
         loxFunction initialState params =
           let functionScope = foldr (\p -> \s -> stateInsert (name (tokenType (snd p))) (fst p) s) initialState (zip params names)

@@ -108,7 +108,11 @@ data LoxValue = NilValue
               | BooleanValue { boolean :: Bool }
               | NumberValue { number :: Double }
               | StringValue { string :: String }
-              | FunctionValue { arity :: Int, function :: LoxState -> [LoxValue] -> IO EvaluationExpressionResult }
+              | FunctionValue {
+                arity :: Int,
+                function :: LoxState -> [LoxValue] -> IO EvaluationExpressionResult,
+                environment :: LoxState
+              }
 
 instance Eq LoxValue where
   NilValue == NilValue                  = True
@@ -136,4 +140,4 @@ instance Show LoxValue where
   show (BooleanValue b) = show b
   show (NumberValue n) = show n
   show (StringValue s) = s
-  show (FunctionValue _ _) = "[function]"
+  show (FunctionValue _ _ s) = "[function "++ show s ++"]"
