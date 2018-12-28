@@ -154,7 +154,8 @@ evaluateExpression s (VariableAssignment ident expression location)
   | otherwise           = return $ Left (s, ProgramError location "Variable not found!" [])
 evaluateExpression initialState (Call calleeExpression argumentExpressions l) =
   (evaluateExpression initialState calleeExpression) >>= (\r ->
-    case r of e@(Right (s, callee)) -> fmap ((,) e) (evaluateMultipleExpressionsInSequence s argumentExpressions)) >>=
+    case r of e@(Right (s, callee)) -> fmap ((,) e) (evaluateMultipleExpressionsInSequence s argumentExpressions)
+              Left e -> return $ (Left e, Left e)) >>=
     (\p -> return $ liftM2 (,) (fst p) (snd p)) >>= (\p ->
     case p of Right ((s, callee), arguments) -> if length arguments == 0 then call l s callee (fmap snd arguments)
                                                 else call l (fst (last arguments)) callee (fmap snd arguments)
