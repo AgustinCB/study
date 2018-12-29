@@ -152,14 +152,13 @@ evaluateExpression s (VariableAssignment ident expression location)
     case v of Right (rest, value) -> return $ Right (stateReplace ident value s, value)
               Left e -> return $ Left e)
   | otherwise           = return $ Left (s, ProgramError location "Variable not found!" [])
-evaluateExpression initialState (Call calleeExpression argumentExpressions l) =
-  (evaluateExpression initialState calleeExpression) >>= (\r ->
-    case r of e@(Right (s, callee)) -> fmap ((,) e) (evaluateMultipleExpressionsInSequence s argumentExpressions)
-              Left e -> return $ (Left e, Left e)) >>=
-    (\p -> return $ liftM2 (,) (fst p) (snd p)) >>= (\p ->
-    case p of Right ((s, callee), arguments) -> if length arguments == 0 then call l s callee (fmap snd arguments)
-                                                else call l (fst (last arguments)) callee (fmap snd arguments)
-              Left e -> return $ Left e)
+evaluateExpression initialState (Call calleeExpression argumentExpressions l) = do
+  calleResult <-evaluateExpression initialState calleeExpression
+  argumentsResult <- evaluateMultipleExpressionsInSequence initialState argumentExpressions
+  let r = liftM2 (,) calleResult argumentsResult
+  case r of Right ((s, callee), arguments) -> if length arguments == 0 then call l s callee (fmap snd arguments)
+                                              else call l (fst (last arguments)) callee (fmap snd arguments)
+            Left e -> return $ Left e
 
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO EvaluationExpressionResult
 call l s (FunctionValue arity f _) args
