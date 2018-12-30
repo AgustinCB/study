@@ -153,9 +153,10 @@ evaluateExpression s (VariableAssignment ident expression location)
               Left e -> return $ Left e)
   | otherwise           = return $ Left (s, ProgramError location "Variable not found!" [])
 evaluateExpression initialState (Call calleeExpression argumentExpressions l) = do
-  calleResult <-evaluateExpression initialState calleeExpression
-  argumentsResult <- evaluateMultipleExpressionsInSequence initialState argumentExpressions
-  let r = liftM2 (,) calleResult argumentsResult
+  calleeResult <- evaluateExpression initialState calleeExpression
+  argumentsResult <- case calleeResult of Right p -> evaluateMultipleExpressionsInSequence (fst p) argumentExpressions
+                                          Left e -> return $ Left e
+  let r = liftM2 (,) calleeResult argumentsResult
   case r of Right ((s, callee), arguments) -> if length arguments == 0 then call l s callee (fmap snd arguments)
                                               else call l (fst (last arguments)) callee (fmap snd arguments)
             Left e -> return $ Left e
