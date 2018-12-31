@@ -157,8 +157,9 @@ evaluateExpression initialState (Call calleeExpression argumentExpressions l) = 
   argumentsResult <- case calleeResult of Right p -> evaluateMultipleExpressionsInSequence (fst p) argumentExpressions
                                           Left e -> return $ Left e
   let r = liftM2 (,) calleeResult argumentsResult
-  case r of Right ((s, callee), arguments) -> if length arguments == 0 then call l s callee (fmap snd arguments)
-                                              else call l (fst (last arguments)) callee (fmap snd arguments)
+  case r of Right ((_, callee@(FunctionValue _ _ s)), arguments) ->
+              if length arguments == 0 then call l s callee (fmap snd arguments)
+              else call l (fst (last arguments)) callee (fmap snd arguments)
             Left e -> return $ Left e
 
 call :: SourceCodeLocation -> LoxState -> LoxValue -> [LoxValue] -> IO EvaluationExpressionResult
