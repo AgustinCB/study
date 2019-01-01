@@ -43,6 +43,12 @@ popScope (LoxState returnValue brokeLoop maybeParent _) =
   let s = foldl (const id) zeroState maybeParent
   in LoxState returnValue brokeLoop (enclosing s) (values s)
 
+popParent :: LoxState -> LoxState
+popParent (LoxState returnValue brokeLoop _ scope) = LoxState returnValue brokeLoop Nothing scope
+
+pushScope :: LoxState -> LoxState -> LoxState
+pushScope base (LoxState returnValue brokeLoop _ scope) = LoxState returnValue brokeLoop (Just base) scope
+
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
 isTruthy (BooleanValue False) = BooleanValue False
