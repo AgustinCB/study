@@ -10,44 +10,44 @@ import Debug.Trace (trace)
 clock = FunctionValue 0 (\s -> \args -> (Right . (((,) s)) . NumberValue . fromIntegral . round . (* 1000)) <$> getPOSIXTime)
 
 zeroState :: LoxState
-zeroState = LoxState Nothing False Nothing $ Map.fromList [("clock", clock (LoxState Nothing False Nothing Map.empty))]
+zeroState = LoxState Nothing False Nothing False $ Map.fromList [("clock", clock (LoxState Nothing False Nothing True Map.empty))]
 
 stateLookup :: String -> LoxState -> Maybe LoxValue
-stateLookup ident (LoxState _ _ Nothing state) = Map.lookup ident state
-stateLookup ident (LoxState _ _ (Just parent) state) = case (Map.lookup ident state) of Just v -> Just v
-                                                                                        Nothing -> stateLookup ident parent
+stateLookup ident (LoxState _ _ Nothing _ state) = Map.lookup ident state
+stateLookup ident (LoxState _ _ (Just parent) _ state) = case (Map.lookup ident state) of Just v -> Just v
+                                                                                          Nothing -> stateLookup ident parent
 
 stateMember :: String -> LoxState -> Bool
-stateMember ident (LoxState _ _ Nothing state) = Map.member ident state
-stateMember ident (LoxState _ _ (Just parent) state)
+stateMember ident (LoxState _ _ Nothing _ state) = Map.member ident state
+stateMember ident (LoxState _ _ (Just parent) _ state)
   | Map.member ident state = True
   | otherwise              = stateMember ident parent
 
 stateInsert :: String -> LoxValue -> LoxState -> LoxState
-stateInsert ident value (LoxState r l parent state) = LoxState r l parent $ Map.insert ident value state
+stateInsert ident value (LoxState r l parent g state) = LoxState r l parent g $ Map.insert ident value state
 
 stateReplace :: String -> LoxValue -> LoxState -> LoxState
-stateReplace ident value (LoxState r l Nothing state) = LoxState r l Nothing $ Map.insert ident value state
-stateReplace ident value (LoxState r l (Just parent) state) =
-  case (Map.lookup ident state) of Just v -> LoxState r l (Just parent) $ Map.insert ident value state
-                                   Nothing -> LoxState r l (Just (stateInsert ident value parent)) state
+stateReplace ident value (LoxState r l Nothing g state) = LoxState r l Nothing g $ Map.insert ident value state
+stateReplace ident value (LoxState r l (Just parent) g state) =
+  case (Map.lookup ident state) of Just v -> LoxState r l (Just parent) g $ Map.insert ident value state
+                                   Nothing -> LoxState r l (Just (stateInsert ident value parent)) g state
 
 addScope :: LoxState -> LoxState
-addScope state = LoxState (returnValue state) (brokeLoop state) (Just state) Map.empty
+addScope state = LoxState (returnValue state) (brokeLoop state) (Just state) (isRoot state) Map.empty
 
 addReturn :: LoxState -> Maybe LoxValue -> LoxState
-addReturn state returnValue = LoxState returnValue (brokeLoop state) (enclosing state) Map.empty
+addReturn state returnValue = LoxState returnValue (brokeLoop state) (enclosing state) (isRoot state) Map.empty
 
 popScope :: LoxState -> LoxState
-popScope (LoxState returnValue brokeLoop maybeParent _) =
+popScope (LoxState returnValue brokeLoop maybeParent isRoot _) =
   let s = foldl (const id) zeroState maybeParent
-  in LoxState returnValue brokeLoop (enclosing s) (values s)
+  in LoxState returnValue brokeLoop (enclosing s) isRoot (values s)
 
-popParent :: LoxState -> LoxState
-popParent (LoxState returnValue brokeLoop _ scope) = LoxState returnValue brokeLoop Nothing scope
-
-pushScope :: LoxState -> LoxState -> LoxState
-pushScope base (LoxState returnValue brokeLoop _ scope) = LoxState returnValue brokeLoop (Just base) scope
+partitionScope :: LoxState -> (Maybe LoxState, Maybe LoxState)
+partitionScope = partitionScope' Nothing
+  where partitionScope' :: Maybe LoxState -> LoxState -> (Maybe LoxState, Maybe LoxState)
+        partitionScope' Nothing base@(LoxState _ _ Nothing False _) = (Just base, Nothing)
+        partitionScope' Nothing base@(LoxState _ _ Nothing True _) = (Nothing, Just base)
 
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
@@ -211,13 +211,13 @@ evaluateStatement state (ReturnStatement l (Just e)) =
   fmap (\r -> case r of Right (s, r) -> Left (addReturn s $ Just r, ProgramError l "Unexpected return statement!" [])
                         Left e -> Left e) $ evaluateExpression state e
 evaluateStatement state (ReturnStatement l Nothing) = return $ Left (state, ProgramError l "Unexpected return statement!" [])
-evaluateStatement (LoxState r _ p s) (BreakStatement _) = return $ Right (LoxState r True p s)
+evaluateStatement (LoxState r _ p g s) (BreakStatement _) = return $ Right (LoxState r True p g s)
 evaluateStatement state w@(WhileStatement _ condition body) =
   evaluateStatementAfterExpression state condition evaluateWhileBody
   where evaluateWhileBody :: LoxState -> LoxValue -> IO EvaluationResult
         evaluateWhileBody s v = if boolean $ (isTruthy v)
                                     then (evaluateStatement s body) >>= (\r ->
-                                        case r of Right (LoxState r True p ns) -> return $ Right (LoxState r False p ns)
+                                        case r of Right (LoxState r True p g ns) -> return $ Right (LoxState r False p g ns)
                                                   Right ns -> evaluateStatement ns w
                                                   e -> return $ e)
                                 else return $ Right s
@@ -225,7 +225,7 @@ evaluateStatement state (BlockStatement _ statements) =
   fmap (\r -> fmap popScope r) $ foldlTill processNext notLeftNorBrokeLoop (return $ Right $ addScope state) statements
   where notLeftNorBrokeLoop :: EvaluationResult -> Bool
         notLeftNorBrokeLoop (Left _) = False
-        notLeftNorBrokeLoop (Right (LoxState _ brokeLoop _ _)) = not brokeLoop
+        notLeftNorBrokeLoop (Right (LoxState _ brokeLoop _ _ _)) = not brokeLoop
         processNext :: IO EvaluationResult -> Statement -> IO EvaluationResult
         processNext e s = e >>= \r -> case r of Right state -> evaluateStatement state s
                                                 e -> return $ e

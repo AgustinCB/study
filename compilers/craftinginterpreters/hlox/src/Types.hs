@@ -128,6 +128,7 @@ data LoxState = LoxState {
     returnValue :: Maybe LoxValue,
     brokeLoop :: Bool,
     enclosing :: Maybe LoxState,
+    isRoot :: Bool,
     values :: Map.Map String LoxValue
 } deriving Show
 
