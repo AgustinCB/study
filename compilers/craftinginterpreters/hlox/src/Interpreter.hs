@@ -47,7 +47,7 @@ partitionScope :: LoxState -> (Maybe LoxState, Maybe LoxState)
 partitionScope = partitionScope' Nothing
   where partitionScope' :: Maybe LoxState -> LoxState -> (Maybe LoxState, Maybe LoxState)
         partitionScope' Nothing base@(LoxState _ _ Nothing False _) = (Just base, Nothing)
-        partitionScope' Nothing base@(LoxState _ _ Nothing True _) = (Nothing, Just base)
+        partitionScope' Nothing base@(LoxState _ _ parent True _) = (parent, Just base)
         partitionScope' Nothing base@(LoxState _ _ (Just parent) False _) = partitionScope' (Just base) parent
 
 isTruthy :: LoxValue -> LoxValue
