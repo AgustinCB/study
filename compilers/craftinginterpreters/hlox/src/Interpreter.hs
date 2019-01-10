@@ -49,6 +49,7 @@ partitionScope = partitionScope' Nothing
         partitionScope' Nothing base@(LoxState _ _ Nothing False _) = (Just base, Nothing)
         partitionScope' Nothing base@(LoxState _ _ parent True _) = (parent, Just base)
         partitionScope' Nothing base@(LoxState _ _ (Just parent) False _) = partitionScope' (Just base) parent
+        partitionScope' (Just acc) base@(LoxState _ _ Nothing False _) = (undefined, Nothing)
 
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
