@@ -1,5 +1,7 @@
 import Data.List (transpose)
 
+-- Chapter 1
+
 -- Exercise 16
 
 mcd :: Integer -> Integer -> Integer
@@ -67,6 +69,12 @@ primes = 2 : 3 : 5 : filter isPrime [6..]
 modMult :: Integer -> Integer -> Integer -> Integer
 modMult p n i = mod (n * i) p
 
+modAdd :: Integer -> Integer -> Integer -> Integer
+modAdd p n i = mod (n + i) p
+
+modSub :: Integer -> Integer -> Integer -> Integer
+modSub p n i = mod (n - i) p
+
 inverseOn :: Integer -> Integer -> Either String Integer
 inverseOn n p
   | not $ isPrime p = Left "The module should be prime"
@@ -79,3 +87,23 @@ squareRootOn n p
   | not $ isPrime p = Left "The module should be prime"
   | n == 0          = Left "0 doesn't have inverse on Z/(p)"
   | otherwise       = Right $ head $ filter (\i -> ((modMult p i i) == n)) [1..(p-1)]
+
+-- Chapter 2
+
+-- Ex 1
+quadraticOn :: Integer -> Integer -> Integer -> Integer -> Either String Integer
+quadraticOn p a b c
+  | not $ isPrime p = Left "The module should be prime"
+  | a == 0          = fmap (modMult p (-c)) $ inverseOn b p
+  | otherwise       = dn >>= (\d -> fmap (modMult p d) (inverseOn (modMult p 2 a)))
+  where bsquare = modMult p b b
+        rootContent :: Either String Integer
+        rootContent = squareRootOn (modSub p bsquare $ modMult p c (modMult p 4 a)) p
+        dn :: Either String Integer
+        dn = fmap (modSub p (modMult p -1 b)) rootContent
+
+-- Ex 2
+divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integer])
+divPoly p a b
+  | not $ isPrime p      = Left "The module should be prime"
+  | length a /= length b = Left "Polynomiums should have same size"
