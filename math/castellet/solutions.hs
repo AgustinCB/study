@@ -103,7 +103,12 @@ quadraticOn p a b c
         dn = fmap (modSub p (modMult p -1 b)) rootContent
 
 -- Ex 2
+trimmedPol :: [Integer] -> [Integer]
+trimmedPol = dropWhile (== 0)
+
 divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integer])
 divPoly p a b
   | not $ isPrime p      = Left "The module should be prime"
-  | length a /= length b = Left "Polynomiums should have same size"
+  | length trimmedA < length trimmedB  = Right ([0], a)
+  where trimmedA = trimmedPol a
+        trimmedB = trimmedPol b
