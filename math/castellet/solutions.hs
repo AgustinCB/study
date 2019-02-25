@@ -106,9 +106,17 @@ quadraticOn p a b c
 trimmedPol :: [Integer] -> [Integer]
 trimmedPol = dropWhile (== 0)
 
+modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
+modMultPol p pl m = fmap (modMult p m) pl
+
+modSubPol :: Integer -> [Integer] -> [Integer] -> [Integer]
+modSubPol = undefined
+
 divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integer])
 divPoly p a b
-  | not $ isPrime p      = Left "The module should be prime"
+  | not $ isPrime p                    = Left "The module should be prime"
   | length trimmedA < length trimmedB  = Right ([0], a)
+  | length trimmedA == length trimmedB = Right (den, trimmedPol (modSubPol trimmedA (modMultPol p trimmedB (den ! 0))))
   where trimmedA = trimmedPol a
         trimmedB = trimmedPol b
+        den = [(trimmedA ! 0) / (trimmedB ! 0)]
