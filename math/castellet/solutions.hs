@@ -110,7 +110,12 @@ modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
 modMultPol p pl m = fmap (modMult p m) pl
 
 modSubPol :: Integer -> [Integer] -> [Integer] -> [Integer]
-modSubPol = undefined
+modSubPol p a b
+  | length a < length b  = modSubPol p (leadingZeros a b) b
+  | length b < length a  = modSubPol p a (leadingZeros b a)
+  | length a == length b = zipWith (-) a b
+  where leadingZeros :: [Integer] -> [Integer] -> [Integer]
+        leadingZeros a b = (map (const 0) [0..(length b - length a - 1)]) ++ a
 
 divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integer])
 divPoly p a b
