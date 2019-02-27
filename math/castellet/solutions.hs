@@ -122,6 +122,7 @@ divPoly p a b
   | not $ isPrime p                    = Left "The module should be prime"
   | length trimmedA < length trimmedB  = Right ([0], a)
   | length trimmedA == length trimmedB = Right (den, trimmedPol (modSubPol trimmedA (modMultPol p trimmedB (den ! 0))))
+  | length trimmedA > length trimmedB  = Right undefined
   where trimmedA = trimmedPol a
         trimmedB = trimmedPol b
         den = [(trimmedA ! 0) / (trimmedB ! 0)]
