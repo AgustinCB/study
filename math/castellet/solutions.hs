@@ -121,8 +121,9 @@ divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integ
 divPoly p a b
   | not $ isPrime p                    = Left "The module should be prime"
   | length trimmedA < length trimmedB  = Right ([0], a)
-  | length trimmedA == length trimmedB = Right (den, trimmedPol (modSubPol trimmedA (modMultPol p trimmedB (den ! 0))))
-  | length trimmedA > length trimmedB  = Right undefined
+  | length trimmedA == length trimmedB = Right (den, newRest)
+  | length trimmedA > length trimmedB  = divPoly p newRest b
   where trimmedA = trimmedPol a
         trimmedB = trimmedPol b
         den = [(trimmedA ! 0) / (trimmedB ! 0)]
+        newRest = trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (den ! 0)))
