@@ -3,4 +3,4 @@ project(BullAndCows)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(BullAndCows main.cpp)
+add_executable(BullAndCows main.cpp FBullCowGame.h FBullCowGame.cpp)
