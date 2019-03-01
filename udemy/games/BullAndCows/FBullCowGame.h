@@ -6,6 +6,8 @@
 #include <string>
 #include <variant>
 
+#define TMap std::map
+
 using FString = std::string;
 using int32 = int;
 
@@ -60,7 +62,7 @@ private:
     int32 MaxTries;
     FString HiddenWord;
     bool bIsGameWon;
-    std::map<char, int32> HiddenWordCharPositions;
+    TMap<char, int32> HiddenWordCharPositions;
 };
 
 #endif //BULLANDCOWS_FBULLCOWGAME_H

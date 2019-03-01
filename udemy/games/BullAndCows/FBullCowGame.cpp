@@ -4,18 +4,20 @@
 #include <string>
 #include "FBullCowGame.h"
 
+#define TMap std::map
+
 using FString = std::string;
 using int32 = int;
 
-std::map<char, int32> GetPositionMap(FString& str) {
-    std::map<char, int32> result;
+TMap<char, int32> GetPositionMap(FString& str) {
+    TMap<char, int32> result;
     for (int32 i = 0; i < str.size(); i += 1) {
         result[str[i]] = i;
     }
     return result;
 }
 
-std::optional<char> GetFirstNotLowercaseChar(FString Word) {
+std::optional<char> GetFirstNotLowercaseChar(FString& Word) {
     std::string::iterator i = std::find_if(Word.begin(), Word.end(), [](char c ) {
         return !std::islower((int32) c);
     });
@@ -25,8 +27,8 @@ std::optional<char> GetFirstNotLowercaseChar(FString Word) {
     return {};
 }
 
-std::optional<char> GetFirstRepeatedChar(FString Word) {
-    std::map<char, bool> Seen;
+std::optional<char> GetFirstRepeatedChar(FString& Word) {
+    TMap<char, bool> Seen;
     for (char const &c : Word) {
         if (Seen.find(c) != Seen.end()) {
             return c;

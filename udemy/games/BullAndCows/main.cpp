@@ -37,7 +37,7 @@ FString GetValidGuess() {
     FString Guess;
     std::optional<WordError> Validity;
     do {
-        std::cout << "Try " << BCGame.GetCurrentTry() << ": Guess the word: ";
+        std::cout << "Try " << BCGame.GetCurrentTry() << " of " << BCGame.GetMaxTries() << ": Guess the word: ";
         std::getline(std::cin, Guess);
         Validity = BCGame.checkGuessValidity(Guess);
         if (Validity.has_value()) {
