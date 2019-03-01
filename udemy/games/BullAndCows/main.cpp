@@ -9,18 +9,18 @@ using FString = std::string;
 using int32 = int;
 
 bool AskToPlayAgain();
-FString GetValidGuess();
-void PlayGame();
-void PrintGameSummary();
-void PrintWelcomeMessage();
-
-FBullCowGame BCGame;
+FString GetValidGuess(FBullCowGame& BCGame);
+void PlayGame(FBullCowGame& BCGame);
+void PrintGameSummary(FBullCowGame& BCGame);
+void PrintWelcomeMessage(FBullCowGame& BCGame);
 
 int main() {
+    FBullCowGame BCGame;
+
     do {
-        PrintWelcomeMessage();
-        PlayGame();
-        PrintGameSummary();
+        PrintWelcomeMessage(BCGame);
+        PlayGame(BCGame);
+        PrintGameSummary(BCGame);
     } while(AskToPlayAgain());
 
     return 0;
@@ -33,7 +33,7 @@ bool AskToPlayAgain() {
     return Response[0] == 'y' || Response[0] == 'Y';
 }
 
-FString GetValidGuess() {
+FString GetValidGuess(FBullCowGame& BCGame) {
     FString Guess;
     std::optional<WordError> Validity;
     do {
@@ -47,10 +47,10 @@ FString GetValidGuess() {
     return Guess;
 }
 
-void PlayGame() {
+void PlayGame(FBullCowGame& BCGame) {
     BCGame.Reset();
     for (int32 count = 1; count <= BCGame.GetMaxTries() && !BCGame.isGameWon(); count += 1) {
-        FString Guess = GetValidGuess();
+        FString Guess = GetValidGuess(BCGame);
         std::cout << "Your guess was " << Guess << std::endl;
         auto Result = BCGame.SubmitValidGuess(Guess);
         std::cout << "Number of cows: " << Result.Cows << std::endl;
@@ -59,7 +59,7 @@ void PlayGame() {
     }
 }
 
-void PrintGameSummary() {
+void PrintGameSummary(FBullCowGame& BCGame) {
     if (BCGame.isGameWon()) {
         std::cout << "Well done, you won!";
     } else {
@@ -68,7 +68,7 @@ void PrintGameSummary() {
     std::cout << std::endl;
 }
 
-void PrintWelcomeMessage() {
+void PrintWelcomeMessage(FBullCowGame& BCGame) {
     std::cout << "Welcome to Bulls and Cows a fun word game." << std::endl;
     std::cout << "Can you guess the " << BCGame.GetHiddenWordLength() << " letter isogram I'm thinking of?" << std::endl;
 }

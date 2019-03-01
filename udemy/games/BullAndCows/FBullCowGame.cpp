@@ -11,8 +11,8 @@ using int32 = int;
 
 TMap<char, int32> GetPositionMap(FString& str) {
     TMap<char, int32> result;
-    for (int32 i = 0; i < str.size(); i += 1) {
-        result[str[i]] = i;
+    for (int32 i = 0; i < static_cast<int32>(str.size()); i += 1) {
+        result[str[static_cast<unsigned long>(i)]] = i;
     }
     return result;
 }
@@ -22,7 +22,7 @@ std::optional<char> GetFirstNotLowercaseChar(FString& Word) {
         return !std::islower((int32) c);
     });
     if (i != Word.end()) {
-        return Word[i - Word.begin()];
+        return Word[static_cast<unsigned long>(i - Word.begin())];
     }
     return {};
 }
@@ -81,15 +81,15 @@ FBullCowCount FBullCowGame::SubmitValidGuess(FString Guess) {
     FBullCowCount BullCowCount;
     auto GuessCharPositions = GetPositionMap(Guess);
 
-    BullCowCount.Cows = (int32) std::count_if(Guess.begin(), Guess.end(), [&](char c) {
+    BullCowCount.Cows = static_cast<int32>(std::count_if(Guess.begin(), Guess.end(), [&](char c) {
         return HiddenWordCharPositions.find(c) != HiddenWordCharPositions.end() &&
                 HiddenWordCharPositions[c] != GuessCharPositions[c];
-    });
-    BullCowCount.Bulls = (int32) std::count_if(Guess.begin(), Guess.end(), [&](char c) {
+    }));
+    BullCowCount.Bulls = static_cast<int32>(std::count_if(Guess.begin(), Guess.end(), [&](char c) {
         return HiddenWordCharPositions.find(c) != HiddenWordCharPositions.end() &&
                HiddenWordCharPositions[c] == GuessCharPositions[c];
-    });
-    bIsGameWon = BullCowCount.Bulls == HiddenWord.length();
+    }));
+    bIsGameWon = static_cast<unsigned long>(BullCowCount.Bulls) == HiddenWord.length();
     return BullCowCount;
 }
 
