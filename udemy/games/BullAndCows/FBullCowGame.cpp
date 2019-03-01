@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <string>
 #include "FBullCowGame.h"
 
 using FString = std::string;
@@ -14,7 +15,29 @@ std::map<char, int32> GetPositionMap(FString& str) {
     return result;
 }
 
+std::optional<char> GetFirstNotLowercaseChar(FString Word) {
+    std::string::iterator i = std::find_if(Word.begin(), Word.end(), [](char c ) {
+        return !std::islower((int32) c);
+    });
+    if (i != Word.end()) {
+        return Word[i - Word.begin()];
+    }
+    return {};
+}
+
+std::optional<char> GetFirstRepeatedChar(FString Word) {
+    std::map<char, bool> Seen;
+    for (char const &c : Word) {
+        if (Seen.find(c) != Seen.end()) {
+            return c;
+        }
+        Seen[c] = true;
+    }
+    return {};
+}
+
 void FBullCowGame::Reset() {
+    bIsGameWon = false;
     MaxTries = 5;
     CurrentTry = 1;
     HiddenWord = "planet";
@@ -30,13 +53,20 @@ int32 FBullCowGame::GetCurrentTry() const {
 }
 
 bool FBullCowGame::isGameWon() const {
-    return false;
+    return bIsGameWon;
 }
 
 std::optional<WordError> FBullCowGame::checkGuessValidity(FString Guess) const {
     if (GetHiddenWordLength() != Guess.length()) {
         return WrongLengthError(GetHiddenWordLength(), Guess.length());
     }
+    if (auto letter = GetFirstNotLowercaseChar(Guess)) {
+        return NotLowercaseError(*letter);
+    }
+    if (auto letter = GetFirstRepeatedChar(Guess)) {
+        return NotIsogramError(*letter);
+    }
+
     return {};
 }
 
@@ -44,7 +74,7 @@ FBullCowGame::FBullCowGame() {
     Reset();
 }
 
-FBullCowCount FBullCowGame::SubmitGuess(FString Guess) {
+FBullCowCount FBullCowGame::SubmitValidGuess(FString Guess) {
     CurrentTry += 1;
     FBullCowCount BullCowCount;
     auto GuessCharPositions = GetPositionMap(Guess);
@@ -57,6 +87,7 @@ FBullCowCount FBullCowGame::SubmitGuess(FString Guess) {
         return HiddenWordCharPositions.find(c) != HiddenWordCharPositions.end() &&
                HiddenWordCharPositions[c] == GuessCharPositions[c];
     });
+    bIsGameWon = BullCowCount.Bulls == HiddenWord.length();
     return BullCowCount;
 }
 

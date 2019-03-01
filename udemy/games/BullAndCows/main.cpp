@@ -11,6 +11,7 @@ using int32 = int;
 bool AskToPlayAgain();
 FString GetValidGuess();
 void PlayGame();
+void PrintGameSummary();
 void PrintWelcomeMessage();
 
 FBullCowGame BCGame;
@@ -19,13 +20,14 @@ int main() {
     do {
         PrintWelcomeMessage();
         PlayGame();
+        PrintGameSummary();
     } while(AskToPlayAgain());
 
     return 0;
 }
 
 bool AskToPlayAgain() {
-    std::cout << "Do you want to play again? (y/n)" << std::endl;
+    std::cout << "Do you want to play again with the same hidden word? (y/n)" << std::endl;
     FString Response;
     std::getline(std::cin, Response);
     return Response[0] == 'y' || Response[0] == 'Y';
@@ -47,14 +49,23 @@ FString GetValidGuess() {
 
 void PlayGame() {
     BCGame.Reset();
-    for (int32 count = 1; count <= BCGame.GetMaxTries(); count+=1) {
+    for (int32 count = 1; count <= BCGame.GetMaxTries() && !BCGame.isGameWon(); count += 1) {
         FString Guess = GetValidGuess();
         std::cout << "Your guess was " << Guess << std::endl;
-        auto Result = BCGame.SubmitGuess(Guess);
+        auto Result = BCGame.SubmitValidGuess(Guess);
         std::cout << "Number of cows: " << Result.Cows << std::endl;
         std::cout << "Number of bulls: " << Result.Bulls << std::endl;
         std::cout << std::endl;
     }
+}
+
+void PrintGameSummary() {
+    if (BCGame.isGameWon()) {
+        std::cout << "Well done, you won!";
+    } else {
+        std::cout << "You failed, yo' sucker";
+    }
+    std::cout << std::endl;
 }
 
 void PrintWelcomeMessage() {

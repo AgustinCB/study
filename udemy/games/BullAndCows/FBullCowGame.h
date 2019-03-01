@@ -16,6 +16,7 @@ struct FBullCowCount {
 
 struct NotIsogramError {
     char RepeatedChar;
+    explicit NotIsogramError(char c) : RepeatedChar(c) {};
 };
 struct WrongLengthError {
     unsigned long Expected;
@@ -24,12 +25,13 @@ struct WrongLengthError {
 };
 struct NotLowercaseError {
     char NotLowercaseChar;
+    explicit NotLowercaseError(char c) : NotLowercaseChar(c) {};
 };
 using WordError = std::variant<NotIsogramError, WrongLengthError, NotLowercaseError>;
 
 struct HandleWordError {
     std::ostream& OutputStream;
-    HandleWordError(std::ostream& _OutputStream) : OutputStream(_OutputStream) {};
+    explicit HandleWordError(std::ostream& _OutputStream) : OutputStream(_OutputStream) {};
     void operator()(WrongLengthError& Error) {
         OutputStream << "Please enter a " << Error.Expected << " letters word";
         OutputStream << " instead of a " << Error.Got << " letters word" << std::endl;
@@ -52,11 +54,12 @@ public:
     unsigned long GetHiddenWordLength() const;
     bool isGameWon() const;
     std::optional<WordError> checkGuessValidity(FString) const;
-    FBullCowCount SubmitGuess(FString);
+    FBullCowCount SubmitValidGuess(FString);
 private:
     int32 CurrentTry;
     int32 MaxTries;
     FString HiddenWord;
+    bool bIsGameWon;
     std::map<char, int32> HiddenWordCharPositions;
 };
 
