@@ -6,6 +6,7 @@
 
 #define TMap std::map
 
+// To make syntax Unreal friendly
 using FString = std::string;
 using int32 = int;
 
@@ -40,14 +41,13 @@ std::optional<char> GetFirstRepeatedChar(FString& Word) {
 
 void FBullCowGame::Reset() {
     bIsGameWon = false;
-    MaxTries = 5;
     CurrentTry = 1;
     HiddenWord = "planet";
     HiddenWordCharPositions = GetPositionMap(HiddenWord);
 }
 
 int32 FBullCowGame::GetMaxTries() const {
-    return MaxTries;
+    return GetHiddenWordLength()*2;
 }
 
 int32 FBullCowGame::GetCurrentTry() const {
@@ -59,8 +59,8 @@ bool FBullCowGame::isGameWon() const {
 }
 
 std::optional<WordError> FBullCowGame::checkGuessValidity(FString Guess) const {
-    if (GetHiddenWordLength() != Guess.length()) {
-        return WrongLengthError(GetHiddenWordLength(), Guess.length());
+    if (static_cast<unsigned long>(GetHiddenWordLength()) != Guess.length()) {
+        return WrongLengthError(static_cast<unsigned long>(GetHiddenWordLength()), Guess.length());
     }
     if (auto letter = GetFirstNotLowercaseChar(Guess)) {
         return NotLowercaseError(*letter);
@@ -93,6 +93,6 @@ FBullCowCount FBullCowGame::SubmitValidGuess(FString Guess) {
     return BullCowCount;
 }
 
-unsigned long FBullCowGame::GetHiddenWordLength() const {
-    return HiddenWord.length();
+int32 FBullCowGame::GetHiddenWordLength() const {
+    return static_cast<int32>(HiddenWord.length());
 }

@@ -8,6 +8,7 @@
 
 #define TMap std::map
 
+// To make syntax Unreal friendly
 using FString = std::string;
 using int32 = int;
 
@@ -53,13 +54,12 @@ public:
     void Reset();
     int32 GetMaxTries() const;
     int32 GetCurrentTry() const;
-    unsigned long GetHiddenWordLength() const;
+    int32 GetHiddenWordLength() const;
     bool isGameWon() const;
     std::optional<WordError> checkGuessValidity(FString) const;
     FBullCowCount SubmitValidGuess(FString);
 private:
     int32 CurrentTry;
-    int32 MaxTries;
     FString HiddenWord;
     bool bIsGameWon;
     TMap<char, int32> HiddenWordCharPositions;
