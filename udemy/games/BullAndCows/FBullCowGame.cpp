@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <iostream>
 #include <map>
+#include <unordered_set>
 #include <string>
 #include "FBullCowGame.h"
 
@@ -29,12 +30,12 @@ std::optional<char> GetFirstNotLowercaseChar(FString& Word) {
 }
 
 std::optional<char> GetFirstRepeatedChar(FString& Word) {
-    TMap<char, bool> Seen;
+    std::unordered_set<char> Seen;
     for (char const &c : Word) {
         if (Seen.find(c) != Seen.end()) {
             return c;
         }
-        Seen[c] = true;
+        Seen.insert(c);
     }
     return {};
 }
