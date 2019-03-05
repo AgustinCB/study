@@ -1,9 +1,16 @@
 #!/bin/bash
 set -euo pipefail
 
+DISK=$(1:?Pass the disk as argument)
+
+if mount | grep "$DISK" > /dev/null; then
+    echo "Disk is already mounted"
+    exit 1
+fi
+
 qemu-system-x86_64 \
   -enable-kvm \
-  -hda /dev/sdb \
+  -hda $DISK \
   -net nic,model=pcnet \
   -net user,hostfwd=tcp::10022-:22 \
   -m 16384
