@@ -106,6 +106,9 @@ quadraticOn p a b c
 trimmedPol :: [Integer] -> [Integer]
 trimmedPol = dropWhile (== 0)
 
+normalizedOn :: Integer -> [Integer] -> [Integer]
+normalizedOn p = fmap (\n -> mod n p)
+
 modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
 modMultPol p pl m = fmap (modMult p m) pl
 
@@ -122,9 +125,9 @@ divPoly p a b
   | not $ isPrime p                    = Left "The module should be prime"
   | length trimmedA < length trimmedB  = Right ([0], a)
   | length trimmedA == length trimmedB = Right (den, newRest)
-  | length trimmedA > length trimmedB  = let r = divPoly p newRest b
-                                         in (den ++ (fst r), snd r)
-  where trimmedA = trimmedPol a
-        trimmedB = trimmedPol b
-        den = [(trimmedA ! 0) / (trimmedB ! 0)]
-        newRest = trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (den ! 0)))
+  | length trimmedA > length trimmedB  = let r = fmap (\nr -> divPoly p nr b) newRest
+                                         in fmap (\d -> (d ++ (fst r), snd r)) den
+  where trimmedA = normalizedOn p $ trimmedPol a
+        trimmedB = normalizedOn p $ trimmedPol b
+        den = fmap (\n -> [modMult p (trimmedA ! 0) n]) $ inverseOn (trimmedB ! 0) p
+        newRest = fmap (\d -> trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (d ! 0)))) den
