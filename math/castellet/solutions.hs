@@ -131,3 +131,6 @@ divPoly p a b
         trimmedB = normalizedOn p $ trimmedPol b
         den = fmap (\n -> [modMult p (trimmedA ! 0) n]) $ inverseOn (trimmedB ! 0) p
         newRest = fmap (\d -> trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (d ! 0)))) den
+
+getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
+getDivisors p pol = undefined
