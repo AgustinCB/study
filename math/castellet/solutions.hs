@@ -112,6 +112,9 @@ normalizedOn p = fmap (\n -> mod n p)
 modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
 modMultPol p pl m = fmap (modMult p m) pl
 
+applyPol :: Integer -> Integer -> [Integer] -> Integer
+applyPol p x pol = sum $ normalizedOn p $ fmap ((*) x) pol
+
 modSubPol :: Integer -> [Integer] -> [Integer] -> [Integer]
 modSubPol p a b
   | length a < length b  = modSubPol p (leadingZeros a b) b
@@ -133,4 +136,8 @@ divPoly p a b
         newRest = fmap (\d -> trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (d ! 0)))) den
 
 getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
-getDivisors p pol = undefined
+getDivisors p pol
+  | length trimmedPol == 0 = Right []
+  | length trimmedPol == 1 = Right [trimmedPol]
+  where trimmedPol = normalizedOn p $ trimmedPol pol
+        nextDiv = find (\e -> mod (applyPol p e trimmedPol) p == 0) [0..p]
