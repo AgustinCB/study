@@ -1,4 +1,4 @@
-import Data.List (transpose)
+import Data.List (find, transpose)
 
 -- Chapter 1
 
@@ -139,5 +139,8 @@ getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
 getDivisors p pol
   | length trimmedPol == 0 = Right []
   | length trimmedPol == 1 = Right [trimmedPol]
-  where trimmedPol = normalizedOn p $ trimmedPol pol
+  | otherwise              = case nextDiv of Just div -> undefined
+                                             Nothing -> Right [trimmedPol]
+  where trimmedPol :: [Integer]
+        trimmedPol = normalizedOn p $ trimmedPol pol
         nextDiv = find (\e -> mod (applyPol p e trimmedPol) p == 0) [0..p]
