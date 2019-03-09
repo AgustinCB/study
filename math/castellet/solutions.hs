@@ -139,8 +139,10 @@ getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
 getDivisors p pol
   | length trimmedPol == 0 = Right []
   | length trimmedPol == 1 = Right [trimmedPol]
-  | otherwise              = case nextDiv of Just div -> undefined
+  | otherwise              = case nextDiv of Just div -> fmap ((++) [vuild n]) (divPoly p pol (buildRoot n) >>= (fst . (getDivisors p)))
                                              Nothing -> Right [trimmedPol]
   where trimmedPol :: [Integer]
         trimmedPol = normalizedOn p $ trimmedPol pol
+        buildRoot :: Integer -> [Integer]
+        buildRoot n = [1, n]
         nextDiv = find (\e -> mod (applyPol p e trimmedPol) p == 0) [0..p]
