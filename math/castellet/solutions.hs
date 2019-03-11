@@ -1,3 +1,5 @@
+module Castellet where
+
 import Data.List (find, transpose)
 
 -- Chapter 1
@@ -139,7 +141,7 @@ getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
 getDivisors p pol
   | length trimmedPol == 0 = Right []
   | length trimmedPol == 1 = Right [trimmedPol]
-  | otherwise              = case nextDiv of Just div -> fmap ((++) [vuild n]) (divPoly p pol (buildRoot n) >>= (fst . (getDivisors p)))
+  | otherwise              = case nextDiv of Just div -> fmap ((++) [buildRoot div]) (divPoly p pol (buildRoot div) >>= (fst . (getDivisors p)))
                                              Nothing -> Right [trimmedPol]
   where trimmedPol :: [Integer]
         trimmedPol = normalizedOn p $ trimmedPol pol
