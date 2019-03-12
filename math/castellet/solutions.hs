@@ -1,5 +1,6 @@
 module Castellet where
 
+import Control.Applicative (liftA2)
 import Data.List (find, transpose)
 
 -- Chapter 1
@@ -97,12 +98,12 @@ quadraticOn :: Integer -> Integer -> Integer -> Integer -> Either String Integer
 quadraticOn p a b c
   | not $ isPrime p = Left "The module should be prime"
   | a == 0          = fmap (modMult p (-c)) $ inverseOn b p
-  | otherwise       = dn >>= (\d -> fmap (modMult p d) (inverseOn (modMult p 2 a)))
+  | otherwise       = dn >>= (\d -> fmap (modMult p d) (inverseOn (modMult p 2 a) p))
   where bsquare = modMult p b b
         rootContent :: Either String Integer
         rootContent = squareRootOn (modSub p bsquare $ modMult p c (modMult p 4 a)) p
         dn :: Either String Integer
-        dn = fmap (modSub p (modMult p -1 b)) rootContent
+        dn = fmap (modSub p (modMult p (-1) b)) rootContent
 
 -- Ex 2
 trimmedPol :: [Integer] -> [Integer]
@@ -129,22 +130,22 @@ divPoly :: Integer -> [Integer] -> [Integer] -> Either String ([Integer], [Integ
 divPoly p a b
   | not $ isPrime p                    = Left "The module should be prime"
   | length trimmedA < length trimmedB  = Right ([0], a)
-  | length trimmedA == length trimmedB = Right (den, newRest)
-  | length trimmedA > length trimmedB  = let r = fmap (\nr -> divPoly p nr b) newRest
-                                         in fmap (\d -> (d ++ (fst r), snd r)) den
+  | length trimmedA == length trimmedB = liftA2 (,) den newRest
+  | length trimmedA > length trimmedB  = let nr = newRest >>= (\nr -> divPoly p nr b)
+                                         in liftA2 (\d -> \r -> (d ++ (fst r), snd r)) den nr
   where trimmedA = normalizedOn p $ trimmedPol a
         trimmedB = normalizedOn p $ trimmedPol b
-        den = fmap (\n -> [modMult p (trimmedA ! 0) n]) $ inverseOn (trimmedB ! 0) p
-        newRest = fmap (\d -> trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (d ! 0)))) den
+        den = fmap (\n -> [modMult p (trimmedA !! 0) n]) $ inverseOn (trimmedB !! 0) p
+        newRest = fmap (\d -> trimmedPol (modSubPol p trimmedA (modMultPol p trimmedB (d !! 0)))) den
 
 getDivisors :: Integer -> [Integer] -> Either String [[Integer]]
 getDivisors p pol
-  | length trimmedPol == 0 = Right []
-  | length trimmedPol == 1 = Right [trimmedPol]
-  | otherwise              = case nextDiv of Just div -> fmap ((++) [buildRoot div]) (divPoly p pol (buildRoot div) >>= (fst . (getDivisors p)))
-                                             Nothing -> Right [trimmedPol]
-  where trimmedPol :: [Integer]
-        trimmedPol = normalizedOn p $ trimmedPol pol
+  | length trimmedP == 0 = Right []
+  | length trimmedP == 1 = Right [trimmedP]
+  | otherwise              = case nextDiv of Just div -> fmap ((++) [buildRoot div]) ((divPoly p pol (buildRoot div)) >>= (\r -> (getDivisors p $ fst r)))
+                                             Nothing -> Right [trimmedP]
+  where trimmedP :: [Integer]
+        trimmedP = normalizedOn p $ trimmedPol pol
         buildRoot :: Integer -> [Integer]
         buildRoot n = [1, n]
-        nextDiv = find (\e -> mod (applyPol p e trimmedPol) p == 0) [0..p]
+        nextDiv = find (\e -> mod (applyPol p e trimmedP) p == 0) [0..p]
