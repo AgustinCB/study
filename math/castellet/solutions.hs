@@ -149,3 +149,6 @@ getDivisors p pol
         buildRoot :: Integer -> [Integer]
         buildRoot n = [1, n]
         nextDiv = find (\e -> mod (applyPol p e trimmedP) p == 0) [0..p]
+
+zeros :: [Float] -> Either String [Float]
+zeros = undefined
