@@ -150,5 +150,11 @@ getDivisors p pol
         buildRoot n = [1, n]
         nextDiv = find (\e -> mod (applyPol p e trimmedP) p == 0) [0..p]
 
+getAllFactors :: (Integer, Integer) -> [(Integer, Integer)]
+getAllFactors (a, b) = [(n,d) | n <- numerators,
+                                d <- denominators]
+  where numerators = factorize a
+        denominators = factorize b
+
 zeros :: [Float] -> Either String [Float]
 zeros = undefined
