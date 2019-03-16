@@ -156,5 +156,10 @@ getAllFactors (a, b) = [(n,d) | n <- numerators,
   where numerators = factorize a
         denominators = factorize b
 
-zeros :: [Float] -> Either String [Float]
-zeros = undefined
+zeros :: [Integer] -> Either String [Float]
+zeros p
+  | length p == 0 = Right []
+  | length p == 1 = Right [fromIntegral (-f)]
+  where f = p !! 0
+        l = last p
+        possibleZeros = getAllFactors (f,l)
