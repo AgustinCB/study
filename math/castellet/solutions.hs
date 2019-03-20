@@ -115,7 +115,7 @@ normalizedOn p = fmap (\n -> mod n p)
 modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
 modMultPol p pl m = fmap (modMult p m) pl
 
-applyPol :: Num m => Integer -> m -> [m] -> m
+applyPol :: Integer -> Integer -> [Integer] -> Integer
 applyPol p x pol = sum $ normalizedOn p $ fmap ((*) x) pol
 
 modSubPol :: Integer -> [Integer] -> [Integer] -> [Integer]
@@ -163,7 +163,9 @@ zeros :: [Integer] -> [Float]
 zeros p
   | length p == 0 = []
   | length p == 1 = [fromIntegral (-f)]
-  | otherwise     = filter (\v -> 0 == apply v p) $ fmap (uncurry (\i1 -> \i2 -> (fromIntegral i1) / (fromIntegral i2))) possibleZeros
+  | otherwise     = filter (\v -> 0 == apply v (fmap fromIntegral p)) results
   where f = p !! 0
         l = last p
         possibleZeros = getAllFactors (f,l)
+        results :: [Float]
+        results = fmap (uncurry (\i1 -> \i2 -> (fromIntegral i1) / (fromIntegral i2))) possibleZeros
