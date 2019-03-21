@@ -156,8 +156,10 @@ getAllFactors (a, b) = [(n,d) | n <- numerators,
   where numerators = factorize a
         denominators = factorize b
 
-apply :: Num m => m -> [m] -> m
-apply x pol = sum $ fmap ((*) x) pol
+apply :: Floating m => m -> [m] -> m
+apply x pol = sum $ fmap (uncurry (*)) $ zip pol $ xs x
+  where xs :: Floating m => m -> [m]
+        xs x = fmap ((**) x) $ fmap fromIntegral [0..]
 
 zeros :: [Integer] -> [Float]
 zeros p
