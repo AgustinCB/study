@@ -115,8 +115,13 @@ normalizedOn p = fmap (\n -> mod n p)
 modMultPol :: Integer -> [Integer] -> Integer -> [Integer]
 modMultPol p pl m = fmap (modMult p m) pl
 
+xs :: Floating m => m -> [m]
+xs x = fmap ((**) x) $ fmap fromIntegral [0..]
+
 applyPol :: Integer -> Integer -> [Integer] -> Integer
-applyPol p x pol = sum $ normalizedOn p $ fmap ((*) x) pol
+applyPol p x pol = sum $ normalizedOn p $ fmap (uncurry (*)) $ zip pol $ fmap floor (xs fx)
+  where fx :: Float
+        fx = fromIntegral x
 
 modSubPol :: Integer -> [Integer] -> [Integer] -> [Integer]
 modSubPol p a b
@@ -158,8 +163,6 @@ getAllFactors (a, b) = [(n,d) | n <- numerators,
 
 apply :: Floating m => m -> [m] -> m
 apply x pol = sum $ fmap (uncurry (*)) $ zip pol $ xs x
-  where xs :: Floating m => m -> [m]
-        xs x = fmap ((**) x) $ fmap fromIntegral [0..]
 
 zeros :: [Integer] -> [Float]
 zeros p
