@@ -1,5 +1,3 @@
-#![feature(try_from)]
-#![feature(if_while_or_patterns)]
 use std::convert::TryFrom;
 use std::io::{Read, stdin};
 use std::iter::Peekable;
@@ -20,10 +18,12 @@ enum Token {
     LeftParen,
     RightParen,
     Comma,
+    Plus,
 }
 
 #[derive(Debug)]
 enum Operation {
+    Sum,
 }
 
 #[derive(Debug)]
@@ -45,6 +45,7 @@ enum Statement {
 
 #[derive(Debug)]
 struct TokenList(Vec<Token>);
+#[derive(Debug)]
 struct Ast(Vec<Statement>);
 
 impl From<String> for TokenList {
@@ -57,6 +58,7 @@ impl From<String> for TokenList {
                 '(' => { res.push(Token::LeftParen) },
                 ')' => { res.push(Token::RightParen) },
                 ',' => { res.push(Token::Comma) },
+                '+' => { res.push(Token::Plus) },
                 _ if c.is_whitespace() => {},
                 _ if c.is_ascii_alphabetic() => {
                     let ident = (&mut chars)
@@ -88,9 +90,15 @@ impl From<String> for TokenList {
 }
 
 fn parse_expression<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
-    match source.next() {
-        Some(Token::Number(n)) => Ok(ExprAst::Number(n)),
-        None => Err(ParsingError::UnexpectedEndOfFile),
+    let peek = source.peek().map(|v| v.clone());
+    match (source.next(), peek) {
+        (Some(Token::Number(l)), Some(Token::Plus)) => {
+            source.next();
+            let r = parse_expression(source)?;
+            Ok(ExprAst::BinaryExpression(Box::new(ExprAst::Number(l)), Operation::Sum, Box::new(r)))
+        },
+        (Some(Token::Number(n)), _) => Ok(ExprAst::Number(n)),
+        (None, _) => Err(ParsingError::UnexpectedEndOfFile),
         _ => Ok(ExprAst::Number(0f64)),
     }
 }
@@ -182,5 +190,8 @@ impl TryFrom<TokenList> for Ast {
 fn main() {
     let mut content = Vec::new();
     stdin().read_to_end(&mut content).unwrap();
-    println!("Your lexer output is: {:?}", TokenList::from(String::from_utf8(content).unwrap()));
+    let tokens = TokenList::from(String::from_utf8(content).unwrap());
+    println!("Your lexer output is: {:?}", tokens);
+    let ast = Ast::try_from(tokens);
+    println!("Your parsing result is: {:?}", ast)
 }
