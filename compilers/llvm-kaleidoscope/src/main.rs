@@ -231,19 +231,11 @@ fn expect<I: Iterator<Item=Token>>(source: &mut Peekable<I>, t: Token) -> Result
     }
 }
 
-#[inline]
-fn handle_error<T>(r: Result<T, ParsingError>, errors: &mut Vec<ParsingError>) {
-    if let Err(e) = r {
-        errors.push(e)
-    }
-}
-
 fn parse_prototype<I: Iterator<Item=Token>>(
     source: &mut Peekable<I>,
     identifier: String,
-    errors: &mut Vec<ParsingError>,
-) -> FunctionPrototype {
-    handle_error(expect(source, Token::LeftParen), errors);
+) -> Result<FunctionPrototype, ParsingError> {
+    expect(source, Token::LeftParen)?;
     let mut peeked = source.peek().map(|v| v.clone());
     let mut args = Vec::new();
     while let Some(t@Token::Identifier(_)) = peeked {
@@ -255,8 +247,8 @@ fn parse_prototype<I: Iterator<Item=Token>>(
             peeked = source.peek().map(|v| v.clone());
         }
     }
-    handle_error(expect(source, Token::RightParen), errors);
-    FunctionPrototype(identifier, Vec::new())
+    expect(source, Token::RightParen)?;
+    Ok(FunctionPrototype(identifier, Vec::new()))
 }
 
 impl TryFrom<TokenList> for Ast {
@@ -271,11 +263,16 @@ impl TryFrom<TokenList> for Ast {
             match (next, peeked) {
                 (Token::Def, Some(Token::Identifier(i))) => {
                     source.next();
-                    let prototype = parse_prototype(&mut source, i, &mut errors);
+                    let prototype = parse_prototype(&mut source, i);
                     let body = parse_expression(&mut source);
-                    match body {
-                        Ok(b) => { statements.push(Statement::Function(prototype, b)) }
-                        Err(e) => { errors.push(e) },
+                    match (prototype, body) {
+                        (Ok(p), Ok(b)) => { statements.push(Statement::Function(p, b)) }
+                        (Ok(_), Err(e)) => { errors.push(e) },
+                        (Err(e), Ok(_)) => { errors.push(e) },
+                        (Err(e1), Err(e2)) => {
+                            errors.push(e1);
+                            errors.push(e2);
+                        },
                     }
                 }
                 (Token::Def, Some(t)) => {
