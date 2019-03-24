@@ -55,6 +55,7 @@ enum ExprAst {
 #[derive(Debug)]
 enum Statement {
     ExpressionStatement(ExprAst),
+    ExternFunction(FunctionPrototype),
     Function(FunctionPrototype, ExprAst),
 }
 
@@ -280,6 +281,22 @@ impl TryFrom<TokenList> for Ast {
                     match parse_def(&mut source) {
                         Ok(f) => { statements.push(f) }
                         Err(e) => { errors.extend(e) }
+                    }
+                }
+                Token::Extern => {
+                    source.next();
+                    match source.next() {
+                        Some(Token::Identifier(i)) => {
+                            match parse_prototype(&mut source, i) {
+                                Ok(s) => {
+                                    statements.push(Statement::ExternFunction(s));
+                                }
+                                Err(e) => { errors.push(e) }
+                            }
+                        }
+                        e => {
+                            errors.push(ParsingError::ExpectingNumberOrIdentifier(e));
+                        }
                     }
                 }
                 _ => {
