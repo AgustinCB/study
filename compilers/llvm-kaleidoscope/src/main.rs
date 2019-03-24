@@ -23,6 +23,12 @@ enum Token {
     Star,
     Slash,
     Percent,
+    GreaterThan,
+    LesserThan,
+    DoubleEquals,
+    BangEquals,
+    And,
+    Or,
 }
 
 #[derive(Debug)]
@@ -32,6 +38,12 @@ enum Operation {
     Multiplication,
     Division,
     Modulo,
+    IsGreaterThan,
+    IsLesserThan,
+    IsEqualsTo,
+    IsNotEqualsTo,
+    Or,
+    And,
 }
 
 #[derive(Debug)]
@@ -90,6 +102,20 @@ impl From<String> for TokenList {
                 '*' => { res.push(Token::Star) },
                 '/' => { res.push(Token::Slash) },
                 '%' => { res.push(Token::Percent) },
+                '>' => { res.push(Token::GreaterThan) },
+                '<' => { res.push(Token::LesserThan) },
+                '=' => {
+                    match chars.next().unwrap() {
+                        '=' => { res.push(Token::DoubleEquals) },
+                        c => panic!("Unexpected character {}", c),
+                    }
+                }
+                '!' => {
+                    match chars.next().unwrap() {
+                        '=' => { res.push(Token::BangEquals) },
+                        c => panic!("Unexpected character {}", c),
+                    }
+                }
                 _ if c.is_whitespace() => {},
                 _ if c.is_ascii_alphabetic() => {
                     let ident: String = accumulate_while(&mut chars, c,  |c| {
@@ -98,6 +124,8 @@ impl From<String> for TokenList {
                     res.push(match ident.as_str() {
                         "def" => Token::Def,
                         "extern" => Token::Extern,
+                        "and" => Token::And,
+                        "or" => Token::Or,
                         i => Token::Identifier(i.to_owned()),
                     });
                 }
@@ -211,8 +239,56 @@ fn parse_sum_rest<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<E
     }
 }
 
+fn parse_comp<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+    let l = parse_sum_rest(source)?;
+    let peeked = source.peek().map(|v| v.clone());
+    if let Some(Token::LesserThan) | Some(Token::GreaterThan) = peeked {
+        let op = source.next().unwrap();
+        let r = parse_sum_rest(source)?;
+        if let Token::LesserThan = op {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsLesserThan, Box::new(r)))
+        } else {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsGreaterThan, Box::new(r)))
+        }
+    } else {
+        Ok(l)
+    }
+}
+
+fn parse_eq_comp<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+    let l = parse_comp(source)?;
+    let peeked = source.peek().map(|v| v.clone());
+    if let Some(Token::DoubleEquals) | Some(Token::BangEquals) = peeked {
+        let op = source.next().unwrap();
+        let r = parse_comp(source)?;
+        if let Token::DoubleEquals = op {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsEqualsTo, Box::new(r)))
+        } else {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsNotEqualsTo, Box::new(r)))
+        }
+    } else {
+        Ok(l)
+    }
+}
+
+fn parse_and_or<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+    let l = parse_eq_comp(source)?;
+    let peeked = source.peek().map(|v| v.clone());
+    if let Some(Token::And) | Some(Token::Or) = peeked {
+        let op = source.next().unwrap();
+        let r = parse_eq_comp(source)?;
+        if let Token::And = op {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::And, Box::new(r)))
+        } else {
+            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Or, Box::new(r)))
+        }
+    } else {
+        Ok(l)
+    }
+}
+
 fn parse_expression<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
-    parse_sum_rest(source)
+    parse_and_or(source)
 }
 
 #[inline]
