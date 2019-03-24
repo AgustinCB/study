@@ -4,7 +4,6 @@ use std::iter::Peekable;
 
 #[derive(Debug)]
 enum ParsingError {
-    UnexpectedToken(Token),
     UnexpectedEndOfFile,
     ExpectingXGotY(Token, Option<Token>),
     ExpectingNumberOrIdentifier(Option<Token>),
@@ -81,7 +80,6 @@ impl From<String> for TokenList {
         let mut chars = s.chars().peekable();
         while chars.peek().map(|i| i.clone()).is_some() {
             let c = chars.next().unwrap();
-            println!("{}", c);
             match c {
                 '(' => { res.push(Token::LeftParen) },
                 ')' => { res.push(Token::RightParen) },
@@ -106,7 +104,6 @@ impl From<String> for TokenList {
                     let number: String = accumulate_while(&mut chars, c, |c| {
                         c.is_ascii_digit() || *c == '.'
                     }).into_iter().collect();
-                    println!("{} {:?}", number, chars.peek());
                     res.push(Token::Number(str::parse(&number).unwrap()));
                 }
                 _ => {},
@@ -251,36 +248,39 @@ fn parse_prototype<I: Iterator<Item=Token>>(
     Ok(FunctionPrototype(identifier, Vec::new()))
 }
 
+fn parse_def<I: Iterator<Item=Token>>(
+    source: &mut Peekable<I>
+) -> Result<Statement, Vec<ParsingError>> {
+    match source.next() {
+        Some(Token::Identifier(i)) => {
+            let prototype = parse_prototype(source, i);
+            let body = parse_expression(source);
+            match (prototype, body) {
+                (Ok(p), Ok(b)) => { Ok(Statement::Function(p, b)) },
+                (Ok(_), Err(e)) => { Err(vec![e]) },
+                (Err(e), Ok(_)) => { Err(vec![e]) },
+                (Err(e1), Err(e2)) => Err(vec![e1, e2]),
+            }
+        }
+        t => Err(vec![ParsingError::ExpectingNumberOrIdentifier(t)]),
+    }
+}
+
 impl TryFrom<TokenList> for Ast {
     type Error = Vec<ParsingError>;
     fn try_from(tokens: TokenList) -> Result<Ast, Self::Error> {
         let mut statements = Vec::new();
         let mut source = tokens.0.into_iter().peekable();
         let mut errors = Vec::new();
-        while let Some(n) = source.next() {
-            let next = n.clone();
-            let peeked = source.peek().map(|v| v.clone());
-            match (next, peeked) {
-                (Token::Def, Some(Token::Identifier(i))) => {
+        let mut peeked = source.peek().map(|v| v.clone());
+        while let Some(n) = peeked {
+            match n {
+                Token::Def => {
                     source.next();
-                    let prototype = parse_prototype(&mut source, i);
-                    let body = parse_expression(&mut source);
-                    match (prototype, body) {
-                        (Ok(p), Ok(b)) => { statements.push(Statement::Function(p, b)) }
-                        (Ok(_), Err(e)) => { errors.push(e) },
-                        (Err(e), Ok(_)) => { errors.push(e) },
-                        (Err(e1), Err(e2)) => {
-                            errors.push(e1);
-                            errors.push(e2);
-                        },
+                    match parse_def(&mut source) {
+                        Ok(f) => { statements.push(f) }
+                        Err(e) => { errors.extend(e) }
                     }
-                }
-                (Token::Def, Some(t)) => {
-                    errors.push(ParsingError::UnexpectedToken(t));
-                    parse_expression(&mut source);
-                }
-                (Token::Def, None) => {
-                    errors.push(ParsingError::UnexpectedEndOfFile);
                 }
                 _ => {
                     match parse_expression(&mut source) {
@@ -289,6 +289,7 @@ impl TryFrom<TokenList> for Ast {
                     }
                 }
             }
+            peeked = source.peek().map(|v| v.clone());
         }
         if errors.len() > 0 {
             Err(errors)
