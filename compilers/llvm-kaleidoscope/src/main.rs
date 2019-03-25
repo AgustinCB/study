@@ -2,6 +2,9 @@ use std::convert::TryFrom;
 use std::io::{Read, stdin};
 use std::iter::Peekable;
 
+mod llvm;
+use llvm::*;
+
 #[derive(Debug)]
 enum ParsingError {
     UnexpectedEndOfFile,
