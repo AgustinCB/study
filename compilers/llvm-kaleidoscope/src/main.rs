@@ -55,7 +55,7 @@ enum UnaryOperation {
 }
 
 #[derive(Debug)]
-struct FunctionPrototype(String, Vec<String>);
+struct FunctionPrototype(pub(crate) String, pub(crate) Vec<String>);
 
 #[derive(Debug)]
 enum ExprAst {
@@ -400,6 +400,12 @@ fn main() {
     stdin().read_to_end(&mut content).unwrap();
     let tokens = TokenList::from(String::from_utf8(content).unwrap());
     println!("Your lexer output is: {:?}", tokens);
-    let ast = Ast::try_from(tokens);
-    println!("Your parsing result is: {:?}", ast)
+    let ast = Ast::try_from(tokens).unwrap();
+    println!("Your parsing result is: {:?}", ast);
+    let mut context = Context::new("LLVM Module");
+    ast.0.iter()
+         .for_each(|v| {
+            v.codegen(&mut context).unwrap();
+         });
+    context.print();
 }
