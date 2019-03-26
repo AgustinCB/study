@@ -1,19 +1,20 @@
-use crate::{ExprAst, FunctionPrototype, Statement, Operation, UnaryOperation};
-use llvm_sys::{LLVMBuilder, LLVMModule, LLVMRealPredicate};
+use crate::{ExprAst, FunctionPrototype, Operation, Statement, UnaryOperation};
 use llvm_sys::analysis::{LLVMVerifierFailureAction, LLVMVerifyFunction};
-use llvm_sys::core::{LLVMModuleCreateWithName, LLVMDisposeModule, LLVMCreateBuilder,
-                     LLVMDisposeBuilder, LLVMConstReal, LLVMDoubleType, LLVMBuildFAdd, LLVMBuildFSub,
-                     LLVMBuildFMul, LLVMBuildFRem, LLVMBuildFCmp, LLVMBuildUIToFP, LLVMBuildAnd,
-                     LLVMBuildOr, LLVMGetNamedFunction, LLVMBuildCall, LLVMAddFunction,
-                     LLVMFunctionType, LLVMGetEntryBasicBlock, LLVMAppendBasicBlock, LLVMCountParams,
-                     LLVMGetParam, LLVMBuildRet, LLVMDumpModule};
+use llvm_sys::core::{
+    LLVMAddFunction, LLVMAppendBasicBlock, LLVMBuildAnd, LLVMBuildCall, LLVMBuildFAdd,
+    LLVMBuildFCmp, LLVMBuildFMul, LLVMBuildFRem, LLVMBuildFSub, LLVMBuildOr, LLVMBuildRet,
+    LLVMBuildUIToFP, LLVMConstReal, LLVMCountParams, LLVMCreateBuilder, LLVMDisposeBuilder,
+    LLVMDisposeModule, LLVMDoubleType, LLVMDumpModule, LLVMFunctionType, LLVMGetEntryBasicBlock,
+    LLVMGetNamedFunction, LLVMGetParam, LLVMModuleCreateWithName,
+};
 use llvm_sys::prelude::*;
-use std::ffi::CString;
+use llvm_sys::{LLVMBuilder, LLVMModule, LLVMRealPredicate};
 use std::collections::HashMap;
+use std::ffi::CString;
 
 struct Module {
     module: *mut LLVMModule,
-    strings: Vec<CString>
+    strings: Vec<CString>,
 }
 
 impl Module {
@@ -21,7 +22,7 @@ impl Module {
         unsafe {
             Module {
                 module: LLVMModuleCreateWithName(
-                    CString::new(name).unwrap().to_bytes_with_nul().as_ptr() as *const _
+                    CString::new(name).unwrap().to_bytes_with_nul().as_ptr() as *const _,
                 ),
                 strings: Vec::new(),
             }
@@ -101,7 +102,12 @@ pub(crate) trait CodeGenerator {
 }
 
 #[inline]
-unsafe fn generate_cmp_code(context: &mut Context, l: LLVMValueRef, r: LLVMValueRef, op: LLVMRealPredicate) -> LLVMValueRef {
+unsafe fn generate_cmp_code(
+    context: &mut Context,
+    l: LLVMValueRef,
+    r: LLVMValueRef,
+    op: LLVMRealPredicate,
+) -> LLVMValueRef {
     let tmp = LLVMBuildFCmp(
         context.builder.builder,
         op,
@@ -131,34 +137,55 @@ unsafe fn to_bool(context: &mut Context, v: LLVMValueRef) -> LLVMValueRef {
 impl CodeGenerator for ExprAst {
     fn codegen(&self, context: &mut Context) -> Result<LLVMValueRef, CodeGenerationError> {
         match self {
-            ExprAst::Number(f) =>
-                Ok(unsafe { LLVMConstReal(LLVMDoubleType(), *f) }),
-            ExprAst::Variable(i) =>
-                context.symbols.get(i)
-                    .ok_or(CodeGenerationError::VariableNotFound(i.clone()))
-                    .map(|v| v.to_owned()),
-            ExprAst::BinaryExpression(
-               left,
-               operation,
-               right,
-           )  => {
+            ExprAst::Number(f) => Ok(unsafe { LLVMConstReal(LLVMDoubleType(), *f) }),
+            ExprAst::Variable(i) => context
+                .symbols
+                .get(i)
+                .ok_or(CodeGenerationError::VariableNotFound(i.clone()))
+                .map(|v| v.to_owned()),
+            ExprAst::BinaryExpression(left, operation, right) => {
                 let l = left.codegen(context)?;
                 let r = right.codegen(context)?;
                 match operation {
                     Operation::Sum => Ok(unsafe {
-                        LLVMBuildFAdd(context.builder.builder, l, r, context.module.add_new_string("tmpadd"))
+                        LLVMBuildFAdd(
+                            context.builder.builder,
+                            l,
+                            r,
+                            context.module.add_new_string("tmpadd"),
+                        )
                     }),
                     Operation::Difference => Ok(unsafe {
-                        LLVMBuildFSub(context.builder.builder, l, r, context.module.add_new_string("tmpsub"))
+                        LLVMBuildFSub(
+                            context.builder.builder,
+                            l,
+                            r,
+                            context.module.add_new_string("tmpsub"),
+                        )
                     }),
                     Operation::Multiplication => Ok(unsafe {
-                        LLVMBuildFMul(context.builder.builder, l, r, context.module.add_new_string("tmpmult"))
+                        LLVMBuildFMul(
+                            context.builder.builder,
+                            l,
+                            r,
+                            context.module.add_new_string("tmpmult"),
+                        )
                     }),
                     Operation::Division => Ok(unsafe {
-                        LLVMBuildFMul(context.builder.builder, l, r, context.module.add_new_string("tmpdiv"))
+                        LLVMBuildFMul(
+                            context.builder.builder,
+                            l,
+                            r,
+                            context.module.add_new_string("tmpdiv"),
+                        )
                     }),
                     Operation::Modulo => Ok(unsafe {
-                        LLVMBuildFRem(context.builder.builder, l, r, context.module.add_new_string("tmprem"))
+                        LLVMBuildFRem(
+                            context.builder.builder,
+                            l,
+                            r,
+                            context.module.add_new_string("tmprem"),
+                        )
                     }),
                     Operation::IsGreaterThan => Ok(unsafe {
                         generate_cmp_code(context, l, r, LLVMRealPredicate::LLVMRealUGT)
@@ -194,14 +221,15 @@ impl CodeGenerator for ExprAst {
                 let f = unsafe {
                     LLVMGetNamedFunction(
                         context.module.module,
-                        CString::new(fname.as_str()).unwrap().as_ptr()
+                        CString::new(fname.as_str()).unwrap().as_ptr(),
                     )
                 };
                 let count = unsafe { LLVMCountParams(f) } as usize;
                 if count == args.len() {
-                    let mut arg_vals = args.iter()
-                        .map(|v| v.codegen(context))
-                        .collect::<Result<Vec<LLVMValueRef>, CodeGenerationError>>()?;
+                    let mut arg_vals =
+                        args.iter()
+                            .map(|v| v.codegen(context))
+                            .collect::<Result<Vec<LLVMValueRef>, CodeGenerationError>>()?;
                     Ok(unsafe {
                         LLVMBuildCall(
                             context.builder.builder,
@@ -218,16 +246,14 @@ impl CodeGenerator for ExprAst {
             ExprAst::Unary(operator, expr) => {
                 let operand = expr.codegen(context)?;
                 match operator {
-                    UnaryOperation::ChangeSign => {
-                        Ok(unsafe {
-                            LLVMBuildFMul(
-                                context.builder.builder,
-                                operand,
-                                LLVMConstReal(LLVMDoubleType(), -1f64),
-                                context.module.add_new_string("tmpchangesign"),
-                            )
-                        })
-                    }
+                    UnaryOperation::ChangeSign => Ok(unsafe {
+                        LLVMBuildFMul(
+                            context.builder.builder,
+                            operand,
+                            LLVMConstReal(LLVMDoubleType(), -1f64),
+                            context.module.add_new_string("tmpchangesign"),
+                        )
+                    }),
                 }
             }
             ExprAst::Grouping(v) => v.codegen(context),
@@ -236,14 +262,25 @@ impl CodeGenerator for ExprAst {
 }
 
 fn codegen_prototype(prototype: &FunctionPrototype, context: &mut Context) -> LLVMValueRef {
-    let mut argument_types: Vec<LLVMTypeRef> = prototype.1.iter().map(|_| unsafe {
-        LLVMDoubleType()
-    }).collect();
+    let mut argument_types: Vec<LLVMTypeRef> = prototype
+        .1
+        .iter()
+        .map(|_| unsafe { LLVMDoubleType() })
+        .collect();
     let function_type = unsafe {
-        LLVMFunctionType(LLVMDoubleType(), argument_types.as_mut_ptr(), argument_types.len() as u32, false as i32)
+        LLVMFunctionType(
+            LLVMDoubleType(),
+            argument_types.as_mut_ptr(),
+            argument_types.len() as u32,
+            false as i32,
+        )
     };
     unsafe {
-        LLVMAddFunction(context.module.module, context.module.add_new_string(&prototype.0), function_type)
+        LLVMAddFunction(
+            context.module.module,
+            context.module.add_new_string(&prototype.0),
+            function_type,
+        )
     }
 }
 
@@ -254,16 +291,17 @@ impl CodeGenerator for Statement {
             Statement::ExternFunction(f) => Ok(codegen_prototype(f, context)),
             Statement::Function(p, b) => {
                 let prev_f = unsafe {
-                    LLVMGetNamedFunction(context.module.module, CString::new(p.0.as_str()).unwrap().as_ptr())
-                        .as_mut()
+                    LLVMGetNamedFunction(
+                        context.module.module,
+                        CString::new(p.0.as_str()).unwrap().as_ptr(),
+                    )
+                    .as_mut()
                 };
                 let f = match prev_f {
                     None => codegen_prototype(&p, context),
                     Some(v) => v as *mut _,
                 };
-                let current_basic_block = unsafe {
-                    LLVMGetEntryBasicBlock(f).as_ref()
-                };
+                let current_basic_block = unsafe { LLVMGetEntryBasicBlock(f).as_ref() };
                 match current_basic_block {
                     None => {
                         let _bb = unsafe {
@@ -271,16 +309,12 @@ impl CodeGenerator for Statement {
                         };
                         let n_params = unsafe { LLVMCountParams(f) } as usize;
                         context.symbols.clear();
-                        for i in 0..n_params-1 {
-                            let param = unsafe {
-                                LLVMGetParam(f, i as u32)
-                            };
+                        for i in 0..n_params - 1 {
+                            let param = unsafe { LLVMGetParam(f, i as u32) };
                             context.symbols.insert(p.1[i].clone(), param);
                         }
                         let return_value = b.codegen(context)?;
-                        unsafe {
-                            LLVMBuildRet(context.builder.builder, return_value)
-                        };
+                        unsafe { LLVMBuildRet(context.builder.builder, return_value) };
                         let result = unsafe {
                             LLVMVerifyFunction(f, LLVMVerifierFailureAction::LLVMPrintMessageAction)
                         };
@@ -289,10 +323,8 @@ impl CodeGenerator for Statement {
                         } else {
                             Ok(f)
                         }
-                    },
-                    Some(_) => {
-                        Err(CodeGenerationError::FunctionAlreadyDefined(p.0.clone()))
-                    },
+                    }
+                    Some(_) => Err(CodeGenerationError::FunctionAlreadyDefined(p.0.clone())),
                 }
             }
         }

@@ -1,5 +1,5 @@
 use std::convert::TryFrom;
-use std::io::{Read, stdin};
+use std::io::{stdin, Read};
 use std::iter::Peekable;
 
 mod llvm;
@@ -79,7 +79,11 @@ struct TokenList(Vec<Token>);
 #[derive(Debug)]
 struct Ast(Vec<Statement>);
 
-fn accumulate_while<T, I: Iterator<Item=T>, F: Fn(&T) -> bool + Copy>(source: &mut Peekable<I>, zero: T, condition: F) -> Vec<T> {
+fn accumulate_while<T, I: Iterator<Item = T>, F: Fn(&T) -> bool + Copy>(
+    source: &mut Peekable<I>,
+    zero: T,
+    condition: F,
+) -> Vec<T> {
     let mut result = Vec::new();
     result.push(zero);
     let mut peeked = source.peek();
@@ -97,33 +101,30 @@ impl From<String> for TokenList {
         while chars.peek().map(|i| i.clone()).is_some() {
             let c = chars.next().unwrap();
             match c {
-                '(' => { res.push(Token::LeftParen) },
-                ')' => { res.push(Token::RightParen) },
-                ',' => { res.push(Token::Comma) },
-                '+' => { res.push(Token::Plus) },
-                '-' => { res.push(Token::Dash) },
-                '*' => { res.push(Token::Star) },
-                '/' => { res.push(Token::Slash) },
-                '%' => { res.push(Token::Percent) },
-                '>' => { res.push(Token::GreaterThan) },
-                '<' => { res.push(Token::LesserThan) },
-                '=' => {
-                    match chars.next().unwrap() {
-                        '=' => { res.push(Token::DoubleEquals) },
-                        c => panic!("Unexpected character {}", c),
-                    }
-                }
-                '!' => {
-                    match chars.next().unwrap() {
-                        '=' => { res.push(Token::BangEquals) },
-                        c => panic!("Unexpected character {}", c),
-                    }
-                }
-                _ if c.is_whitespace() => {},
+                '(' => res.push(Token::LeftParen),
+                ')' => res.push(Token::RightParen),
+                ',' => res.push(Token::Comma),
+                '+' => res.push(Token::Plus),
+                '-' => res.push(Token::Dash),
+                '*' => res.push(Token::Star),
+                '/' => res.push(Token::Slash),
+                '%' => res.push(Token::Percent),
+                '>' => res.push(Token::GreaterThan),
+                '<' => res.push(Token::LesserThan),
+                '=' => match chars.next().unwrap() {
+                    '=' => res.push(Token::DoubleEquals),
+                    c => panic!("Unexpected character {}", c),
+                },
+                '!' => match chars.next().unwrap() {
+                    '=' => res.push(Token::BangEquals),
+                    c => panic!("Unexpected character {}", c),
+                },
+                _ if c.is_whitespace() => {}
                 _ if c.is_ascii_alphabetic() => {
-                    let ident: String = accumulate_while(&mut chars, c,  |c| {
-                        c.is_ascii_alphanumeric()
-                    }).into_iter().collect();
+                    let ident: String =
+                        accumulate_while(&mut chars, c, |c| c.is_ascii_alphanumeric())
+                            .into_iter()
+                            .collect();
                     res.push(match ident.as_str() {
                         "def" => Token::Def,
                         "extern" => Token::Extern,
@@ -133,21 +134,27 @@ impl From<String> for TokenList {
                     });
                 }
                 _ if c.is_ascii_digit() || c == '.' => {
-                    let number: String = accumulate_while(&mut chars, c, |c| {
-                        c.is_ascii_digit() || *c == '.'
-                    }).into_iter().collect();
+                    let number: String =
+                        accumulate_while(&mut chars, c, |c| c.is_ascii_digit() || *c == '.')
+                            .into_iter()
+                            .collect();
                     res.push(Token::Number(str::parse(&number).unwrap()));
                 }
-                _ => {},
+                _ => {}
             }
         }
         TokenList(res)
     }
 }
 
-fn parse_call_args<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<Vec<Box<ExprAst>>, ParsingError> {
+fn parse_call_args<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<Vec<Box<ExprAst>>, ParsingError> {
     let mut res = Vec::new();
-    let mut n = source.peek().map(|v| v.clone()).ok_or(ParsingError::UnexpectedEndOfFile)?;
+    let mut n = source
+        .peek()
+        .map(|v| v.clone())
+        .ok_or(ParsingError::UnexpectedEndOfFile)?;
     while Token::RightParen != n {
         match n {
             Token::Comma => {
@@ -158,15 +165,20 @@ fn parse_call_args<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<
                 res.push(Box::new(arg));
             }
         }
-        n = source.peek().map(|v| v.clone()).ok_or(ParsingError::UnexpectedEndOfFile)?;
+        n = source
+            .peek()
+            .map(|v| v.clone())
+            .ok_or(ParsingError::UnexpectedEndOfFile)?;
     }
     source.next();
     Ok(res)
 }
 
-fn parse_operator<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_operator<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     match source.next() {
-        Some(Token::Number(n)) => { Ok(ExprAst::Number(n)) }
+        Some(Token::Number(n)) => Ok(ExprAst::Number(n)),
         Some(Token::Identifier(i)) => {
             let peeked = source.peek().map(|v| v.clone());
             if let Some(Token::LeftParen) = peeked {
@@ -177,11 +189,13 @@ fn parse_operator<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<E
                 Ok(ExprAst::Variable(i))
             }
         }
-        t => { Err(ParsingError::ExpectingNumberOrIdentifier(t)) }
+        t => Err(ParsingError::ExpectingNumberOrIdentifier(t)),
     }
 }
 
-fn parse_group<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_group<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let peeked = source.peek().map(|v| v.clone());
     match peeked {
         Some(Token::LeftParen) => {
@@ -190,12 +204,14 @@ fn parse_group<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<Expr
             expect(source, Token::RightParen)?;
             Ok(ExprAst::Grouping(Box::new(exp)))
         }
-        Some(_) => { parse_operator(source) }
-        None => Err(ParsingError::UnexpectedEndOfFile)
+        Some(_) => parse_operator(source),
+        None => Err(ParsingError::UnexpectedEndOfFile),
     }
 }
 
-fn parse_unary<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_unary<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let peeked = source.peek().map(|v| v.clone());
     match peeked {
         Some(Token::Dash) => {
@@ -203,99 +219,158 @@ fn parse_unary<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<Expr
             let op = parse_group(source)?;
             Ok(ExprAst::Unary(UnaryOperation::ChangeSign, Box::new(op)))
         }
-        Some(_) => { parse_group(source) }
-        None => Err(ParsingError::UnexpectedEndOfFile)
+        Some(_) => parse_group(source),
+        None => Err(ParsingError::UnexpectedEndOfFile),
     }
 }
 
-fn parse_mult_div<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_mult_div<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let l = parse_unary(source)?;
     let peeked = source.peek().map(|v| v.clone());
     if let Some(Token::Star) | Some(Token::Slash) | Some(Token::Percent) = peeked {
         let op = source.next().unwrap();
         let r = parse_unary(source)?;
         if let Token::Star = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Multiplication, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Multiplication,
+                Box::new(r),
+            ))
         } else if let Token::Slash = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Division, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Division,
+                Box::new(r),
+            ))
         } else {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Modulo, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Modulo,
+                Box::new(r),
+            ))
         }
     } else {
         Ok(l)
     }
 }
 
-fn parse_sum_rest<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_sum_rest<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let l = parse_mult_div(source)?;
     let peeked = source.peek().map(|v| v.clone());
     if let Some(Token::Plus) | Some(Token::Dash) = peeked {
         let op = source.next().unwrap();
         let r = parse_mult_div(source)?;
         if let Token::Plus = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Sum, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Sum,
+                Box::new(r),
+            ))
         } else {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Difference, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Difference,
+                Box::new(r),
+            ))
         }
     } else {
         Ok(l)
     }
 }
 
-fn parse_comp<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_comp<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let l = parse_sum_rest(source)?;
     let peeked = source.peek().map(|v| v.clone());
     if let Some(Token::LesserThan) | Some(Token::GreaterThan) = peeked {
         let op = source.next().unwrap();
         let r = parse_sum_rest(source)?;
         if let Token::LesserThan = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsLesserThan, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::IsLesserThan,
+                Box::new(r),
+            ))
         } else {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsGreaterThan, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::IsGreaterThan,
+                Box::new(r),
+            ))
         }
     } else {
         Ok(l)
     }
 }
 
-fn parse_eq_comp<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_eq_comp<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let l = parse_comp(source)?;
     let peeked = source.peek().map(|v| v.clone());
     if let Some(Token::DoubleEquals) | Some(Token::BangEquals) = peeked {
         let op = source.next().unwrap();
         let r = parse_comp(source)?;
         if let Token::DoubleEquals = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsEqualsTo, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::IsEqualsTo,
+                Box::new(r),
+            ))
         } else {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::IsNotEqualsTo, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::IsNotEqualsTo,
+                Box::new(r),
+            ))
         }
     } else {
         Ok(l)
     }
 }
 
-fn parse_and_or<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_and_or<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     let l = parse_eq_comp(source)?;
     let peeked = source.peek().map(|v| v.clone());
     if let Some(Token::And) | Some(Token::Or) = peeked {
         let op = source.next().unwrap();
         let r = parse_eq_comp(source)?;
         if let Token::And = op {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::And, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::And,
+                Box::new(r),
+            ))
         } else {
-            Ok(ExprAst::BinaryExpression(Box::new(l), Operation::Or, Box::new(r)))
+            Ok(ExprAst::BinaryExpression(
+                Box::new(l),
+                Operation::Or,
+                Box::new(r),
+            ))
         }
     } else {
         Ok(l)
     }
 }
 
-fn parse_expression<I: Iterator<Item=Token>>(source: &mut Peekable<I>) -> Result<ExprAst, ParsingError> {
+fn parse_expression<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+) -> Result<ExprAst, ParsingError> {
     parse_and_or(source)
 }
 
 #[inline]
-fn expect<I: Iterator<Item=Token>>(source: &mut Peekable<I>, t: Token) -> Result<(), ParsingError> {
+fn expect<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
+    t: Token,
+) -> Result<(), ParsingError> {
     let n = source.next();
     if let Some(t1) = n {
         if t1 == t {
@@ -308,14 +383,14 @@ fn expect<I: Iterator<Item=Token>>(source: &mut Peekable<I>, t: Token) -> Result
     }
 }
 
-fn parse_prototype<I: Iterator<Item=Token>>(
+fn parse_prototype<I: Iterator<Item = Token>>(
     source: &mut Peekable<I>,
     identifier: String,
 ) -> Result<FunctionPrototype, ParsingError> {
     expect(source, Token::LeftParen)?;
     let mut peeked = source.peek().map(|v| v.clone());
     let mut args = Vec::new();
-    while let Some(t@Token::Identifier(_)) = peeked {
+    while let Some(t @ Token::Identifier(_)) = peeked {
         args.push(t);
         source.next();
         peeked = source.peek().map(|v| v.clone());
@@ -328,17 +403,17 @@ fn parse_prototype<I: Iterator<Item=Token>>(
     Ok(FunctionPrototype(identifier, Vec::new()))
 }
 
-fn parse_def<I: Iterator<Item=Token>>(
-    source: &mut Peekable<I>
+fn parse_def<I: Iterator<Item = Token>>(
+    source: &mut Peekable<I>,
 ) -> Result<Statement, Vec<ParsingError>> {
     match source.next() {
         Some(Token::Identifier(i)) => {
             let prototype = parse_prototype(source, i);
             let body = parse_expression(source);
             match (prototype, body) {
-                (Ok(p), Ok(b)) => { Ok(Statement::Function(p, b)) },
-                (Ok(_), Err(e)) => { Err(vec![e]) },
-                (Err(e), Ok(_)) => { Err(vec![e]) },
+                (Ok(p), Ok(b)) => Ok(Statement::Function(p, b)),
+                (Ok(_), Err(e)) => Err(vec![e]),
+                (Err(e), Ok(_)) => Err(vec![e]),
                 (Err(e1), Err(e2)) => Err(vec![e1, e2]),
             }
         }
@@ -358,32 +433,28 @@ impl TryFrom<TokenList> for Ast {
                 Token::Def => {
                     source.next();
                     match parse_def(&mut source) {
-                        Ok(f) => { statements.push(f) }
-                        Err(e) => { errors.extend(e) }
+                        Ok(f) => statements.push(f),
+                        Err(e) => errors.extend(e),
                     }
                 }
                 Token::Extern => {
                     source.next();
                     match source.next() {
-                        Some(Token::Identifier(i)) => {
-                            match parse_prototype(&mut source, i) {
-                                Ok(s) => {
-                                    statements.push(Statement::ExternFunction(s));
-                                }
-                                Err(e) => { errors.push(e) }
+                        Some(Token::Identifier(i)) => match parse_prototype(&mut source, i) {
+                            Ok(s) => {
+                                statements.push(Statement::ExternFunction(s));
                             }
-                        }
+                            Err(e) => errors.push(e),
+                        },
                         e => {
                             errors.push(ParsingError::ExpectingNumberOrIdentifier(e));
                         }
                     }
                 }
-                _ => {
-                    match parse_expression(&mut source) {
-                        Ok(e) => statements.push(Statement::ExpressionStatement(e)),
-                        Err(e) => errors.push(e),
-                    }
-                }
+                _ => match parse_expression(&mut source) {
+                    Ok(e) => statements.push(Statement::ExpressionStatement(e)),
+                    Err(e) => errors.push(e),
+                },
             }
             peeked = source.peek().map(|v| v.clone());
         }
@@ -403,9 +474,8 @@ fn main() {
     let ast = Ast::try_from(tokens).unwrap();
     println!("Your parsing result is: {:?}", ast);
     let mut context = Context::new("LLVM Module");
-    ast.0.iter()
-         .for_each(|v| {
-            v.codegen(&mut context).unwrap();
-         });
+    ast.0.iter().for_each(|v| {
+        v.codegen(&mut context).unwrap();
+    });
     context.print();
 }
