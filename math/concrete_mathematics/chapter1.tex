@@ -1,0 +1,40 @@
+\documentclass{article}
+
+\author{Agustin Chiappe Berrini}
+\title{Exercises chapter 1}
+
+\newcounter{problem}
+
+\newcommand\Problem{%
+ \stepcounter{problem}%
+ \textbf{\theproblem.}~%
+}
+
+\newcommand\TheSolution{%
+ \textbf{Solution:}\\%
+}
+
+\parindent 0in
+\parskip 1em
+\begin{document}
+ \pagenumbering{gobble}
+ \maketitle
+ \newpage
+ \pagenumbering{arabic}
+
+ \Problem All horses are the same color; we can prove this by induction on the number of horses in a given set. Here's how: "If there's just one horsethen it's the same color as itself, so the basis is trivial. For the induction step, assume that there are $n$ horses numbered $1$ to $n$. By the induction hypothesis, horses $1$ through $n-1$ are the same color, and similarly horses $2$ through $n$ are the same color. But the middle horses, $2$ through $n-1$, can't change color when they're in different groups; these are horses, not chameleons. So horses $1$ and $n$ must be the same color as well, by transitivity. Thus all $n$ horses are the same color; QED." What, if anything, is wrong with this reasoning?
+
+ \TheSolution In the use of the condition $p(n-1) \to p(1)$. While it's true that we can say that if $p(n-1)$ then all horses numbered from $1$ to $n-1$ have the same colour, we can't say that horses from $2$ to $n$ are the same colour, as the hourse numbered $n$ is not considered as part of $p(n-1)$, only the first $n-1$ ones.
+
+ \Problem Find the shortest sequence of moves that transfers a tower of $n$ disks from the left peg $A$ to the right peg $B$, if direct moves between $A$ and $B$ are disallowed. (Each move must be to or from the middle peg. As usual, a larger disk must never appear above a smaller one.)
+
+ \TheSolution Let's check first simple cases.
+
+ Assuming $T'(n)$ is the minimum number of steps required under the new rules and that the towers are set in the order $A \to C \to B$, we have that $T'(1) = 2$, given that we need to do the following sequence of movements: $A \to C$, $C \to B$.
+
+ Then we have that $T'(2) = 8$. The steps are "simple:" $A \to C$, $C \to B$ (up to here we move the smallest disk to $B$), $A \to C$ (move the largest disk to the middle tower), $B \to C$, $C \to A$ (move the smallest disk back to $A$), $C \to B$ (move the largest disk to $B$), $A \to C$, $C \to B$ (move the smallest disk to $B$).
+
+ From here, we can infer a solution in five steps:
+
+ \Problem Show that, in the process of transferring a tower under the restrictions of the preceding exercise, we will actually encounter every properly stacked arrangement of $n$ disks on three pegs
+\end{document}
