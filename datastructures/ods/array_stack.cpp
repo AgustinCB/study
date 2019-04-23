@@ -35,3 +35,4 @@ inline std::optional<T> ArrayStack<T, V>::pop() {
 
 template class ArrayStack<unsigned int>;
 template class ArrayStack<unsigned int, RootishVector<unsigned int>>;
+template class ArrayStack<unsigned int, RootishVector<unsigned int, false>>;
