@@ -49,11 +49,23 @@ void CircularVector<T>::add(unsigned int i, T x) {
 			set(j, get(j-1));
 		}
 	} else {
-		for (unsigned int j = i; j < _size-1; j++) {
-			set(j+1, get(j));
+		for (int j = _size-1; j > (int) i; j--) {
+			set(j, get(j-1));
 		}
 	}
 	set(i, x);
+}
+
+template <typename T>
+void CircularVector<T>::addAll(unsigned int i, Seq<CircularVector<T>, T>&& x) {
+    unsigned int target_size = _size;
+    while (target_size * 2 < _size + x.size()) target_size *= 2;
+    if (target_size + 1 > capacity()) {
+        internal = mem_manager.resize(internal, start, target_size, capacity());
+    }
+    for (unsigned int j = 0; j < x.size(); j++) {
+        add(i+j, std::move(x.get_mut(j)));
+    }
 }
 
 template <typename T>

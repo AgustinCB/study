@@ -29,6 +29,20 @@ inline T Vector<T>::set(unsigned int i, T x) {
 }
 
 template <typename T>
+void Vector<T>::addAll(unsigned int i, Seq<Vector<T>, T>&& x) {
+    unsigned int target_size = _size;
+    while (target_size * 2 < _size + x.size()) target_size *= 2;
+    if (target_size + 1 > capacity()) {
+        internal = mem_manager.resize(std::move(internal), target_size);
+    }
+	mem_manager.move_right(internal, i, _size, x.size());
+    for (unsigned int j = 0; j < x.size(); j++) {
+        internal[i+j] = std::move(x.get_mut(j));
+    }
+    _size += x.size();
+}
+
+template <typename T>
 void Vector<T>::add(unsigned int i, T x) {
 	if (_size + 1 > capacity()) resize();
 	mem_manager.move_right(internal, i, _size);

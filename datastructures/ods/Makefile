@@ -38,6 +38,13 @@ test_array: test.o array.o
 	valgrind ./test_array
 	rm test_array
 
+test_seq: test.o circular_vector.o vector.o
+	${GPP} ${GPP_FLAGS} -c test_seq.cpp
+	${GPP} ${GPP_FLAGS} -o test_seq test.o test_seq.o circular_vector.o vector.o array.o
+	./test_seq
+	valgrind ./test_seq
+	rm test_seq
+
 test_array_stack: test.o array_stack.o
 	${GPP} ${GPP_FLAGS} -c test_stack.cpp
 	${GPP} ${GPP_FLAGS} -o test_array_stack test.o test_stack.o array_stack.o rootish_vector.o vector.o array.o
@@ -59,4 +66,4 @@ test_deque: test.o array_deque.o dual_array_deque.o
 	valgrind ./test_deque
 	rm test_deque
 
-test_all: clean test_array test_array_stack test_array_queue test_deque
+test_all: clean test_array test_seq test_array_stack test_array_queue test_deque
