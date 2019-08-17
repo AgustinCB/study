@@ -1,6 +1,7 @@
 module Interpreter where
 
 import Control.Monad (liftM2)
+import Data.Maybe (isJust)
 import qualified Data.Map as Map
 import Data.Time.Clock.POSIX (getPOSIXTime)
 import Types
@@ -18,19 +19,16 @@ stateLookup ident (LoxState _ _ (Just parent) _ state) = case (Map.lookup ident 
                                                                                           Nothing -> stateLookup ident parent
 
 stateMember :: String -> LoxState -> Bool
-stateMember ident (LoxState _ _ Nothing _ state) = Map.member ident state
-stateMember ident (LoxState _ _ (Just parent) _ state)
-  | Map.member ident state = True
-  | otherwise              = stateMember ident parent
+stateMember i s = isJust $ stateLookup i s
 
 stateInsert :: String -> LoxValue -> LoxState -> LoxState
-stateInsert ident value (LoxState r l parent g state) = LoxState r l parent g $ Map.insert ident value state
+stateInsert ident value (LoxState r l p g s) = LoxState r l p g $ Map.insert ident value s
 
 stateReplace :: String -> LoxValue -> LoxState -> LoxState
-stateReplace ident value (LoxState r l Nothing g state) = LoxState r l Nothing g $ Map.insert ident value state
-stateReplace ident value (LoxState r l (Just parent) g state) =
-  case (Map.lookup ident state) of Just v -> LoxState r l (Just parent) g $ Map.insert ident value state
-                                   Nothing -> LoxState r l (Just (stateInsert ident value parent)) g state
+stateReplace ident value s@(LoxState r l Nothing g state) = stateInsert ident value s
+stateReplace ident value s@(LoxState r l (Just p) g state) =
+  case (Map.lookup ident state) of Just v -> stateInsert ident value s
+                                   Nothing -> LoxState r l (Just (stateReplace ident value p)) g state
 
 addScope :: LoxState -> LoxState
 addScope state = LoxState (returnValue state) (brokeLoop state) (Just state) (isRoot state) Map.empty

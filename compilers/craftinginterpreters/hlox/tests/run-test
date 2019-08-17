@@ -7,7 +7,7 @@ TEST=${1:?First argument should be a test file}
 TEST_NAME=$(basename "$TEST")
 FOLDER=$(mktemp -d)
 
-#trap "rm -fr $FOLDER; exit" EXIT
+trap "rm -fr $FOLDER; exit" EXIT
 
 cd "$ROOT"/..
 set +e
@@ -19,5 +19,6 @@ set +e
 cat "$FOLDER"/"$TEST_NAME".out | grep -v -e "^ignoring" > "$FOLDER"/"$TEST_NAME".2.out
 set -e
 
+echo "Result for $TEST_NAME"
 diff -N "$FOLDER"/"$TEST_NAME".2.out ./"$TEST_NAME".out
 diff -N "$FOLDER"/"$TEST_NAME".err ./"$TEST_NAME".err
