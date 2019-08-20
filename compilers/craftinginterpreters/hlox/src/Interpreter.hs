@@ -41,15 +41,6 @@ popScope (LoxState returnValue brokeLoop maybeParent isRoot _) =
   let s = foldl (const id) zeroState maybeParent
   in LoxState returnValue brokeLoop (enclosing s) isRoot (values s)
 
-partitionScope :: LoxState -> (Maybe LoxState, Maybe LoxState)
-partitionScope = partitionScope' Nothing
-  where partitionScope' :: Maybe LoxState -> LoxState -> (Maybe LoxState, Maybe LoxState)
-        partitionScope' Nothing base@(LoxState _ _ Nothing False _) = (Just base, Nothing)
-        partitionScope' Nothing base@(LoxState _ _ parent True _) = (parent, Just base)
-        partitionScope' Nothing base@(LoxState r b (Just parent@(LoxState r1 b1 _ i v1)) False v) =
-          partitionScope' (Just (LoxState r b (Just (LoxState r1 b1 Nothing i v1)) False v)) parent
-        partitionScope' acc base@(LoxState _ _ Nothing False _) = (acc, Nothing)
-
 isTruthy :: LoxValue -> LoxValue
 isTruthy NilValue = BooleanValue False
 isTruthy (BooleanValue False) = BooleanValue False
