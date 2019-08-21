@@ -108,7 +108,7 @@ evaluateExpression s (ExpressionLiteral (KeywordLiteral TrueKeyword) _) = return
 evaluateExpression s (ExpressionLiteral (KeywordLiteral FalseKeyword) _) = return $ Right $ (s, BooleanValue False)
 evaluateExpression s (ExpressionLiteral (NumberLiteral v) _) = return $ Right $ (s, NumberValue v)
 evaluateExpression s (ExpressionLiteral (StringLiteral string) _) = return $ Right $ (s, StringValue string)
-evaluateExpression state (VariableLiteral ident l) = return $ maybeToEvaluationExpressionResult l "Variable not found!" state
+evaluateExpression state (VariableLiteral ident l) = return $ maybeToEvaluationExpressionResult l ("Variable not found " ++ ident ++ "!") state
                                                         $ stateLookup ident state
 evaluateExpression s (Grouping expr _) = evaluateExpression s expr
 evaluateExpression s (Unary Bang expr _) = fmap (\p -> do
