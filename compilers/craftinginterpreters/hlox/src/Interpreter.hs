@@ -178,6 +178,7 @@ evaluateStatement :: LoxState -> Statement -> IO EvaluationResult
 evaluateStatement state (PrintStatement _ expression) = ((evaluateExpression state expression) ) >>= (\r ->
   case r of Left e -> return $ Left e
             Right (s, v) -> putStrLn (show v) >> (return $ Right s))
+evaluateStatement state EOFStatement = return $ Right state
 evaluateStatement state (StatementExpression _ expression) =
   fmap evaluateStatementExpression (evaluateExpression state expression)
 evaluateStatement state (VariableDeclaration _ ident Nothing) = return $ Right (stateInsert ident Uninitialized state)

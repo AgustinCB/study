@@ -97,6 +97,7 @@ parseStatement ((Token LeftBrace _ l):list) canBreak = do
                                                 l -> (fst $ (last l), map snd l)
   newRest <- consume RightBrace "Expected '}' after block" rest
   return (newRest, BlockStatement l statements)
+parseStatement ((Token EOF _ l):list) _ = Right $ (list, EOFStatement)
 parseStatement list@((Token _ _ l):_) _ = createStatementFromExpression (StatementExpression l) list
 
 parseParameters :: Integer -> [Token] -> [Token] -> Either (ProgramError Token) ([Token], [Token])

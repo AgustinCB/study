@@ -1,6 +1,6 @@
 module Lexer where
 
-import Data.Char (isDigit, isAlpha)
+import Data.Char (isDigit, isAlpha, isSpace, ord)
 import Data.List (intercalate)
 import Data.List.Split (splitOn)
 import Data.Maybe (listToMaybe)
@@ -32,11 +32,12 @@ createToken nextChar rest line
     | nextChar == '/'                       = Right $ oneCharTokenWithoutRest Slash
     | nextChar == '?'                       = Right $ oneCharTokenWithoutRest Question
     | nextChar == '\n'                      = createToken headRest tailRest (line + 1)
-    | elem nextChar [' ', '\r', '\t']       = createToken headRest tailRest line
+    | isSpace nextChar                      = createToken headRest tailRest line
     | nextChar == '"'                       = createStringToken rest line
     | isDigit nextChar                      = createNumberToken nextChar rest line
     | isAlpha nextChar || nextChar == '_'   = Right $ createIdentifierOrKeywordToken nextChar rest line
-    | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) "Unexpected character." rest
+    | nextChar == '\0'                      = Right $ oneCharTokenWithoutRest EOF
+    | otherwise                             = Left $ ProgramError (SourceCodeLocation Nothing line) ("Unexpected character " ++ [nextChar] ++ " (" ++ (show $ ord nextChar) ++ ").") rest
     where
         headRest = maybe '\0' id (listToMaybe rest)
         tailRest = if rest == [] then [] else tail rest

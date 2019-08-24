@@ -45,6 +45,7 @@ data TokenType =
     Var |
     While |
     Comment |
+    EOF |
     Identifier { name :: String } |
     TokenLiteral Literal deriving (Show, Eq)
 data Token = Token {
@@ -70,7 +71,8 @@ data Statement = StatementExpression SourceCodeLocation Expression |
     IfStatement SourceCodeLocation Expression Statement (Maybe Statement) |
     WhileStatement SourceCodeLocation Expression Statement |
     ReturnStatement SourceCodeLocation (Maybe Expression) |
-    BreakStatement SourceCodeLocation deriving Show
+    BreakStatement SourceCodeLocation |
+    EOFStatement deriving Show
 
 statementLocation :: Statement -> SourceCodeLocation
 statementLocation (StatementExpression l _) = l
