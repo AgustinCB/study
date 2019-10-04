@@ -1,4 +1,4 @@
-use crate::types::{Literal, ProgramError, SourceCodeLocation, Token, TokenType};
+use crate::types::{DataKeyword, Literal, ProgramError, SourceCodeLocation, Token, TokenType};
 use std::str::FromStr;
 
 pub struct Lexer {
@@ -36,9 +36,10 @@ impl Lexer {
                 ('+', _) => Some(self.create_token(TokenType::Plus, "{")),
                 (';', _) => Some(self.create_token(TokenType::Semicolon, ";")),
                 ('/', Some('/')) => {
-                    self.take_while(|c| c != '\n');
-                    None
-                },
+                    self.current += 1;
+                    let comment = self.take_while(|c| c != '\n');
+                    Some(self.create_token(TokenType::Comment, format!("//{}", comment).as_str()))
+                }
                 ('/', _) => Some(self.create_token(TokenType::Slash, "/")),
                 ('*', _) => Some(self.create_token(TokenType::Star, "*")),
                 ('?', _) => Some(self.create_token(TokenType::Question, "?")),
@@ -122,6 +123,24 @@ impl Lexer {
                         "this" => Some(self.create_token(TokenType::This, "this")),
                         "var" => Some(self.create_token(TokenType::Var, "var")),
                         "while" => Some(self.create_token(TokenType::While, "while")),
+                        "true" => Some(self.create_token(
+                            TokenType::TokenLiteral {
+                                value: Literal::Keyword(DataKeyword::True),
+                            },
+                            "true",
+                        )),
+                        "false" => Some(self.create_token(
+                            TokenType::TokenLiteral {
+                                value: Literal::Keyword(DataKeyword::False),
+                            },
+                            "false",
+                        )),
+                        "nil" => Some(self.create_token(
+                            TokenType::TokenLiteral {
+                                value: Literal::Keyword(DataKeyword::Nil),
+                            },
+                            "nil",
+                        )),
                         _ => Some(self.create_token(
                             TokenType::Identifier {
                                 name: string_content.clone(),
@@ -196,15 +215,546 @@ impl Lexer {
 #[cfg(test)]
 mod tests {
     use super::Lexer;
-    use crate::types::{Literal, ProgramError, SourceCodeLocation, Token, TokenType};
+    use crate::types::{DataKeyword, Literal, ProgramError, SourceCodeLocation, Token, TokenType};
 
     #[test]
     fn test_lexer_with_no_error() {
+        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;super;this;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil";
+        let mut lexer = Lexer::new(s.to_owned(), "file".to_owned());
+        let expected = Ok(vec![
+            Token {
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::LeftBrace,
+                lexeme: "{".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::RightBrace,
+                lexeme: "}".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Colon,
+                lexeme: ":".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Comma,
+                lexeme: ",".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Dot,
+                lexeme: ".".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Minus,
+                lexeme: ")".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Plus,
+                lexeme: "{".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Slash,
+                lexeme: "/".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Bang,
+                lexeme: "!".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Star,
+                lexeme: "*".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::BangEqual,
+                lexeme: "!=".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Equal,
+                lexeme: "=".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::EqualEqual,
+                lexeme: "==".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Greater,
+                lexeme: ">".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::GreaterEqual,
+                lexeme: ">=".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Less,
+                lexeme: "<".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::LessEqual,
+                lexeme: "<=".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::And,
+                lexeme: "and".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Class,
+                lexeme: "class".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Else,
+                lexeme: "else".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Fun,
+                lexeme: "fun".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::For,
+                lexeme: "for".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Break,
+                lexeme: "break".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::If,
+                lexeme: "if".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Or,
+                lexeme: "or".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Print,
+                lexeme: "print".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Question,
+                lexeme: "?".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Return,
+                lexeme: "return".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Super,
+                lexeme: "super".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::This,
+                lexeme: "this".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Var,
+                lexeme: "var".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::While,
+                lexeme: "while".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 0,
+                },
+            },
+            Token {
+                token_type: TokenType::Comment,
+                lexeme: "// comment".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 1,
+                },
+            },
+            Token {
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_owned(),
+                },
+                lexeme: "identifier".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 2,
+                },
+            },
+            Token {
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::QuotedString("string".to_owned()),
+                },
+                lexeme: "\"string\"".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 3,
+                },
+            },
+            Token {
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(123.123),
+                },
+                lexeme: "123.123".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 3,
+                },
+            },
+            Token {
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Keyword(DataKeyword::True),
+                },
+                lexeme: "true".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 4,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 4,
+                },
+            },
+            Token {
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Keyword(DataKeyword::False),
+                },
+                lexeme: "false".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 4,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 4,
+                },
+            },
+            Token {
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Keyword(DataKeyword::Nil),
+                },
+                lexeme: "nil".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 4,
+                },
+            },
+        ]);
+        assert_eq!(lexer.parse(), expected);
     }
 
     #[test]
     fn test_lexer_with_unfinished_string() {
         let text = "var s = \"aasdfsadfsdfsadfasdfsdfaasdf";
+        let mut lexer = Lexer::new(text.to_owned(), "file".to_owned());
+        let expected = Err(vec![ProgramError {
+            location: SourceCodeLocation {
+                file: "file".to_owned(),
+                line: 0,
+            },
+            message: "Expected \'\"\', got end of string".to_owned(),
+        }]);
+        assert_eq!(lexer.parse(), expected);
+    }
+
+    #[test]
+    fn test_lexer_with_unexpected_character() {
+        let text = "var s = 123;@";
+        let mut lexer = Lexer::new(text.to_owned(), "file".to_owned());
+        let expected = Err(vec![ProgramError {
+            location: SourceCodeLocation {
+                file: "file".to_owned(),
+                line: 0,
+            },
+            message: "Unexpected character @".to_owned(),
+        }]);
+        assert_eq!(lexer.parse(), expected);
+    }
+
+    #[test]
+    fn test_lexer_with_unparsable_number() {
+        let text = "var s = 123a;";
+        let mut lexer = Lexer::new(text.to_owned(), "file".to_owned());
+        let expected = Err(vec![ProgramError {
+            location: SourceCodeLocation {
+                file: "file".to_owned(),
+                line: 0,
+            },
+            message: "Couldn\'t parse 123a as number".to_owned(),
+        }]);
+        assert_eq!(lexer.parse(), expected);
+    }
+
+    #[test]
+    fn test_lexer_with_more_than_one_error() {
+        let text = "var s = 123a;\nvar n = 123;@";
         let mut lexer = Lexer::new(text.to_owned(), "file".to_owned());
         let expected = Err(vec![
             ProgramError {
@@ -212,21 +762,16 @@ mod tests {
                     file: "file".to_owned(),
                     line: 0,
                 },
-                message: "Expected \'\"\', got end of string".to_owned(),
-            }
+                message: "Couldn\'t parse 123a as number".to_owned(),
+            },
+            ProgramError {
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 1,
+                },
+                message: "Unexpected character @".to_owned(),
+            },
         ]);
         assert_eq!(lexer.parse(), expected);
-    }
-
-    #[test]
-    fn test_lexer_with_unexpected_character() {
-    }
-
-    #[test]
-    fn test_lexer_with_unparsable_number() {
-    }
-
-    #[test]
-    fn test_lexer_with_more_than_one_error() {
     }
 }
