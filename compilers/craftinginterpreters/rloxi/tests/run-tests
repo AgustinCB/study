@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -euo pipefail
+
+ROOT=$(dirname "$(readlink -f "$0")")
+
+ls -1 "$ROOT"/*.lox | tr '\n' '\0' | xargs -0 -I {} "$ROOT"/run-test {}
