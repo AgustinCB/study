@@ -1,6 +1,7 @@
 use std::io::{self, Read};
 
 mod lexer;
+mod parser;
 mod types;
 
 fn main() -> io::Result<()> {
