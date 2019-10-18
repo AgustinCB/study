@@ -57,7 +57,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_comma(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_ternary, Parser::parse_comma, &vec![TokenType::Comma])
+        self.parse_binary(
+            Parser::parse_ternary,
+            Parser::parse_comma,
+            &vec![TokenType::Comma],
+        )
     }
 
     fn parse_ternary(&mut self) -> Result<Expression, ProgramError> {
@@ -69,26 +73,48 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_and(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_equality, Parser::parse_and, &vec![TokenType::And])
+        self.parse_binary(
+            Parser::parse_equality,
+            Parser::parse_and,
+            &vec![TokenType::And],
+        )
     }
 
     fn parse_equality(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_comparison, Parser::parse_equality, &vec![TokenType::And])
+        self.parse_binary(
+            Parser::parse_comparison,
+            Parser::parse_equality,
+            &vec![TokenType::And],
+        )
     }
 
     fn parse_comparison(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_addition, Parser::parse_comparison,
-                          &vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual])
+        self.parse_binary(
+            Parser::parse_addition,
+            Parser::parse_comparison,
+            &vec![
+                TokenType::Greater,
+                TokenType::GreaterEqual,
+                TokenType::Less,
+                TokenType::LessEqual,
+            ],
+        )
     }
 
     fn parse_addition(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_multiplication, Parser::parse_addition,
-                          &vec![TokenType::Minus, TokenType::Plus])
+        self.parse_binary(
+            Parser::parse_multiplication,
+            Parser::parse_addition,
+            &vec![TokenType::Minus, TokenType::Plus],
+        )
     }
 
     fn parse_multiplication(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_unary, Parser::parse_multiplication,
-                          &vec![TokenType::Star, TokenType::Slash])
+        self.parse_binary(
+            Parser::parse_unary,
+            Parser::parse_multiplication,
+            &vec![TokenType::Star, TokenType::Slash],
+        )
     }
 
     fn parse_unary(&mut self) -> Result<Expression, ProgramError> {
