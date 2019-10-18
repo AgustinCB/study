@@ -57,10 +57,45 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_comma(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_comma, Parser::parse_comma, TokenType::Comma)
+        self.parse_binary(Parser::parse_ternary, Parser::parse_comma, &vec![TokenType::Comma])
     }
 
     fn parse_ternary(&mut self) -> Result<Expression, ProgramError> {
+        unimplemented!()
+    }
+
+    fn parse_or(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_and, Parser::parse_or, &vec![TokenType::Or])
+    }
+
+    fn parse_and(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_equality, Parser::parse_and, &vec![TokenType::And])
+    }
+
+    fn parse_equality(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_comparison, Parser::parse_equality, &vec![TokenType::And])
+    }
+
+    fn parse_comparison(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_addition, Parser::parse_comparison,
+                          &vec![TokenType::Greater, TokenType::GreaterEqual, TokenType::Less, TokenType::LessEqual])
+    }
+
+    fn parse_addition(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_multiplication, Parser::parse_addition,
+                          &vec![TokenType::Minus, TokenType::Plus])
+    }
+
+    fn parse_multiplication(&mut self) -> Result<Expression, ProgramError> {
+        self.parse_binary(Parser::parse_unary, Parser::parse_multiplication,
+                          &vec![TokenType::Star, TokenType::Slash])
+    }
+
+    fn parse_unary(&mut self) -> Result<Expression, ProgramError> {
+        unimplemented!()
+    }
+
+    fn parse_call(&mut self) -> Result<Expression, ProgramError> {
         unimplemented!()
     }
 
@@ -131,24 +166,24 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         &mut self,
         parse_left: L,
         parse_right: R,
-        operator: TokenType,
+        operators: &[TokenType],
     ) -> Result<Expression, ProgramError> {
         let left = parse_left(self)?;
         if self
             .content
             .peek()
             .cloned()
-            .map(|t| t.token_type == operator)
+            .map(|t| operators.contains(&t.token_type))
             .unwrap_or(false)
         {
-            self.content.next();
+            let t = self.content.next().unwrap();
             let right = parse_right(self)?;
             Ok(Expression {
                 location: left.location.clone(),
                 expression_type: ExpressionType::Binary {
-                    operator,
-                    right: Box::new(right),
                     left: Box::new(left),
+                    operator: t.token_type,
+                    right: Box::new(right),
                 },
             })
         } else {
