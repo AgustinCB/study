@@ -65,7 +65,22 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_ternary(&mut self) -> Result<Expression, ProgramError> {
-        unimplemented!()
+        let condition = self.parse_or()?;
+        if self.content.peek().map(|t| t.token_type == TokenType::Question).unwrap_or(false) {
+            let then_branch = self.parse_expression()?;
+            self.consume(TokenType::Colon, "Expected ':' after then branch of conditional expression", then_branch.location.clone())?;
+            let else_branch = self.parse_ternary()?;
+            Ok(Expression {
+                location: condition.location.clone(),
+                expression_type: ExpressionType::Conditional {
+                    condition: Box::new(condition),
+                    then_branch: Box::new(then_branch),
+                    else_branch: Box::new(else_branch),
+                },
+            })
+        } else {
+            Ok(condition)
+        }
     }
 
     fn parse_or(&mut self) -> Result<Expression, ProgramError> {
@@ -214,6 +229,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             })
         } else {
             Ok(left)
+        }
+    }
+
+    fn consume(&mut self, token: TokenType, message: &str, location: SourceCodeLocation) -> Result<(), ProgramError> {
+        let n = self.content.next();
+        match n {
+            Some(t) if t.token_type == token => Ok(()),
+            _ => Err(ProgramError { location, message: message.to_owned() }),
         }
     }
 }
