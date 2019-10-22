@@ -14,7 +14,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         Parser { content }
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ProgramError> {
+    pub(crate) fn parse_expression(&mut self) -> Result<Expression, ProgramError> {
         self.parse_assignment()
     }
 
@@ -66,9 +66,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn parse_ternary(&mut self) -> Result<Expression, ProgramError> {
         let condition = self.parse_or()?;
-        if self.content.peek().map(|t| t.token_type == TokenType::Question).unwrap_or(false) {
+        if self
+            .content
+            .peek()
+            .map(|t| t.token_type == TokenType::Question)
+            .unwrap_or(false)
+        {
             let then_branch = self.parse_expression()?;
-            self.consume(TokenType::Colon, "Expected ':' after then branch of conditional expression", then_branch.location.clone())?;
+            self.consume(
+                TokenType::Colon,
+                "Expected ':' after then branch of conditional expression",
+                then_branch.location.clone(),
+            )?;
             let else_branch = self.parse_ternary()?;
             Ok(Expression {
                 location: condition.location.clone(),
@@ -133,11 +142,70 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_unary(&mut self) -> Result<Expression, ProgramError> {
-        unimplemented!()
+        if self
+            .content
+            .peek()
+            .map(|t| [TokenType::Minus, TokenType::Plus].contains(&t.token_type))
+            .unwrap_or(false)
+        {
+            let t = self.content.next().unwrap();
+            let value = self.parse_unary()?;
+            Ok(Expression {
+                expression_type: ExpressionType::Unary {
+                    operator: t.token_type,
+                    operand: Box::new(value),
+                },
+                location: t.location,
+            })
+        } else {
+            self.parse_call()
+        }
     }
 
     fn parse_call(&mut self) -> Result<Expression, ProgramError> {
-        unimplemented!()
+        let callee = self.parse_primary()?;
+        if self
+            .content
+            .peek()
+            .map(|t| t.token_type == TokenType::LeftParen)
+            .unwrap_or(false)
+        {
+            self.content.next();
+            let mut args = vec![];
+            loop {
+                let arg = self.parse_ternary()?;
+                args.push(Box::new(arg));
+                match self.content.peek() {
+                    None
+                    | Some(Token {
+                        token_type: TokenType::RightParen,
+                        ..
+                    }) => break,
+                    _ => self.consume(
+                        TokenType::Comma,
+                        "Expected ',' after call argument",
+                        callee.location.clone(),
+                    )?,
+                }
+            }
+            if self.content.peek().is_some() {
+                self.content.next();
+                Ok(Expression {
+                    location: callee.location.clone(),
+                    expression_type: ExpressionType::Call {
+                        callee: Box::new(callee),
+                        arguments: args,
+                    },
+                })
+            } else {
+                Err(ProgramError {
+                    location: callee.location.clone(),
+                    message: "Expecting right parenthesis".to_owned(),
+                })
+            }
+        } else {
+            Ok(callee)
+        }
     }
 
     fn parse_primary(&mut self) -> Result<Expression, ProgramError> {
@@ -163,8 +231,63 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 location,
                 lexeme: _,
             }) => self.parse_group(location),
-            None => panic!("Can't happen!"),
-            _ => unimplemented!(),
+            None => Err(ProgramError {
+                message: "Unexpected end of file! Expecting primary".to_owned(),
+                location: SourceCodeLocation {
+                    file: "".to_owned(),
+                    line: 0,
+                },
+            }),
+            Some(Token {
+                token_type,
+                location,
+                lexeme,
+            }) => self.parse_left_side_missing(token_type, location, lexeme),
+        }
+    }
+
+    fn parse_left_side_missing(
+        &mut self,
+        token_type: TokenType,
+        location: SourceCodeLocation,
+        lexeme: String,
+    ) -> Result<Expression, ProgramError> {
+        match token_type {
+            TokenType::EqualEqual | TokenType::BangEqual => {
+                self.parse_equality()?;
+                Err(ProgramError {
+                    location,
+                    message: "Equality without left side".to_owned(),
+                })
+            }
+            TokenType::Greater
+            | TokenType::GreaterEqual
+            | TokenType::Less
+            | TokenType::LessEqual => {
+                self.parse_comparison()?;
+                Err(ProgramError {
+                    location,
+                    message: "Comparision without left side".to_owned(),
+                })
+            }
+            TokenType::Plus => {
+                self.parse_addition()?;
+                Err(ProgramError {
+                    location,
+                    message: "Addition without left side".to_owned(),
+                })
+            }
+            TokenType::Slash | TokenType::Star => {
+                self.parse_multiplication()?;
+                Err(ProgramError {
+                    location,
+                    message: "Multiplication without left side".to_owned(),
+                })
+            }
+            _ => Err(ProgramError {
+                location,
+                message: format!("Expecting a literal, but got {}!", lexeme),
+            }),
         }
     }
 
@@ -232,11 +355,19 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }
     }
 
-    fn consume(&mut self, token: TokenType, message: &str, location: SourceCodeLocation) -> Result<(), ProgramError> {
+    fn consume(
+        &mut self,
+        token: TokenType,
+        message: &str,
+        location: SourceCodeLocation,
+    ) -> Result<(), ProgramError> {
         let n = self.content.next();
         match n {
             Some(t) if t.token_type == token => Ok(()),
-            _ => Err(ProgramError { location, message: message.to_owned() }),
+            _ => Err(ProgramError {
+                location,
+                message: message.to_owned(),
+            }),
         }
     }
 }
