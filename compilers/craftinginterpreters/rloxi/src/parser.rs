@@ -72,6 +72,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             .map(|t| t.token_type == TokenType::Question)
             .unwrap_or(false)
         {
+            self.content.next();
             let then_branch = self.parse_expression()?;
             self.consume(
                 TokenType::Colon,
@@ -108,7 +109,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.parse_binary(
             Parser::parse_comparison,
             Parser::parse_equality,
-            &vec![TokenType::And],
+            &vec![TokenType::EqualEqual, TokenType::BangEqual],
         )
     }
 
@@ -173,19 +174,23 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             self.content.next();
             let mut args = vec![];
             loop {
-                let arg = self.parse_ternary()?;
-                args.push(Box::new(arg));
                 match self.content.peek() {
                     None
                     | Some(Token {
                         token_type: TokenType::RightParen,
                         ..
                     }) => break,
-                    _ => self.consume(
-                        TokenType::Comma,
-                        "Expected ',' after call argument",
-                        callee.location.clone(),
-                    )?,
+                    _ => {
+                        let arg = self.parse_ternary()?;
+                        args.push(Box::new(arg));
+                        if self.content.peek().map(|t| t.token_type != TokenType::RightParen).unwrap_or(false) {
+                            self.consume(
+                                TokenType::Comma,
+                                "Expected ',' after call argument",
+                                callee.location.clone(),
+                            )?;
+                        }
+                    },
                 }
             }
             if self.content.peek().is_some() {
@@ -369,5 +374,599 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 message: message.to_owned(),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::types::{Expression, ExpressionType, SourceCodeLocation, Token, TokenType, Literal};
+    use super::Parser;
+    use crate::types::ExpressionType::ExpressionLiteral;
+    use crate::types::TokenType::TokenLiteral;
+
+    #[test]
+    fn parse_literal() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            }
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            location,
+            expression_type: ExpressionType::ExpressionLiteral {
+                value: Literal::Number(1.0),
+            },
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_identifier() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            }
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            location,
+            expression_type: ExpressionType::VariableLiteral {
+                identifier: "identifier".to_owned(),
+            },
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_identifier_group() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            location,
+            expression_type: ExpressionType::VariableLiteral {
+                identifier: "identifier".to_owned(),
+            },
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_identifier_group_without_right_paren() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression();
+        assert!(result.is_err());
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_identifier_group_without_right_paren_and_more_content() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression();
+        assert!(result.is_err());
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_call_with_no_arguments() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            expression_type: ExpressionType::Call {
+                callee: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                arguments: vec![],
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_call_with_one_arguments() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            expression_type: ExpressionType::Call {
+                callee: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                arguments: vec![Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                })],
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_call_with_multiple_arguments() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Comma,
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            expression_type: ExpressionType::Call {
+                callee: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                arguments: vec![
+                    Box::new(Expression {
+                        expression_type: ExpressionType::VariableLiteral {
+                            identifier: "identifier".to_owned(),
+                        },
+                        location: location.clone(),
+                    }),
+                    Box::new(Expression {
+                        expression_type: ExpressionType::VariableLiteral {
+                            identifier: "identifier".to_owned(),
+                        },
+                        location: location.clone(),
+                    }),
+                ],
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_unary_with_minus() {
+        test_unary(TokenType::Minus);
+    }
+
+    #[test]
+    fn parse_unary_with_plus() {
+        test_unary(TokenType::Plus)
+    }
+
+    #[test]
+    fn parse_multiplication_with_star() {
+        test_binary(TokenType::Star);
+    }
+
+    #[test]
+    fn parse_multiplication_with_slash() {
+        test_binary(TokenType::Star);
+    }
+
+    #[test]
+    fn parse_addition_with_minus() {
+        test_binary(TokenType::Minus);
+    }
+
+    #[test]
+    fn parse_comparison_with_less_equal() {
+        test_binary(TokenType::LessEqual);
+    }
+
+    #[test]
+    fn parse_comparison_with_less() {
+        test_binary(TokenType::Less);
+    }
+
+    #[test]
+    fn parse_comparison_with_greater_equal() {
+        test_binary(TokenType::GreaterEqual);
+    }
+
+    #[test]
+    fn parse_comparison_with_greater() {
+        test_binary(TokenType::Greater);
+    }
+
+    #[test]
+    fn parse_addition_with_plus() {
+        test_binary(TokenType::Plus);
+    }
+
+    #[test]
+    fn parse_equality_with_equal_equal() {
+        test_binary(TokenType::EqualEqual);
+    }
+
+    #[test]
+    fn parse_equality_with_bang_equal() {
+        test_binary(TokenType::BangEqual);
+    }
+
+    #[test]
+    fn parse_and() {
+        test_binary(TokenType::And);
+    }
+
+    #[test]
+    fn parse_or() {
+        test_binary(TokenType::Or);
+    }
+
+    #[test]
+    fn parse_ternary() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "identifier".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Question,
+                lexeme: "?".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier1".to_string()
+                },
+                lexeme: "identifier1".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Colon,
+                lexeme: ":".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier2".to_string()
+                },
+                lexeme: "1.0".to_string()
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            expression_type: ExpressionType::Conditional {
+                condition: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                then_branch: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier1".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                else_branch: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "identifier2".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_comma() {
+        test_binary(TokenType::Comma);
+    }
+
+    #[test]
+    fn parse_assignment() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Identifier {
+                    name: "identifier".to_string()
+                },
+                lexeme: "identifier".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Equal,
+                lexeme: "=".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            expression_type: ExpressionType::VariableAssignment {
+                identifier: "identifier".to_string(),
+                expression: Box::new(Expression {
+                    expression_type: ExpressionLiteral {
+                        value: Literal::Number(1.0),
+                    },
+                    location: location.clone(),
+                })
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    fn test_binary(token_type: TokenType) {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: token_type.clone(),
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            location: location.clone(),
+            expression_type: ExpressionType::Binary {
+                operator: token_type,
+                left: Box::new(Expression {
+                    expression_type: ExpressionLiteral {
+                        value: Literal::Number(1.0),
+                    },
+                    location: location.clone(),
+                }),
+                right: Box::new(Expression {
+                    expression_type: ExpressionLiteral {
+                        value: Literal::Number(1.0),
+                    },
+                    location: location.clone(),
+                }),
+            },
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    fn test_unary(token_type: TokenType) {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: token_type.clone(),
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            }
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_expression().unwrap();
+        assert_eq!(result, Expression {
+            location: location.clone(),
+            expression_type: ExpressionType::Unary {
+                operator: token_type,
+                operand: Box::new(Expression {
+                    expression_type: ExpressionLiteral {
+                        value: Literal::Number(1.0)
+                    },
+                    location: location.clone(),
+                }),
+            },
+        });
+        assert!(parser.content.is_empty());
     }
 }
