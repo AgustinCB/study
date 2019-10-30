@@ -13,7 +13,17 @@ fn main() -> io::Result<()> {
     handle.read_to_string(&mut buffer)?;
 
     let mut lexer = lexer::Lexer::new(buffer, "stdin".to_owned());
-    let lexems = lexer.parse().unwrap();
-    println!("LEXEMS: {:?}", lexems);
+    let lexems = lexer.parse();
+    match lexems {
+        Ok(ts) => {
+            let mut parser = parser::Parser::new(ts.into_iter().peekable());
+            let result = parser.parse();
+            match result {
+                Ok(es) => println!("{:?}", es),
+                Err(es) => eprintln!("{:?}", es),
+            }
+        },
+        Err(e) => eprintln!("{:?}", e),
+    };
     Ok(())
 }

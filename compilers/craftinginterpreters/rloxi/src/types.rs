@@ -115,11 +115,13 @@ pub enum ExpressionType {
     },
 }
 
+#[derive(Debug, PartialEq)]
 pub struct Statement {
-    location: SourceCodeLocation,
-    statement_type: StatementType,
+    pub location: SourceCodeLocation,
+    pub statement_type: StatementType,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum StatementType {
     Expression {
         expression: Expression,
@@ -142,7 +144,7 @@ pub enum StatementType {
     If {
         condition: Expression,
         then: Box<Statement>,
-        otherwise: Box<Statement>,
+        otherwise: Option<Box<Statement>>,
     },
     While {
         condition: Expression,

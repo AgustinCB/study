@@ -1,7 +1,5 @@
 use crate::types::TokenType::TokenLiteral;
-use crate::types::{
-    Expression, ExpressionType, Literal, ProgramError, SourceCodeLocation, Token, TokenType,
-};
+use crate::types::{Expression, ExpressionType, Literal, ProgramError, SourceCodeLocation, Token, TokenType, Statement, StatementType};
 use std::iter::Peekable;
 use std::vec::IntoIter;
 
@@ -12,6 +10,73 @@ pub struct Parser<I: Iterator<Item = Token>> {
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn new(content: Peekable<I>) -> Parser<I> {
         Parser { content }
+    }
+
+    pub fn parse(&mut self) -> Result<Vec<Statement>, Vec<ProgramError>> {
+        let mut output_vec = vec![];
+        let mut error_vec = vec![];
+
+        while self.content.peek().is_some() {
+            match self.parse_statement() {
+                Ok(s) => output_vec.push(s),
+                Err(e) => error_vec.push(e),
+            }
+        }
+
+        if error_vec.is_empty() {
+            Ok(output_vec)
+        } else {
+            Err(error_vec)
+        }
+    }
+
+    pub(crate) fn parse_statement(&mut self) -> Result<Statement, ProgramError> {
+        match self.content.peek().cloned() {
+            Some(Token {
+                location,
+                token_type: TokenType::If,
+                ..
+            }) => self.parse_if_statement(location),
+            None => Err(ProgramError {
+                message: "Unexpected end of file".to_owned(),
+                location: SourceCodeLocation {
+                    line: 0,
+                    file: "".to_owned(),
+                }
+            }),
+            _ => {
+                let expression = self.parse_expression()?;
+                self.consume(TokenType::Semicolon, "Expected semicolon", expression.location.clone())?;
+                Ok(Statement {
+                    location: expression.location.clone(),
+                    statement_type: StatementType::Expression {
+                        expression,
+                    },
+                })
+            },
+        }
+    }
+
+    fn parse_if_statement(&mut self, location: SourceCodeLocation) -> Result<Statement, ProgramError> {
+        self.content.next();
+        self.consume(TokenType::LeftParen, "Expected '(' after if token", location.clone())?;
+        let condition = self.parse_expression()?;
+        self.consume(TokenType::RightParen, "Expected ')' after if token", location.clone())?;
+        let then = Box::new(self.parse_statement()?);
+        let otherwise = if self.content.peek().map(|t| t.token_type == TokenType::Else).unwrap_or(false) {
+            self.content.next();
+            Some(Box::new(self.parse_statement()?))
+        } else {
+            None
+        };
+        Ok(Statement {
+            location,
+            statement_type: StatementType::If {
+                condition,
+                then,
+                otherwise
+            }
+        })
     }
 
     pub(crate) fn parse_expression(&mut self) -> Result<Expression, ProgramError> {
@@ -379,7 +444,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
 #[cfg(test)]
 mod test {
-    use crate::types::{Expression, ExpressionType, SourceCodeLocation, Token, TokenType, Literal};
+    use crate::types::{Expression, ExpressionType, SourceCodeLocation, Token, TokenType, Literal, Statement, StatementType};
     use super::Parser;
     use crate::types::ExpressionType::ExpressionLiteral;
     use crate::types::TokenType::TokenLiteral;
@@ -879,6 +944,173 @@ mod test {
                     },
                     location: location.clone(),
                 })
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_if() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::If,
+                lexeme: "if".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_statement().unwrap();
+        assert_eq!(result, Statement {
+            statement_type: StatementType::If {
+                condition: Expression {
+                    expression_type: ExpressionType::ExpressionLiteral {
+                        value: Literal::Number(1.0),
+                    },
+                    location: location.clone(),
+                },
+                then: Box::new(Statement {
+                    location: location.clone(),
+                    statement_type: StatementType::Expression {
+                        expression: Expression {
+                            expression_type: ExpressionType::ExpressionLiteral {
+                                value: Literal::Number(1.0),
+                            },
+                            location: location.clone(),
+                        }
+                    },
+                }),
+                otherwise: None,
+            },
+            location: location.clone(),
+        });
+        assert!(parser.content.is_empty());
+    }
+
+    #[test]
+    fn parse_if_else() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let input = vec![
+            Token {
+                location: location.clone(),
+                token_type: TokenType::If,
+                lexeme: "if".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::LeftParen,
+                lexeme: "(".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::RightParen,
+                lexeme: ")".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Else,
+                lexeme: "else".to_owned(),
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::TokenLiteral {
+                    value: Literal::Number(1.0),
+                },
+                lexeme: "1.0".to_string()
+            },
+            Token {
+                location: location.clone(),
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+            },
+        ];
+        let mut parser = Parser::new(input.into_iter().peekable());
+        let result = parser.parse_statement().unwrap();
+        assert_eq!(result, Statement {
+            statement_type: StatementType::If {
+                condition: Expression {
+                    expression_type: ExpressionType::ExpressionLiteral {
+                        value: Literal::Number(1.0),
+                    },
+                    location: location.clone(),
+                },
+                then: Box::new(Statement {
+                    location: location.clone(),
+                    statement_type: StatementType::Expression {
+                        expression: Expression {
+                            expression_type: ExpressionType::ExpressionLiteral {
+                                value: Literal::Number(1.0),
+                            },
+                            location: location.clone(),
+                        }
+                    },
+                }),
+                otherwise: Some(Box::new(Statement {
+                    location: location.clone(),
+                    statement_type: StatementType::Expression {
+                        expression: Expression {
+                            expression_type: ExpressionType::ExpressionLiteral {
+                                value: Literal::Number(1.0),
+                            },
+                            location: location.clone(),
+                        }
+                    },
+                })),
             },
             location: location.clone(),
         });
