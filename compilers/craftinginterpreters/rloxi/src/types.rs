@@ -74,13 +74,13 @@ pub struct ProgramError {
     pub message: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Expression {
     pub expression_type: ExpressionType,
     pub location: SourceCodeLocation,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum ExpressionType {
     Conditional {
         condition: Box<Expression>,
@@ -115,13 +115,13 @@ pub enum ExpressionType {
     },
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Statement {
     pub location: SourceCodeLocation,
     pub statement_type: StatementType,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum StatementType {
     Expression {
         expression: Expression,
@@ -151,7 +151,7 @@ pub enum StatementType {
         action: Box<Statement>,
     },
     Return {
-        value: Option<Box<Statement>>,
+        value: Option<Expression>,
     },
     Break,
     EOF,

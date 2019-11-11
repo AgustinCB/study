@@ -22,7 +22,7 @@ fn main() -> io::Result<()> {
                 Ok(es) => println!("{:?}", es),
                 Err(es) => eprintln!("{:?}", es),
             }
-        },
+        }
         Err(e) => eprintln!("{:?}", e),
     };
     Ok(())
