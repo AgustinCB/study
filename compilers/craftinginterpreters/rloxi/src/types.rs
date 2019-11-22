@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::convert::TryInto;
+use std::ops::{Neg, Not};
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceCodeLocation {
     pub file: String,
@@ -115,6 +119,15 @@ pub enum ExpressionType {
     },
 }
 
+impl Expression {
+    pub fn create_program_error(&self, message: &str) -> ProgramError {
+        ProgramError {
+            location: self.location.clone(),
+            message: message.to_owned(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Statement {
     pub location: SourceCodeLocation,
@@ -155,4 +168,170 @@ pub enum StatementType {
     },
     Break,
     EOF,
+}
+
+pub type EvaluationResult = Result<(State, Value), ProgramError>;
+
+#[derive(Clone, PartialEq)]
+pub struct State {
+    return_value: Option<Box<Value>>,
+    broke_loop: bool,
+    enclosing: Option<Box<State>>,
+    values: HashMap<String, Value>,
+}
+
+impl State {
+    pub fn find(&self, identifier: &str) -> Option<&Value> {
+        match &self.enclosing {
+            Some(parent) => parent.find(identifier),
+            None => self.values.get(identifier),
+        }
+    }
+
+    pub fn insert(&mut self, identifier: String, value: Value) {
+        self.values.insert(identifier, value);
+    }
+}
+
+impl Default for State {
+    fn default() -> State {
+        State {
+            return_value: None,
+            broke_loop: false,
+            enclosing: None,
+            values: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Value {
+    Nil,
+    Uninitialized,
+    Boolean {
+        value: bool,
+    },
+    Number {
+        value: f32,
+    },
+    String {
+        value: String,
+    },
+    Function {
+        arity: u8,
+        environment: State,
+        function: fn(State, &[Value]) -> EvaluationResult,
+    },
+}
+
+impl Value {
+    pub fn is_number(&self) -> bool {
+        match self {
+            Value::Number { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Nil => false,
+            Value::Uninitialized => false,
+            Value::Boolean { value: false } => false,
+            _ => true,
+        }
+    }
+}
+
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Value::Uninitialized, Value::Uninitialized) => true,
+            (Value::Nil, Value::Nil) => true,
+            (Value::Boolean { value: value1 }, Value::Boolean { value: value2 }) => {
+                value1 == value2
+            }
+            (Value::Number { value: value1 }, Value::Number { value: value2 }) => value1 == value2,
+            (Value::String { value: value1 }, Value::String { value: value2 }) => value1 == value2,
+            _ => false,
+        }
+    }
+}
+
+impl Neg for Value {
+    type Output = Value;
+
+    fn neg(self) -> Value {
+        match self {
+            Value::Number { value } => Value::Number { value: -value },
+            _ => panic!("Only numbers can change sign"),
+        }
+    }
+}
+
+impl Not for Value {
+    type Output = Value;
+
+    fn not(self) -> Self::Output {
+        match self {
+            Value::Boolean { value } => Value::Boolean { value: !value },
+            _ => panic!("Only booleans can be negated"),
+        }
+    }
+}
+
+pub enum ValueError {
+    ExpectingDouble,
+    ExpectingString,
+}
+
+impl ValueError {
+    pub fn into_program_error(self, location: &SourceCodeLocation) -> ProgramError {
+        ProgramError {
+            location: location.clone(),
+            message: self.to_string(),
+        }
+    }
+}
+
+impl ToString for ValueError {
+    fn to_string(&self) -> String {
+        match self {
+            ValueError::ExpectingDouble => "Type error! Expecting a double!".to_owned(),
+            ValueError::ExpectingString => "Type error! Expecting a string!".to_owned(),
+        }
+    }
+}
+
+impl TryInto<f32> for Value {
+    type Error = ValueError;
+    fn try_into(self) -> Result<f32, Self::Error> {
+        match self {
+            Value::Number { value } => Ok(value),
+            _ => Err(ValueError::ExpectingDouble),
+        }
+    }
+}
+
+impl TryInto<String> for Value {
+    type Error = ValueError;
+    fn try_into(self) -> Result<String, Self::Error> {
+        match self {
+            Value::String { value } => Ok(value),
+            _ => Err(ValueError::ExpectingString),
+        }
+    }
+}
+
+impl Into<Value> for &Literal {
+    fn into(self) -> Value {
+        match self {
+            Literal::Number(value) => Value::Number { value: *value },
+            Literal::QuotedString(value) => Value::String {
+                value: value.clone(),
+            },
+            Literal::Keyword(DataKeyword::Nil) => Value::Nil,
+            Literal::Keyword(DataKeyword::True) => Value::Boolean { value: true },
+            Literal::Keyword(DataKeyword::False) => Value::Boolean { value: false },
+        }
+    }
 }
