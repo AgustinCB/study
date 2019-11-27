@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::fmt::{Debug, Error, Formatter};
 use std::ops::{Neg, Not};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -172,7 +173,7 @@ pub enum StatementType {
 
 pub type EvaluationResult = Result<(State, Value), ProgramError>;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct State {
     return_value: Option<Box<Value>>,
     broke_loop: bool,
@@ -237,6 +238,7 @@ impl Value {
             Value::Nil => false,
             Value::Uninitialized => false,
             Value::Boolean { value: false } => false,
+            Value::Number { value } if *value == 0f32 => false,
             _ => true,
         }
     }
@@ -274,7 +276,9 @@ impl Not for Value {
     fn not(self) -> Self::Output {
         match self {
             Value::Boolean { value } => Value::Boolean { value: !value },
-            _ => panic!("Only booleans can be negated"),
+            _ => Value::Boolean {
+                value: !self.is_truthy(),
+            },
         }
     }
 }
@@ -332,6 +336,21 @@ impl Into<Value> for &Literal {
             Literal::Keyword(DataKeyword::Nil) => Value::Nil,
             Literal::Keyword(DataKeyword::True) => Value::Boolean { value: true },
             Literal::Keyword(DataKeyword::False) => Value::Boolean { value: false },
+        }
+    }
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        match self {
+            Value::Number { value } => value.fmt(f),
+            Value::String { value } => value.fmt(f),
+            Value::Boolean { value } => value.fmt(f),
+            Value::Uninitialized => f.write_str("Uninitialized"),
+            Value::Nil => f.write_str("Nil"),
+            Value::Function {
+                arity, environment, ..
+            } => f.write_str(format!("[Function {:?} {:?}]", arity, environment).as_str()),
         }
     }
 }
