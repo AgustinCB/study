@@ -324,7 +324,9 @@ impl Evaluable for Expression {
 #[cfg(test)]
 mod test {
     use crate::interpreter::Evaluable;
-    use crate::types::{DataKeyword, Expression, ExpressionType, Literal, State, Value};
+    use crate::types::{
+        DataKeyword, EvaluationResult, Expression, ExpressionType, Literal, State, Value,
+    };
     use crate::types::{SourceCodeLocation, TokenType};
 
     #[test]
@@ -806,6 +808,46 @@ mod test {
         state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
+    }
+
+    #[test]
+    fn test_function_call() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let expression = Expression {
+            expression_type: ExpressionType::Call {
+                callee: Box::new(Expression {
+                    expression_type: ExpressionType::VariableLiteral {
+                        identifier: "function".to_owned(),
+                    },
+                    location: location.clone(),
+                }),
+                arguments: vec![],
+            },
+            location,
+        };
+        fn lox_function(mut state: State, _values: &[Value]) -> EvaluationResult {
+            state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
+            Ok((state, Value::Nil))
+        }
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
+        state.insert(
+            "function".to_owned(),
+            Value::Function {
+                arity: 0,
+                environment: State::default(),
+                function: lox_function,
+            },
+        );
+        let (mut final_state, got) = expression.evaluate(state.clone()).unwrap();
+        state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
+        state.delete("function");
+        final_state.delete("function");
+        assert_eq!(state, final_state);
+        assert_eq!(got, Value::Nil);
     }
 
     fn get_string(s: &str, location: &SourceCodeLocation) -> Expression {

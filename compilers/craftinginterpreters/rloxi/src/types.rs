@@ -192,6 +192,13 @@ impl State {
     pub fn insert(&mut self, identifier: String, value: Value) {
         self.values.insert(identifier, value);
     }
+
+    pub fn delete(&mut self, identifier: &str) {
+        self.values.remove(identifier);
+        if let Some(p) = &mut self.enclosing {
+            p.delete(identifier);
+        }
+    }
 }
 
 impl Default for State {
