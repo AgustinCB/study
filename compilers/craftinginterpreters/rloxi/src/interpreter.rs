@@ -1,6 +1,6 @@
 use crate::types::{
-    EvaluationResult, Expression, ExpressionType, ProgramError, SourceCodeLocation, State,
-    TokenType, Value, ValueError,
+    EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation,
+    State, Statement, StatementType, TokenType, Value, ValueError,
 };
 use std::convert::TryInto;
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
@@ -167,20 +167,16 @@ fn call_expression(
 ) -> EvaluationResult {
     let (next_state, function_value) = callee.evaluate(state)?;
     match function_value {
-        Value::Function { arity, .. } if arity != arguments.len() as u8 => Err(callee
+        Value::Function(f) if f.arguments.len() != arguments.len() => Err(callee
             .create_program_error(
                 format!(
                     "Wrong number of arguments! Expected: {} Got: {}",
-                    arity,
+                    f.arguments.len(),
                     arguments.len()
                 )
                 .as_str(),
             )),
-        Value::Function {
-            environment,
-            function,
-            ..
-        } => {
+        Value::Function(f) => {
             // TODO: Use environment to have closures!!!
             let mut values = vec![];
             let mut current_state = next_state;
@@ -189,13 +185,13 @@ fn call_expression(
                 current_state = value_status;
                 values.push(value);
             }
-            function(current_state, &values)
+            f.eval(current_state, &values)
         }
         _ => Err(callee.create_program_error("Only functions or classes can be called!")),
     }
 }
 
-trait Evaluable {
+pub trait Evaluable {
     fn evaluate(&self, state: State) -> EvaluationResult;
 }
 
@@ -321,11 +317,468 @@ impl Evaluable for Expression {
     }
 }
 
+impl Evaluable for Statement {
+    fn evaluate(&self, mut state: State) -> Result<(State, Value), ProgramError> {
+        let state = match &self.statement_type {
+            StatementType::EOF => state,
+            StatementType::If {
+                condition,
+                then,
+                otherwise,
+            } => {
+                let (s, cond_value) = condition.evaluate(state)?;
+                if cond_value.is_truthy() {
+                    then.evaluate(s)?.0
+                } else if let Some(o) = otherwise {
+                    o.evaluate(s)?.0
+                } else {
+                    s
+                }
+            }
+            StatementType::Expression { expression } => expression.evaluate(state)?.0,
+            StatementType::Block { body } => {
+                let mut current_state = state;
+                for st in body {
+                    let (s, _) = st.evaluate(current_state)?;
+                    current_state = s;
+                    if current_state.broke_loop {
+                        break;
+                    }
+                }
+                current_state
+            }
+            StatementType::VariableDeclaration { expression, name } => {
+                let (mut s, v) = if let Some(e) = expression {
+                    e.evaluate(state)?
+                } else {
+                    (state, Value::Nil)
+                };
+                s.insert(name.clone(), v);
+                s
+            }
+            StatementType::PrintStatement { expression } => {
+                let (s, v) = expression.evaluate(state)?;
+                println!("{}", v);
+                s
+            }
+            StatementType::FunctionDeclaration {
+                name,
+                arguments,
+                body,
+            } => {
+                state.insert(
+                    name.clone(),
+                    Value::Function(LoxFunction {
+                        arguments: arguments.clone(),
+                        environment: state.clone(),
+                        body: body.iter().map(|s| (**s).clone()).collect(),
+                        location: self.location.clone(),
+                    }),
+                );
+                state
+            }
+            StatementType::Return { value } if state.in_function => match value {
+                None => state,
+                Some(e) => {
+                    let (mut s, v) = e.evaluate(state)?;
+                    s.add_return_value(v);
+                    s
+                }
+            },
+            StatementType::Return { .. } => {
+                return Err(ProgramError {
+                    location: self.location.clone(),
+                    message: "Return outside function".to_owned(),
+                })
+            }
+            StatementType::While { condition, action } => {
+                let mut current_state = state;
+                current_state.in_loop = true;
+                while {
+                    let (s, v) = condition.evaluate(current_state)?;
+                    current_state = s;
+                    current_state.in_loop && v.is_truthy()
+                } {
+                    let (s, _) = action.evaluate(current_state)?;
+                    current_state = s;
+                    if current_state.broke_loop {
+                        break;
+                    }
+                }
+                current_state.broke_loop = false;
+                current_state
+            }
+            StatementType::Break if state.in_loop => {
+                state.in_loop = false;
+                state.broke_loop = true;
+                state
+            }
+            StatementType::Break => {
+                return Err(ProgramError {
+                    location: self.location.clone(),
+                    message: "Break outside loop".to_owned(),
+                })
+            }
+        };
+        Ok((state, Value::Nil))
+    }
+}
+
 #[cfg(test)]
-mod test {
+mod test_statement {
     use crate::interpreter::Evaluable;
     use crate::types::{
-        DataKeyword, EvaluationResult, Expression, ExpressionType, Literal, State, Value,
+        Expression, ExpressionType, Literal, LoxFunction, ProgramError, SourceCodeLocation, State,
+        Statement, StatementType, TokenType, Value,
+    };
+
+    #[test]
+    fn test_if_statement() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::If {
+                condition: create_expression_number(1.0, &location),
+                then: Box::new(create_variable_assignment_statement(
+                    "identifier",
+                    1.0,
+                    &location,
+                )),
+                otherwise: Some(Box::new(create_variable_assignment_statement(
+                    "identifier",
+                    0.0,
+                    &location,
+                ))),
+            },
+            location,
+        };
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 1.0 })
+        );
+    }
+
+    #[test]
+    fn test_if_statement_else() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::If {
+                condition: create_expression_number(0.0, &location),
+                then: Box::new(create_variable_assignment_statement(
+                    "identifier",
+                    1.0,
+                    &location,
+                )),
+                otherwise: Some(Box::new(create_variable_assignment_statement(
+                    "identifier",
+                    0.0,
+                    &location,
+                ))),
+            },
+            location,
+        };
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 0.0 })
+        );
+    }
+
+    #[test]
+    fn test_expression_statement() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = create_variable_assignment_statement("identifier", 0.0, &location);
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 0.0 })
+        );
+    }
+
+    #[test]
+    fn test_block_statement() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+
+        let statement = Statement {
+            statement_type: StatementType::Block {
+                body: vec![
+                    Box::new(create_variable_assignment_statement(
+                        "identifier",
+                        0.0,
+                        &location,
+                    )),
+                    Box::new(create_variable_assignment_statement(
+                        "identifier1",
+                        1.0,
+                        &location,
+                    )),
+                    Box::new(create_variable_assignment_statement(
+                        "identifier2",
+                        2.0,
+                        &location,
+                    )),
+                ],
+            },
+            location,
+        };
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
+        state.insert("identifier1".to_owned(), Value::Number { value: 2.0 });
+        state.insert("identifier2".to_owned(), Value::Number { value: 0.0 });
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 0.0 })
+        );
+        assert_eq!(
+            s.find("identifier1").cloned(),
+            Some(Value::Number { value: 1.0 })
+        );
+        assert_eq!(
+            s.find("identifier2").cloned(),
+            Some(Value::Number { value: 2.0 })
+        );
+    }
+
+    #[test]
+    fn test_variable_declaration() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::VariableDeclaration {
+                expression: Some(create_expression_number(1.0, &location)),
+                name: "identifier".to_string(),
+            },
+            location,
+        };
+        let state = State::default();
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 1.0 })
+        );
+    }
+
+    #[test]
+    fn test_function_declaration() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::FunctionDeclaration {
+                name: "function".to_string(),
+                arguments: vec![],
+                body: vec![Box::new(Statement {
+                    statement_type: StatementType::EOF,
+                    location: location.clone(),
+                })],
+            },
+            location: location.clone(),
+        };
+        let state = State::default();
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("function").cloned(),
+            Some(Value::Function(LoxFunction {
+                arguments: vec![],
+                environment: Default::default(),
+                body: vec![Statement {
+                    statement_type: StatementType::EOF,
+                    location: location.clone(),
+                }],
+                location,
+            }))
+        );
+    }
+
+    #[test]
+    fn test_return_in_function() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::Return {
+                value: Some(create_expression_number(1.0, &location)),
+            },
+            location,
+        };
+        let mut state = State::default();
+        state.in_function = true;
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(s.return_value, Some(Box::new(Value::Number { value: 1.0 })));
+    }
+
+    #[test]
+    fn test_return_outside_function() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::Return {
+                value: Some(create_expression_number(1.0, &location)),
+            },
+            location: location.clone(),
+        };
+        let state = State::default();
+        let r = statement.evaluate(state);
+        assert_eq!(
+            r,
+            Err(ProgramError {
+                message: "Return outside function".to_owned(),
+                location,
+            })
+        );
+    }
+
+    #[test]
+    fn test_break_in_function() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::Break,
+            location,
+        };
+        let mut state = State::default();
+        state.in_loop = true;
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert!(s.broke_loop);
+        assert!(!s.in_loop);
+    }
+
+    #[test]
+    fn test_break_outside_function() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::Break,
+            location: location.clone(),
+        };
+        let state = State::default();
+        let r = statement.evaluate(state);
+        assert_eq!(
+            r,
+            Err(ProgramError {
+                message: "Break outside loop".to_owned(),
+                location,
+            })
+        );
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let location = SourceCodeLocation {
+            line: 1,
+            file: "".to_owned(),
+        };
+        let identifier_expression = Expression {
+            expression_type: ExpressionType::VariableLiteral {
+                identifier: "identifier".to_owned(),
+            },
+            location: location.clone(),
+        };
+        let statement = Statement {
+            statement_type: StatementType::While {
+                condition: Expression {
+                    expression_type: ExpressionType::Binary {
+                        operator: TokenType::Less,
+                        left: Box::new(identifier_expression.clone()),
+                        right: Box::new(create_expression_number(10f32, &location)),
+                    },
+                    location: location.clone(),
+                },
+                action: Box::new(Statement {
+                    statement_type: StatementType::Expression {
+                        expression: Expression {
+                            expression_type: ExpressionType::VariableAssignment {
+                                identifier: "identifier".to_owned(),
+                                expression: Box::new(Expression {
+                                    expression_type: ExpressionType::Binary {
+                                        operator: TokenType::Plus,
+                                        left: Box::new(identifier_expression.clone()),
+                                        right: Box::new(create_expression_number(1.0, &location)),
+                                    },
+                                    location: location.clone(),
+                                }),
+                            },
+                            location: location.clone(),
+                        },
+                    },
+                    location: location.clone(),
+                }),
+            },
+            location,
+        };
+        let mut state = State::default();
+        state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
+        let (s, _) = statement.evaluate(state).unwrap();
+        assert_eq!(
+            s.find("identifier").cloned(),
+            Some(Value::Number { value: 10.0 })
+        );
+    }
+
+    fn create_variable_assignment_statement(
+        id: &str,
+        value: f32,
+        location: &SourceCodeLocation,
+    ) -> Statement {
+        Statement {
+            statement_type: StatementType::Expression {
+                expression: Expression {
+                    expression_type: ExpressionType::VariableAssignment {
+                        identifier: id.to_owned(),
+                        expression: Box::new(create_expression_number(value, location)),
+                    },
+                    location: location.clone(),
+                },
+            },
+            location: location.clone(),
+        }
+    }
+
+    fn create_expression_number(value: f32, location: &SourceCodeLocation) -> Expression {
+        Expression {
+            expression_type: ExpressionType::ExpressionLiteral {
+                value: Literal::Number(value),
+            },
+            location: location.clone(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_expression {
+    use crate::interpreter::Evaluable;
+    use crate::types::{
+        DataKeyword, Expression, ExpressionType, Literal, LoxFunction, State, Statement,
+        StatementType, Value,
     };
     use crate::types::{SourceCodeLocation, TokenType};
 
@@ -826,21 +1279,29 @@ mod test {
                 }),
                 arguments: vec![],
             },
-            location,
+            location: location.clone(),
         };
-        fn lox_function(mut state: State, _values: &[Value]) -> EvaluationResult {
-            state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
-            Ok((state, Value::Nil))
-        }
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
         state.insert(
             "function".to_owned(),
-            Value::Function {
-                arity: 0,
+            Value::Function(LoxFunction {
+                arguments: vec![],
                 environment: State::default(),
-                function: lox_function,
-            },
+                body: vec![Statement {
+                    statement_type: StatementType::VariableDeclaration {
+                        expression: Some(Expression {
+                            expression_type: ExpressionType::ExpressionLiteral {
+                                value: Literal::Number(1.0),
+                            },
+                            location: location.clone(),
+                        }),
+                        name: "identifier".to_owned(),
+                    },
+                    location: location.clone(),
+                }],
+                location,
+            }),
         );
         let (mut final_state, got) = expression.evaluate(state.clone()).unwrap();
         state.insert("identifier".to_owned(), Value::Number { value: 1.0 });

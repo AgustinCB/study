@@ -1,6 +1,7 @@
+use crate::interpreter::Evaluable;
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::fmt::{Debug, Error, Formatter};
+use std::fmt::{Debug, Display, Error, Formatter};
 use std::ops::{Neg, Not};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -175,9 +176,11 @@ pub type EvaluationResult = Result<(State, Value), ProgramError>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct State {
-    return_value: Option<Box<Value>>,
-    broke_loop: bool,
-    enclosing: Option<Box<State>>,
+    pub return_value: Option<Box<Value>>,
+    pub broke_loop: bool,
+    pub in_loop: bool,
+    pub enclosing: Option<Box<State>>,
+    pub in_function: bool,
     values: HashMap<String, Value>,
 }
 
@@ -190,7 +193,12 @@ impl State {
     }
 
     pub fn insert(&mut self, identifier: String, value: Value) {
-        self.values.insert(identifier, value);
+        match &mut self.enclosing {
+            Some(parent) => parent.insert(identifier, value),
+            None => {
+                self.values.insert(identifier, value);
+            }
+        };
     }
 
     pub fn delete(&mut self, identifier: &str) {
@@ -199,6 +207,10 @@ impl State {
             p.delete(identifier);
         }
     }
+
+    pub fn add_return_value(&mut self, v: Value) {
+        self.return_value = Some(Box::new(v));
+    }
 }
 
 impl Default for State {
@@ -206,30 +218,67 @@ impl Default for State {
         State {
             return_value: None,
             broke_loop: false,
+            in_loop: false,
             enclosing: None,
+            in_function: false,
             values: HashMap::new(),
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoxFunction {
+    pub arguments: Vec<String>,
+    pub environment: State,
+    pub body: Vec<Statement>,
+    pub location: SourceCodeLocation,
+}
+
+impl LoxFunction {
+    pub fn eval(&self, parent_state: State, values: &[Value]) -> EvaluationResult {
+        if self.arguments.len() != values.len() {
+            return Err(ProgramError {
+                message: format!(
+                    "Wrong number of arguments: Received {}, expected {}",
+                    values.len(),
+                    self.arguments.len()
+                ),
+                location: self.location.clone(),
+            });
+        }
+        let mut values_map = HashMap::default();
+        for (name, value) in self.arguments.iter().cloned().zip(values.iter().cloned()) {
+            values_map.insert(name, value);
+        }
+        let state = State {
+            return_value: None,
+            broke_loop: false,
+            in_loop: false,
+            enclosing: Some(Box::new(parent_state)),
+            in_function: true,
+            values: values_map,
+        };
+        let mut current_state = state;
+        for st in self.body.iter() {
+            current_state = st.evaluate(current_state)?.0;
+            if let Some(return_value) = &current_state.return_value {
+                let value = (**return_value).clone();
+                return Ok((*current_state.enclosing.unwrap(), value));
+            }
+        }
+        current_state.in_function = false;
+        Ok((*current_state.enclosing.unwrap(), Value::Nil))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     Nil,
     Uninitialized,
-    Boolean {
-        value: bool,
-    },
-    Number {
-        value: f32,
-    },
-    String {
-        value: String,
-    },
-    Function {
-        arity: u8,
-        environment: State,
-        function: fn(State, &[Value]) -> EvaluationResult,
-    },
+    Boolean { value: bool },
+    Number { value: f32 },
+    String { value: String },
+    Function(LoxFunction),
 }
 
 impl Value {
@@ -247,21 +296,6 @@ impl Value {
             Value::Boolean { value: false } => false,
             Value::Number { value } if *value == 0f32 => false,
             _ => true,
-        }
-    }
-}
-
-impl PartialEq for Value {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Value::Uninitialized, Value::Uninitialized) => true,
-            (Value::Nil, Value::Nil) => true,
-            (Value::Boolean { value: value1 }, Value::Boolean { value: value2 }) => {
-                value1 == value2
-            }
-            (Value::Number { value: value1 }, Value::Number { value: value2 }) => value1 == value2,
-            (Value::String { value: value1 }, Value::String { value: value2 }) => value1 == value2,
-            _ => false,
         }
     }
 }
@@ -347,17 +381,15 @@ impl Into<Value> for &Literal {
     }
 }
 
-impl Debug for Value {
+impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
         match self {
-            Value::Number { value } => value.fmt(f),
-            Value::String { value } => value.fmt(f),
-            Value::Boolean { value } => value.fmt(f),
+            Value::Number { value } => f.write_str(value.to_string().as_str()),
+            Value::String { value } => f.write_str(value.as_str()),
+            Value::Boolean { value } => f.write_str(value.to_string().as_str()),
             Value::Uninitialized => f.write_str("Uninitialized"),
             Value::Nil => f.write_str("Nil"),
-            Value::Function {
-                arity, environment, ..
-            } => f.write_str(format!("[Function {:?} {:?}]", arity, environment).as_str()),
+            Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
         }
     }
 }
