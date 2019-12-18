@@ -86,7 +86,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 token_type: TokenType::Print,
                 ..
             }) => {
+                self.content.next();
                 let expression = self.parse_expression()?;
+                self.consume(TokenType::Semicolon, "Expected semicolon", &location)?;
                 Ok(Statement {
                     location,
                     statement_type: StatementType::PrintStatement { expression },
@@ -97,6 +99,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 token_type: TokenType::Break,
                 ..
             }) if self.block_stack > 0 => {
+                self.content.next();
                 self.consume(
                     TokenType::Semicolon,
                     "Expected semicolon after break statement",
@@ -186,12 +189,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             .map(|t| t.token_type == TokenType::Semicolon)
             .unwrap_or(false)
         {
+            self.consume(TokenType::Semicolon, "Expected semicolon", &location)?;
             Ok(Statement {
                 location,
                 statement_type: StatementType::Return { value: None },
             })
         } else {
             let value = self.parse_expression()?;
+            self.consume(TokenType::Semicolon, "Expected semicolon", &location)?;
             Ok(Statement {
                 location,
                 statement_type: StatementType::Return { value: Some(value) },
@@ -221,11 +226,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     ..
                 }) => {
                     let expression = Some(self.parse_expression()?);
-                    self.consume(
-                        TokenType::Semicolon,
-                        "Expected semicolon at end of statement",
-                        location,
-                    )?;
+                    self.consume(TokenType::Semicolon, "Expected semicolon", location)?;
                     Ok(Statement {
                         location: location.clone(),
                         statement_type: StatementType::VariableDeclaration { name, expression },

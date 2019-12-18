@@ -9,6 +9,4 @@ FOLDER=$(mktemp -d)
 
 trap "rm -fr $FOLDER; exit" EXIT
 
-cd "$ROOT"/..
 cat "$TEST" | cargo run
-cd "$ROOT"

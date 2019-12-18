@@ -36,7 +36,7 @@ fn main() -> io::Result<()> {
         });
     match result {
         Ok(_) => {}
-        Err(es) => eprintln!("{:?}", es),
+        Err(es) => es.iter().for_each(|e| eprintln!("{:?}", e)),
     }
     Ok(())
 }

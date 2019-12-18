@@ -70,7 +70,7 @@ impl Lexer {
                         errors.push(self.create_error("Expected '\"', got end of string"));
                         None
                     } else {
-                        self.current += 1;
+                        //self.current += 1;
                         let lexeme = format!("\"{}\"", string_content);
                         Some(self.create_token(
                             TokenType::TokenLiteral {
@@ -657,7 +657,7 @@ mod tests {
                 lexeme: "123.123".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 3,
+                    line: 4,
                 },
             },
             Token {
@@ -667,7 +667,7 @@ mod tests {
                 lexeme: "true".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 4,
+                    line: 5,
                 },
             },
             Token {
@@ -675,7 +675,7 @@ mod tests {
                 lexeme: ";".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 4,
+                    line: 5,
                 },
             },
             Token {
@@ -685,7 +685,7 @@ mod tests {
                 lexeme: "false".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 4,
+                    line: 5,
                 },
             },
             Token {
@@ -693,7 +693,7 @@ mod tests {
                 lexeme: ";".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 4,
+                    line: 5,
                 },
             },
             Token {
@@ -703,7 +703,7 @@ mod tests {
                 lexeme: "nil".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
-                    line: 4,
+                    line: 5,
                 },
             },
         ]);
