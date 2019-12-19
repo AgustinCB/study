@@ -80,6 +80,19 @@ pub struct ProgramError {
     pub message: String,
 }
 
+impl Display for ProgramError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        f.write_str(
+            format!(
+                "There was an error! [line {}] Error: {}",
+                self.location.line + 1,
+                self.message
+            )
+            .as_str(),
+        )
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Expression {
     pub expression_type: ExpressionType,

@@ -3,7 +3,7 @@ use crate::types::{
     State, Statement, StatementType, TokenType, Value, ValueError,
 };
 use std::convert::TryInto;
-use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Sub};
 
 fn div_expressions(
     state: State,
@@ -129,16 +129,11 @@ fn boolean_expression(
     state: State,
     left: &Expression,
     right: &Expression,
-    op: fn(bool, bool) -> bool,
+    op: fn(Value, Value) -> Value,
 ) -> EvaluationResult {
     let (s, left_value) = left.evaluate(state)?;
     let (final_state, right_value) = right.evaluate(s)?;
-    Ok((
-        final_state,
-        Value::Boolean {
-            value: op(left_value.is_truthy(), right_value.is_truthy()),
-        },
-    ))
+    Ok((final_state, op(left_value, right_value)))
 }
 
 fn variable_assignment(
@@ -206,7 +201,12 @@ impl Evaluable for Expression {
                         self.create_program_error(&format!("Variable `{}` not found", identifier))
                     })?
                     .clone();
-                Ok((state, value))
+                if value == Value::Uninitialized {
+                    Err(self
+                        .create_program_error(&format!("Variable {} not initialized!", identifier)))
+                } else {
+                    Ok((state, value))
+                }
             }
             ExpressionType::Grouping { expression } => expression.evaluate(state),
             ExpressionType::Unary {
@@ -294,12 +294,24 @@ impl Evaluable for Expression {
                 left,
                 right,
                 operator: TokenType::And,
-            } => boolean_expression(state, left, right, bool::bitand),
+            } => boolean_expression(state, left, right, |left_value, right_value| {
+                if left_value.is_truthy() {
+                    right_value
+                } else {
+                    left_value
+                }
+            }),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Or,
-            } => boolean_expression(state, left, right, bool::bitor),
+            } => boolean_expression(state, left, right, |left_value, right_value| {
+                if left_value.is_truthy() {
+                    left_value
+                } else {
+                    right_value
+                }
+            }),
             ExpressionType::Binary { .. } => {
                 Err(self.create_program_error("Invalid binary operator"))
             }
@@ -351,7 +363,7 @@ impl Evaluable for Statement {
                 let (mut s, v) = if let Some(e) = expression {
                     e.evaluate(state)?
                 } else {
-                    (state, Value::Nil)
+                    (state, Value::Uninitialized)
                 };
                 s.insert(name.clone(), v);
                 s
