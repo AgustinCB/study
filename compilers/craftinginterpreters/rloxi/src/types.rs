@@ -1,8 +1,11 @@
 use crate::interpreter::Evaluable;
+use crate::state::State;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::fmt::{Debug, Display, Error, Formatter};
 use std::ops::{Neg, Not};
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceCodeLocation {
@@ -187,88 +190,16 @@ pub enum StatementType {
 
 pub type EvaluationResult = Result<(State, Value), ProgramError>;
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct State {
-    pub return_value: Option<Box<Value>>,
-    pub broke_loop: bool,
-    pub in_loop: bool,
-    pub in_function: bool,
-    parent: Option<Box<State>>,
-    values: HashMap<String, Value>,
-}
-
-impl State {
-    pub fn find(&self, identifier: &str) -> Option<&Value> {
-        match self.values.get(identifier) {
-            None => match &self.parent {
-                Some(parent) => parent.find(identifier),
-                None => None,
-            },
-            a => a,
-        }
-    }
-
-    pub fn push(self) -> State {
-        State {
-            return_value: self.return_value.clone(),
-            broke_loop: self.broke_loop,
-            in_loop: self.in_loop,
-            in_function: self.in_function,
-            values: HashMap::default(),
-            parent: Some(Box::new(self)),
-        }
-    }
-
-    pub fn insert_top(&mut self, identifier: String, value: Value) {
-        self.values.insert(identifier, value);
-    }
-
-    pub fn insert(&mut self, identifier: String, value: Value) {
-        match self.values.get(&identifier) {
-            Some(_) => self.insert_top(identifier, value),
-            None => match &mut self.parent {
-                Some(parent) => parent.insert(identifier, value),
-                None => self.insert_top(identifier, value),
-            },
-        };
-    }
-
-    pub fn delete(&mut self, identifier: &str) {
-        self.values.remove(identifier);
-    }
-
-    pub fn add_return_value(&mut self, v: Value) {
-        self.return_value = Some(Box::new(v));
-    }
-
-    pub fn get_parent(self) -> Option<State> {
-        self.parent.map(|p| *p)
-    }
-}
-
-impl Default for State {
-    fn default() -> State {
-        State {
-            return_value: None,
-            broke_loop: false,
-            in_loop: false,
-            parent: None,
-            in_function: false,
-            values: HashMap::new(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct LoxFunction {
     pub arguments: Vec<String>,
-    pub environment: State,
+    pub environments: Vec<Rc<RefCell<HashMap<String, Value>>>>,
     pub body: Vec<Statement>,
     pub location: SourceCodeLocation,
 }
 
 impl LoxFunction {
-    pub fn eval(&self, parent_state: State, values: &[Value]) -> EvaluationResult {
+    pub fn eval(&self, values: &[Value]) -> Result<Value, ProgramError> {
         if self.arguments.len() != values.len() {
             return Err(ProgramError {
                 message: format!(
@@ -279,28 +210,35 @@ impl LoxFunction {
                 location: self.location.clone(),
             });
         }
-        let mut values_map = HashMap::default();
+        let mut current_state = State::new(&self.environments);
+        current_state.push();
         for (name, value) in self.arguments.iter().cloned().zip(values.iter().cloned()) {
-            values_map.insert(name, value);
+            current_state.insert_top(name, value);
         }
-        let state = State {
-            return_value: None,
-            broke_loop: false,
-            in_loop: false,
-            parent: Some(Box::new(parent_state)),
-            in_function: true,
-            values: values_map,
-        };
-        let mut current_state = state;
+        current_state.in_function = true;
         for st in self.body.iter() {
             current_state = st.evaluate(current_state)?.0;
             if let Some(return_value) = &current_state.return_value {
                 let value = (**return_value).clone();
-                return Ok((current_state.get_parent().unwrap(), value));
+                return Ok(value);
             }
         }
-        current_state.in_function = false;
-        Ok((current_state.get_parent().unwrap(), Value::Nil))
+        Ok(Value::Nil)
+    }
+}
+
+impl Debug for LoxFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+        f.write_str(
+            format!(
+                "[Function: Arguments {:?} Body {:?} Location {:?} Env Size {:?}",
+                self.arguments,
+                self.body,
+                self.location,
+                self.environments.len()
+            )
+            .as_str(),
+        )
     }
 }
 

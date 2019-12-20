@@ -1,10 +1,12 @@
 #![feature(exact_size_is_empty)]
+#![feature(option_flattening)]
 use crate::interpreter::Interpreter;
 use std::io::{self, Read};
 
 mod interpreter;
 mod lexer;
 mod parser;
+mod state;
 mod types;
 
 fn main() -> io::Result<()> {

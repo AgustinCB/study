@@ -1,6 +1,7 @@
+use crate::state::State;
 use crate::types::{
     EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation,
-    State, Statement, StatementType, TokenType, Value, ValueError,
+    Statement, StatementType, TokenType, Value, ValueError,
 };
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
@@ -180,7 +181,7 @@ fn call_expression(
                 current_state = value_status;
                 values.push(value);
             }
-            f.eval(current_state, &values)
+            f.eval(&values).map(|v| (current_state, v))
         }
         _ => Err(callee.create_program_error("Only functions or classes can be called!")),
     }
@@ -374,17 +375,16 @@ impl Evaluable for Statement {
             }
             StatementType::Expression { expression } => expression.evaluate(state)?.0,
             StatementType::Block { body } => {
-                let mut current_state = state.push();
+                state.push();
                 for st in body {
-                    let (s, _) = st.evaluate(current_state)?;
-                    current_state = s;
-                    if current_state.broke_loop {
+                    let (s, _) = st.evaluate(state)?;
+                    state = s;
+                    if state.broke_loop {
                         break;
                     }
                 }
-                let mut final_state = current_state.clone().get_parent().unwrap();
-                final_state.broke_loop = current_state.broke_loop;
-                final_state
+                state.pop();
+                state
             }
             StatementType::VariableDeclaration { expression, name } => {
                 let (mut s, v) = if let Some(e) = expression {
@@ -409,7 +409,7 @@ impl Evaluable for Statement {
                     name.clone(),
                     Value::Function(LoxFunction {
                         arguments: arguments.clone(),
-                        environment: state.clone(),
+                        environments: state.get_environments(),
                         body: body.iter().map(|s| (**s).clone()).collect(),
                         location: self.location.clone(),
                     }),
@@ -431,24 +431,23 @@ impl Evaluable for Statement {
                 })
             }
             StatementType::While { condition, action } => {
-                let mut current_state = state;
-                current_state.in_loop = true;
+                state.loop_count += 1;
                 while {
-                    let (s, v) = condition.evaluate(current_state)?;
-                    current_state = s;
-                    current_state.in_loop && v.is_truthy()
+                    let (s, v) = condition.evaluate(state)?;
+                    state = s;
+                    state.loop_count > 0 && v.is_truthy()
                 } {
-                    let (s, _) = action.evaluate(current_state)?;
-                    current_state = s;
-                    if current_state.broke_loop {
+                    let (s, _) = action.evaluate(state)?;
+                    state = s;
+                    if state.broke_loop {
                         break;
                     }
                 }
-                current_state.broke_loop = false;
-                current_state
+                state.loop_count -= 1;
+                state.broke_loop = false;
+                state
             }
-            StatementType::Break if state.in_loop => {
-                state.in_loop = false;
+            StatementType::Break if state.loop_count > 0 => {
                 state.broke_loop = true;
                 state
             }
@@ -466,8 +465,9 @@ impl Evaluable for Statement {
 #[cfg(test)]
 mod test_statement {
     use crate::interpreter::Evaluable;
+    use crate::state::State;
     use crate::types::{
-        Expression, ExpressionType, Literal, LoxFunction, ProgramError, SourceCodeLocation, State,
+        Expression, ExpressionType, Literal, LoxFunction, ProgramError, SourceCodeLocation,
         Statement, StatementType, TokenType, Value,
     };
 
@@ -496,10 +496,7 @@ mod test_statement {
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 1.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 1.0 }));
     }
 
     #[test]
@@ -527,10 +524,7 @@ mod test_statement {
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 0.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
     }
 
     #[test]
@@ -543,10 +537,7 @@ mod test_statement {
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 0.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
     }
 
     #[test]
@@ -583,18 +574,9 @@ mod test_statement {
         state.insert("identifier1".to_owned(), Value::Number { value: 2.0 });
         state.insert("identifier2".to_owned(), Value::Number { value: 0.0 });
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 0.0 })
-        );
-        assert_eq!(
-            s.find("identifier1").cloned(),
-            Some(Value::Number { value: 1.0 })
-        );
-        assert_eq!(
-            s.find("identifier2").cloned(),
-            Some(Value::Number { value: 2.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
+        assert_eq!(s.find("identifier1"), Some(Value::Number { value: 1.0 }));
+        assert_eq!(s.find("identifier2"), Some(Value::Number { value: 2.0 }));
     }
 
     #[test]
@@ -612,10 +594,7 @@ mod test_statement {
         };
         let state = State::default();
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 1.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 1.0 }));
     }
 
     #[test]
@@ -637,18 +616,26 @@ mod test_statement {
         };
         let state = State::default();
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("function").cloned(),
-            Some(Value::Function(LoxFunction {
-                arguments: vec![],
-                environment: Default::default(),
-                body: vec![Statement {
-                    statement_type: StatementType::EOF,
-                    location: location.clone(),
-                }],
-                location,
-            }))
-        );
+        let value = s.find("function").unwrap();
+        match value {
+            Value::Function(LoxFunction {
+                arguments,
+                body,
+                location: l,
+                ..
+            }) => {
+                assert_eq!(arguments, Vec::<String>::new());
+                assert_eq!(
+                    body,
+                    vec![Statement {
+                        statement_type: StatementType::EOF,
+                        location: location.clone(),
+                    }]
+                );
+                assert_eq!(l, location);
+            }
+            _ => panic!("Wrong type! Should be Function!"),
+        }
     }
 
     #[test]
@@ -703,10 +690,10 @@ mod test_statement {
             location,
         };
         let mut state = State::default();
-        state.in_loop = true;
+        state.loop_count = 1;
         let (s, _) = statement.evaluate(state).unwrap();
         assert!(s.broke_loop);
-        assert!(!s.in_loop);
+        assert_eq!(s.loop_count, 1);
     }
 
     #[test]
@@ -777,10 +764,7 @@ mod test_statement {
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
         let (s, _) = statement.evaluate(state).unwrap();
-        assert_eq!(
-            s.find("identifier").cloned(),
-            Some(Value::Number { value: 10.0 })
-        );
+        assert_eq!(s.find("identifier"), Some(Value::Number { value: 10.0 }));
     }
 
     fn create_variable_assignment_statement(
@@ -815,11 +799,11 @@ mod test_statement {
 #[cfg(test)]
 mod test_expression {
     use crate::interpreter::Evaluable;
+    use crate::state::State;
     use crate::types::{
-        DataKeyword, Expression, ExpressionType, Literal, LoxFunction, State, Statement,
-        StatementType, Value,
+        DataKeyword, Expression, ExpressionType, Literal, LoxFunction, SourceCodeLocation,
+        Statement, StatementType, TokenType, Value,
     };
-    use crate::types::{SourceCodeLocation, TokenType};
 
     #[test]
     fn test_expression_literal() {
@@ -1326,7 +1310,7 @@ mod test_expression {
             "function".to_owned(),
             Value::Function(LoxFunction {
                 arguments: vec![],
-                environment: State::default(),
+                environments: state.get_environments(),
                 body: vec![Statement {
                     statement_type: StatementType::VariableDeclaration {
                         expression: Some(Expression {
@@ -1342,9 +1326,9 @@ mod test_expression {
                 location,
             }),
         );
-        let (mut final_state, got) = expression.evaluate(state.clone()).unwrap();
-        state.delete("function");
-        final_state.delete("function");
+        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        state.last().borrow_mut().remove("function");
+        final_state.last().borrow_mut().remove("function");
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Nil);
     }
