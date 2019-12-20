@@ -150,7 +150,7 @@ fn variable_assignment(
         }
         None => Err(ProgramError {
             location: location.clone(),
-            message: format!("Variable {} not found!", name),
+            message: format!("Variable `{}` not found!", name),
         }),
     }
 }
@@ -198,12 +198,14 @@ impl Evaluable for Expression {
                 let value = state
                     .find(identifier)
                     .ok_or_else(|| {
-                        self.create_program_error(&format!("Variable `{}` not found", identifier))
+                        self.create_program_error(&format!("Variable `{}` not found!", identifier))
                     })?
                     .clone();
                 if value == Value::Uninitialized {
-                    Err(self
-                        .create_program_error(&format!("Variable {} not initialized!", identifier)))
+                    Err(self.create_program_error(&format!(
+                        "Variable `{}` not initialized!",
+                        identifier
+                    )))
                 } else {
                     Ok((state, value))
                 }
@@ -349,7 +351,7 @@ impl Evaluable for Statement {
             }
             StatementType::Expression { expression } => expression.evaluate(state)?.0,
             StatementType::Block { body } => {
-                let mut current_state = state;
+                let mut current_state = state.push();
                 for st in body {
                     let (s, _) = st.evaluate(current_state)?;
                     current_state = s;
@@ -357,7 +359,9 @@ impl Evaluable for Statement {
                         break;
                     }
                 }
-                current_state
+                let mut final_state = *current_state.enclosing.unwrap();
+                final_state.broke_loop = current_state.broke_loop;
+                final_state
             }
             StatementType::VariableDeclaration { expression, name } => {
                 let (mut s, v) = if let Some(e) = expression {
@@ -365,7 +369,7 @@ impl Evaluable for Statement {
                 } else {
                     (state, Value::Uninitialized)
                 };
-                s.insert(name.clone(), v);
+                s.insert_top(name.clone(), v);
                 s
             }
             StatementType::PrintStatement { expression } => {
@@ -1316,7 +1320,6 @@ mod test_expression {
             }),
         );
         let (mut final_state, got) = expression.evaluate(state.clone()).unwrap();
-        state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
         state.delete("function");
         final_state.delete("function");
         assert_eq!(state, final_state);

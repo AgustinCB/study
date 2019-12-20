@@ -199,26 +199,42 @@ pub struct State {
 
 impl State {
     pub fn find(&self, identifier: &str) -> Option<&Value> {
-        match &self.enclosing {
-            Some(parent) => parent.find(identifier),
-            None => self.values.get(identifier),
+        match self.values.get(identifier) {
+            None => match &self.enclosing {
+                Some(parent) => parent.find(identifier),
+                None => None,
+            },
+            a => a,
         }
     }
 
+    pub fn push(self) -> State {
+        State {
+            return_value: self.return_value.clone(),
+            broke_loop: self.broke_loop,
+            in_loop: self.in_loop,
+            in_function: self.in_function,
+            values: HashMap::default(),
+            enclosing: Some(Box::new(self)),
+        }
+    }
+
+    pub fn insert_top(&mut self, identifier: String, value: Value) {
+        self.values.insert(identifier, value);
+    }
+
     pub fn insert(&mut self, identifier: String, value: Value) {
-        match &mut self.enclosing {
-            Some(parent) => parent.insert(identifier, value),
-            None => {
-                self.values.insert(identifier, value);
-            }
+        match self.values.get(&identifier) {
+            Some(_) => self.insert_top(identifier, value),
+            None => match &mut self.enclosing {
+                Some(parent) => parent.insert(identifier, value),
+                None => self.insert_top(identifier, value),
+            },
         };
     }
 
     pub fn delete(&mut self, identifier: &str) {
         self.values.remove(identifier);
-        if let Some(p) = &mut self.enclosing {
-            p.delete(identifier);
-        }
     }
 
     pub fn add_return_value(&mut self, v: Value) {

@@ -98,26 +98,25 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 location,
                 token_type: TokenType::Break,
                 ..
-            }) if self.block_stack > 0 => {
+            }) => {
                 self.content.next();
                 self.consume(
                     TokenType::Semicolon,
                     "Expected semicolon after break statement",
                     &location,
                 )?;
-                Ok(Statement {
-                    location,
-                    statement_type: StatementType::Break,
-                })
+                if self.block_stack > 0 {
+                    Ok(Statement {
+                        location,
+                        statement_type: StatementType::Break,
+                    })
+                } else {
+                    Err(ProgramError {
+                        message: "Break statement can't go here".to_owned(),
+                        location,
+                    })
+                }
             }
-            Some(Token {
-                location,
-                token_type: TokenType::Break,
-                ..
-            }) => Err(ProgramError {
-                message: "Break statement can't go here".to_owned(),
-                location,
-            }),
             None => Err(ProgramError {
                 message: "Unexpected end of file".to_owned(),
                 location: SourceCodeLocation {
@@ -251,6 +250,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     ) -> Result<Statement, ProgramError> {
         self.consume(TokenType::LeftBrace, "Expected left brace", &location)?;
         let mut statements = vec![];
+        self.block_stack += 1;
         while self
             .content
             .peek()
@@ -261,7 +261,8 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             location = statement.location.clone();
             statements.push(Box::new(statement));
         }
-        self.consume(TokenType::RightBrace, "Expected '{' after block", &location)?;
+        self.consume(TokenType::RightBrace, "Expected '}' after block", &location)?;
+        self.block_stack -= 1;
         Ok(Statement {
             location,
             statement_type: StatementType::Block { body: statements },
