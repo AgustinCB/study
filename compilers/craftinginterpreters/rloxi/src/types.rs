@@ -192,15 +192,15 @@ pub struct State {
     pub return_value: Option<Box<Value>>,
     pub broke_loop: bool,
     pub in_loop: bool,
-    pub enclosing: Option<Box<State>>,
     pub in_function: bool,
+    parent: Option<Box<State>>,
     values: HashMap<String, Value>,
 }
 
 impl State {
     pub fn find(&self, identifier: &str) -> Option<&Value> {
         match self.values.get(identifier) {
-            None => match &self.enclosing {
+            None => match &self.parent {
                 Some(parent) => parent.find(identifier),
                 None => None,
             },
@@ -215,7 +215,7 @@ impl State {
             in_loop: self.in_loop,
             in_function: self.in_function,
             values: HashMap::default(),
-            enclosing: Some(Box::new(self)),
+            parent: Some(Box::new(self)),
         }
     }
 
@@ -226,7 +226,7 @@ impl State {
     pub fn insert(&mut self, identifier: String, value: Value) {
         match self.values.get(&identifier) {
             Some(_) => self.insert_top(identifier, value),
-            None => match &mut self.enclosing {
+            None => match &mut self.parent {
                 Some(parent) => parent.insert(identifier, value),
                 None => self.insert_top(identifier, value),
             },
@@ -240,6 +240,10 @@ impl State {
     pub fn add_return_value(&mut self, v: Value) {
         self.return_value = Some(Box::new(v));
     }
+
+    pub fn get_parent(self) -> Option<State> {
+        self.parent.map(|p| *p)
+    }
 }
 
 impl Default for State {
@@ -248,7 +252,7 @@ impl Default for State {
             return_value: None,
             broke_loop: false,
             in_loop: false,
-            enclosing: None,
+            parent: None,
             in_function: false,
             values: HashMap::new(),
         }
@@ -283,7 +287,7 @@ impl LoxFunction {
             return_value: None,
             broke_loop: false,
             in_loop: false,
-            enclosing: Some(Box::new(parent_state)),
+            parent: Some(Box::new(parent_state)),
             in_function: true,
             values: values_map,
         };
@@ -292,11 +296,11 @@ impl LoxFunction {
             current_state = st.evaluate(current_state)?.0;
             if let Some(return_value) = &current_state.return_value {
                 let value = (**return_value).clone();
-                return Ok((*current_state.enclosing.unwrap(), value));
+                return Ok((current_state.get_parent().unwrap(), value));
             }
         }
         current_state.in_function = false;
-        Ok((*current_state.enclosing.unwrap(), Value::Nil))
+        Ok((current_state.get_parent().unwrap(), Value::Nil))
     }
 }
 

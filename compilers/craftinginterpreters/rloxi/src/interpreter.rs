@@ -382,7 +382,7 @@ impl Evaluable for Statement {
                         break;
                     }
                 }
-                let mut final_state = *current_state.enclosing.unwrap();
+                let mut final_state = current_state.clone().get_parent().unwrap();
                 final_state.broke_loop = current_state.broke_loop;
                 final_state
             }
