@@ -1,6 +1,5 @@
 #![feature(exact_size_is_empty)]
-use crate::interpreter::Evaluable;
-use crate::types::State;
+use crate::interpreter::Interpreter;
 use std::io::{self, Read};
 
 mod interpreter;
@@ -22,18 +21,7 @@ fn main() -> io::Result<()> {
             let mut parser = parser::Parser::new(ts.into_iter().peekable());
             parser.parse()
         })
-        .and_then(|ss| {
-            let mut current_state = State::default();
-            for s in ss {
-                match s.evaluate(current_state) {
-                    Ok((next_state, _)) => {
-                        current_state = next_state;
-                    }
-                    Err(e) => return Err(vec![e]),
-                }
-            }
-            Ok(())
-        });
+        .and_then(|ss| Interpreter::new(ss).run().map_err(|e| vec![e]));
     match result {
         Ok(_) => {}
         Err(es) => es.iter().for_each(|e| eprintln!("{}", e)),

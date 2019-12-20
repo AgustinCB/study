@@ -186,6 +186,29 @@ fn call_expression(
     }
 }
 
+pub struct Interpreter {
+    content: Vec<Statement>,
+}
+
+impl Interpreter {
+    pub fn new(content: Vec<Statement>) -> Interpreter {
+        Interpreter { content }
+    }
+
+    pub fn run(&self) -> Result<(), ProgramError> {
+        let mut current_state = State::default();
+        for s in self.content.iter() {
+            match s.evaluate(current_state) {
+                Ok((next_state, _)) => {
+                    current_state = next_state;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(())
+    }
+}
+
 pub trait Evaluable {
     fn evaluate(&self, state: State) -> EvaluationResult;
 }
