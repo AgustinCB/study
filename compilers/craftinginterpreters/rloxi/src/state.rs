@@ -26,6 +26,23 @@ impl State {
         }
     }
 
+    pub fn assign_at(&self, id: usize, identifier: &str, value: &Value) {
+        self.environments.get(id).iter().for_each(|e| {
+            e.borrow_mut().insert(identifier.to_owned(), value.clone());
+        });
+    }
+
+    pub fn get_at(&self, identifier: &str, id: usize) -> Option<Value> {
+        self.environments
+            .get(id)
+            .map(|e| e.borrow().get(identifier).cloned())
+            .flatten()
+    }
+
+    pub fn get_global(&self, identifier: &str) -> Option<Value> {
+        self.environments[0].borrow().get(identifier).cloned()
+    }
+
     pub fn find(&self, identifier: &str) -> Option<Value> {
         self.environments
             .iter()
@@ -36,7 +53,8 @@ impl State {
     }
 
     pub fn push(&mut self) {
-        self.environments.push(Rc::new(RefCell::new(HashMap::default())));
+        self.environments
+            .push(Rc::new(RefCell::new(HashMap::default())));
     }
 
     pub fn pop(&mut self) {

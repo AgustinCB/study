@@ -1,6 +1,6 @@
 use crate::types::{
-    DataKeyword, Expression, ExpressionType, Literal, ProgramError, SourceCodeLocation, Statement,
-    StatementType, Token, TokenType,
+    DataKeyword, Expression, ExpressionFactory, ExpressionType, Literal, ProgramError,
+    SourceCodeLocation, Statement, StatementType, Token, TokenType,
 };
 use std::iter::Peekable;
 use std::vec::IntoIter;
@@ -8,12 +8,14 @@ use std::vec::IntoIter;
 pub struct Parser<I: Iterator<Item = Token>> {
     block_stack: u8,
     content: Peekable<I>,
+    expression_factory: ExpressionFactory,
 }
 
 impl<I: Iterator<Item = Token>> Parser<I> {
     pub fn new(content: Peekable<I>) -> Parser<I> {
         Parser {
             block_stack: 0,
+            expression_factory: ExpressionFactory::new(),
             content,
         }
     }
@@ -362,12 +364,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 Ok(Statement {
                     location: location.clone(),
                     statement_type: StatementType::Expression {
-                        expression: Expression {
-                            expression_type: ExpressionType::ExpressionLiteral {
+                        expression: self.expression_factory.new_expression(
+                            ExpressionType::ExpressionLiteral {
                                 value: Literal::Keyword(DataKeyword::Nil),
                             },
                             location,
-                        },
+                        ),
                     },
                 })
             }
@@ -399,12 +401,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 )?;
                 expression
             } else {
-                Expression {
-                    location: location.clone(),
-                    expression_type: ExpressionType::ExpressionLiteral {
+                self.expression_factory.new_expression(
+                    ExpressionType::ExpressionLiteral {
                         value: Literal::Keyword(DataKeyword::Nil),
                     },
-                }
+                    location.clone(),
+                )
             }
         };
         let incr = {
@@ -417,12 +419,12 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 )?;
                 expression
             } else {
-                Expression {
-                    location: location.clone(),
-                    expression_type: ExpressionType::ExpressionLiteral {
+                self.expression_factory.new_expression(
+                    ExpressionType::ExpressionLiteral {
                         value: Literal::Keyword(DataKeyword::Nil),
                     },
-                }
+                    location.clone(),
+                )
             };
             Statement {
                 location: expression.location.clone(),
@@ -471,13 +473,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                         Expression {
                             expression_type: ExpressionType::VariableLiteral { identifier },
                             location,
-                        } => Ok(Expression {
-                            expression_type: ExpressionType::VariableAssignment {
+                            ..
+                        } => Ok(self.expression_factory.new_expression(
+                            ExpressionType::VariableAssignment {
                                 identifier,
                                 expression: Box::new(expression),
                             },
                             location,
-                        }),
+                        )),
                         _ => Err(ProgramError {
                             location,
                             message: "Invalid assignment target".to_owned(),
@@ -518,36 +521,33 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 &then_branch.location,
             )?;
             let else_branch = self.parse_ternary()?;
-            Ok(Expression {
-                location: condition.location.clone(),
-                expression_type: ExpressionType::Conditional {
+            let location = condition.location.clone();
+            Ok(self.expression_factory.new_expression(
+                ExpressionType::Conditional {
                     condition: Box::new(condition),
                     then_branch: Box::new(then_branch),
                     else_branch: Box::new(else_branch),
                 },
-            })
+                location,
+            ))
         } else {
             Ok(condition)
         }
     }
 
     fn parse_or(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(Parser::parse_and, Parser::parse_or, &vec![TokenType::Or])
+        self.parse_binary(Parser::parse_and, Parser::parse_or, &[TokenType::Or])
     }
 
     fn parse_and(&mut self) -> Result<Expression, ProgramError> {
-        self.parse_binary(
-            Parser::parse_equality,
-            Parser::parse_and,
-            &vec![TokenType::And],
-        )
+        self.parse_binary(Parser::parse_equality, Parser::parse_and, &[TokenType::And])
     }
 
     fn parse_equality(&mut self) -> Result<Expression, ProgramError> {
         self.parse_binary(
             Parser::parse_comparison,
             Parser::parse_equality,
-            &vec![TokenType::EqualEqual, TokenType::BangEqual],
+            &[TokenType::EqualEqual, TokenType::BangEqual],
         )
     }
 
@@ -555,7 +555,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.parse_binary(
             Parser::parse_addition,
             Parser::parse_comparison,
-            &vec![
+            &[
                 TokenType::Greater,
                 TokenType::GreaterEqual,
                 TokenType::Less,
@@ -568,7 +568,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.parse_binary(
             Parser::parse_multiplication,
             Parser::parse_addition,
-            &vec![TokenType::Minus, TokenType::Plus],
+            &[TokenType::Minus, TokenType::Plus],
         )
     }
 
@@ -576,7 +576,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.parse_binary(
             Parser::parse_unary,
             Parser::parse_multiplication,
-            &vec![TokenType::Star, TokenType::Slash],
+            &[TokenType::Star, TokenType::Slash],
         )
     }
 
@@ -589,13 +589,13 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         {
             let t = self.content.next().unwrap();
             let value = self.parse_unary()?;
-            Ok(Expression {
-                expression_type: ExpressionType::Unary {
+            Ok(self.expression_factory.new_expression(
+                ExpressionType::Unary {
                     operator: t.token_type,
                     operand: Box::new(value),
                 },
-                location: t.location,
-            })
+                t.location,
+            ))
         } else {
             self.parse_call()
         }
@@ -613,13 +613,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             let args = self.parse_parameters(&callee.location, Parser::parse_ternary)?;
             if self.content.peek().is_some() {
                 self.content.next();
-                Ok(Expression {
-                    location: callee.location.clone(),
-                    expression_type: ExpressionType::Call {
+                let location = callee.location.clone();
+                Ok(self.expression_factory.new_expression(
+                    ExpressionType::Call {
                         callee: Box::new(callee),
                         arguments: args.into_iter().map(Box::new).collect(),
                     },
-                })
+                    location,
+                ))
             } else {
                 Err(ProgramError {
                     location: callee.location.clone(),
@@ -685,18 +686,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 token_type: TokenType::TokenLiteral { value },
                 location,
                 ..
-            }) => Ok(Expression {
-                expression_type: ExpressionType::ExpressionLiteral { value },
-                location,
-            }),
+            }) => Ok(self
+                .expression_factory
+                .new_expression(ExpressionType::ExpressionLiteral { value }, location)),
             Some(Token {
                 token_type: TokenType::Identifier { name },
                 location,
                 ..
-            }) => Ok(Expression {
-                expression_type: ExpressionType::VariableLiteral { identifier: name },
+            }) => Ok(self.expression_factory.new_expression(
+                ExpressionType::VariableLiteral { identifier: name },
                 location,
-            }),
+            )),
             Some(Token {
                 token_type: TokenType::LeftParen,
                 location,
@@ -772,10 +772,9 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }) = next
         {
             let expression = Box::new(parser.parse_expression()?);
-            Ok(Expression {
-                location,
-                expression_type: ExpressionType::Grouping { expression },
-            })
+            Ok(self
+                .expression_factory
+                .new_expression(ExpressionType::Grouping { expression }, location))
         } else {
             Err(ProgramError {
                 location,
@@ -816,14 +815,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         {
             let t = self.content.next().unwrap();
             let right = parse_right(self)?;
-            Ok(Expression {
-                location: left.location.clone(),
-                expression_type: ExpressionType::Binary {
+            let location = left.location.clone();
+            Ok(self.expression_factory.new_expression(
+                ExpressionType::Binary {
                     left: Box::new(left),
                     operator: t.token_type,
                     right: Box::new(right),
                 },
-            })
+                location,
+            ))
         } else {
             Ok(left)
         }
@@ -864,9 +864,39 @@ mod test {
     use crate::types::ExpressionType::ExpressionLiteral;
     use crate::types::StatementType::VariableDeclaration;
     use crate::types::{
-        Expression, ExpressionType, Literal, SourceCodeLocation, Statement, StatementType, Token,
-        TokenType,
+        Expression, ExpressionFactory, ExpressionType, Literal, SourceCodeLocation, Statement,
+        StatementType, Token, TokenType,
     };
+
+    fn create_expression(
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+    ) -> Expression {
+        let mut factory = ExpressionFactory::new();
+        factory.new_expression(expression_type, location)
+    }
+
+    fn create_expression_with_id(
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+        counter: usize,
+    ) -> Expression {
+        let mut factory = ExpressionFactory::new_starting(counter);
+        factory.new_expression(expression_type, location)
+    }
+
+    fn create_statement_expression(
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+        counter: usize,
+    ) -> Statement {
+        Statement {
+            location: location.clone(),
+            statement_type: StatementType::Expression {
+                expression: create_expression_with_id(expression_type, location, counter),
+            },
+        }
+    }
 
     #[test]
     fn parse_literal() {
@@ -885,12 +915,12 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                location,
-                expression_type: ExpressionType::ExpressionLiteral {
+            create_expression(
+                ExpressionType::ExpressionLiteral {
                     value: Literal::Number(1.0),
                 },
-            }
+                location,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -912,12 +942,12 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                location,
-                expression_type: ExpressionType::VariableLiteral {
+            create_expression(
+                ExpressionType::VariableLiteral {
                     identifier: "identifier".to_owned(),
                 },
-            }
+                location,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -951,17 +981,17 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                location: location.clone(),
-                expression_type: ExpressionType::Grouping {
-                    expression: Box::new(Expression {
-                        location,
-                        expression_type: ExpressionType::VariableLiteral {
+            create_expression(
+                ExpressionType::Grouping {
+                    expression: Box::new(create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                    }),
+                        location.clone(),
+                    )),
                 },
-            }
+                location,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1052,18 +1082,19 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                expression_type: ExpressionType::Call {
-                    callee: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+            create_expression_with_id(
+                ExpressionType::Call {
+                    callee: Box::new(create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                    )),
                     arguments: vec![],
                 },
-                location: location.clone(),
-            }
+                location.clone(),
+                1,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1104,23 +1135,25 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                expression_type: ExpressionType::Call {
-                    callee: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+            create_expression_with_id(
+                ExpressionType::Call {
+                    callee: Box::new(create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
-                    arguments: vec![Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+                        location.clone(),
+                    )),
+                    arguments: vec![Box::new(create_expression_with_id(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                        location: location.clone(),
-                    })],
+                        location.clone(),
+                        1,
+                    ))],
                 },
-                location: location.clone(),
-            }
+                location.clone(),
+                2,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1173,31 +1206,34 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                expression_type: ExpressionType::Call {
-                    callee: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+            create_expression_with_id(
+                ExpressionType::Call {
+                    callee: Box::new(create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                    )),
                     arguments: vec![
-                        Box::new(Expression {
-                            expression_type: ExpressionType::VariableLiteral {
+                        Box::new(create_expression_with_id(
+                            ExpressionType::VariableLiteral {
                                 identifier: "identifier".to_owned(),
                             },
-                            location: location.clone(),
-                        }),
-                        Box::new(Expression {
-                            expression_type: ExpressionType::VariableLiteral {
+                            location.clone(),
+                            1,
+                        )),
+                        Box::new(create_expression_with_id(
+                            ExpressionType::VariableLiteral {
                                 identifier: "identifier".to_owned(),
                             },
-                            location: location.clone(),
-                        }),
+                            location.clone(),
+                            2,
+                        )),
                     ],
                 },
-                location: location.clone(),
-            }
+                location.clone(),
+                3,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1315,29 +1351,32 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                expression_type: ExpressionType::Conditional {
-                    condition: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+            create_expression_with_id(
+                ExpressionType::Conditional {
+                    condition: Box::new(create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
-                    then_branch: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+                        location.clone(),
+                    )),
+                    then_branch: Box::new(create_expression_with_id(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier1".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
-                    else_branch: Box::new(Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+                        location.clone(),
+                        1,
+                    )),
+                    else_branch: Box::new(create_expression_with_id(
+                        ExpressionType::VariableLiteral {
                             identifier: "identifier2".to_owned(),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                        2
+                    )),
                 },
-                location: location.clone(),
-            }
+                location.clone(),
+                3,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1378,18 +1417,20 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                expression_type: ExpressionType::VariableAssignment {
+            create_expression_with_id(
+                ExpressionType::VariableAssignment {
                     identifier: "identifier".to_string(),
-                    expression: Box::new(Expression {
-                        expression_type: ExpressionLiteral {
+                    expression: Box::new(create_expression_with_id(
+                        ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    })
+                        location.clone(),
+                        1,
+                    ))
                 },
-                location: location.clone(),
-            }
+                location.clone(),
+                2,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -1442,21 +1483,22 @@ mod test {
             result,
             Statement {
                 statement_type: StatementType::If {
-                    condition: Expression {
-                        expression_type: ExpressionType::ExpressionLiteral {
+                    condition: create_expression(
+                        ExpressionType::ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    },
+                        location.clone(),
+                    ),
                     then: Box::new(Statement {
                         location: location.clone(),
                         statement_type: StatementType::Expression {
-                            expression: Expression {
-                                expression_type: ExpressionType::ExpressionLiteral {
+                            expression: create_expression_with_id(
+                                ExpressionType::ExpressionLiteral {
                                     value: Literal::Number(1.0),
                                 },
-                                location: location.clone(),
-                            }
+                                location.clone(),
+                                1,
+                            ),
                         },
                     }),
                     otherwise: None,
@@ -1526,31 +1568,32 @@ mod test {
                 lexeme: ";".to_owned(),
             },
         ];
-        let literal_expression = Box::new(Statement {
-            location: location.clone(),
-            statement_type: StatementType::Expression {
-                expression: Expression {
-                    expression_type: ExpressionType::ExpressionLiteral {
-                        value: Literal::Number(1.0),
-                    },
-                    location: location.clone(),
-                },
-            },
-        });
         let mut parser = Parser::new(input.into_iter().peekable());
         let result = parser.parse_statement().unwrap();
         assert_eq!(
             result,
             Statement {
                 statement_type: StatementType::If {
-                    condition: Expression {
-                        expression_type: ExpressionType::ExpressionLiteral {
+                    condition: create_expression(
+                        ExpressionType::ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    },
-                    then: literal_expression.clone(),
-                    otherwise: Some(literal_expression),
+                        location.clone(),
+                    ),
+                    then: Box::new(create_statement_expression(
+                        ExpressionType::ExpressionLiteral {
+                            value: Literal::Number(1.0)
+                        },
+                        location.clone(),
+                        1
+                    )),
+                    otherwise: Some(Box::new(create_statement_expression(
+                        ExpressionType::ExpressionLiteral {
+                            value: Literal::Number(1.0)
+                        },
+                        location.clone(),
+                        2
+                    ))),
                 },
                 location: location.clone(),
             }
@@ -1642,12 +1685,12 @@ mod test {
             Statement {
                 statement_type: StatementType::VariableDeclaration {
                     name: "identifier".to_owned(),
-                    expression: Some(Expression {
-                        expression_type: ExpressionType::ExpressionLiteral {
+                    expression: Some(create_expression(
+                        ExpressionType::ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                    )),
                 },
                 location: location.clone(),
             }
@@ -1707,23 +1750,24 @@ mod test {
                         Box::new(Statement {
                             location: location.clone(),
                             statement_type: StatementType::Expression {
-                                expression: Expression {
-                                    location: location.clone(),
-                                    expression_type: ExpressionType::VariableLiteral {
+                                expression: create_expression(
+                                    ExpressionType::VariableLiteral {
                                         identifier: "identifier".to_owned(),
-                                    }
-                                }
+                                    },
+                                    location.clone(),
+                                ),
                             }
                         }),
                         Box::new(Statement {
                             location: location.clone(),
                             statement_type: StatementType::Expression {
-                                expression: Expression {
-                                    location: location.clone(),
-                                    expression_type: ExpressionType::ExpressionLiteral {
+                                expression: create_expression_with_id(
+                                    ExpressionType::ExpressionLiteral {
                                         value: Literal::Number(1.0),
-                                    }
-                                }
+                                    },
+                                    location.clone(),
+                                    1,
+                                ),
                             }
                         }),
                     ]
@@ -1817,23 +1861,24 @@ mod test {
                         Box::new(Statement {
                             location: location.clone(),
                             statement_type: StatementType::Expression {
-                                expression: Expression {
-                                    location: location.clone(),
-                                    expression_type: ExpressionType::VariableLiteral {
-                                        identifier: "identifier".to_owned(),
-                                    }
-                                }
+                                expression: create_expression(
+                                    ExpressionType::VariableLiteral {
+                                        identifier: "identifier".to_owned()
+                                    },
+                                    location.clone(),
+                                ),
                             }
                         }),
                         Box::new(Statement {
                             location: location.clone(),
                             statement_type: StatementType::Expression {
-                                expression: Expression {
-                                    location: location.clone(),
-                                    expression_type: ExpressionType::ExpressionLiteral {
+                                expression: create_expression_with_id(
+                                    ExpressionType::ExpressionLiteral {
                                         value: Literal::Number(1.0),
-                                    }
-                                }
+                                    },
+                                    location.clone(),
+                                    1,
+                                ),
                             }
                         }),
                     ]
@@ -1914,12 +1959,12 @@ mod test {
             result,
             Statement {
                 statement_type: StatementType::While {
-                    condition: Expression {
-                        expression_type: ExpressionType::VariableLiteral {
+                    condition: create_expression(
+                        ExpressionType::VariableLiteral {
                             identifier: "argument".to_owned(),
                         },
-                        location: location.clone(),
-                    },
+                        location.clone(),
+                    ),
                     action: Box::new(Statement {
                         location: location.clone(),
                         statement_type: StatementType::Block {
@@ -1927,23 +1972,25 @@ mod test {
                                 Box::new(Statement {
                                     location: location.clone(),
                                     statement_type: StatementType::Expression {
-                                        expression: Expression {
-                                            location: location.clone(),
-                                            expression_type: ExpressionType::VariableLiteral {
+                                        expression: create_expression_with_id(
+                                            ExpressionType::VariableLiteral {
                                                 identifier: "identifier".to_owned(),
-                                            }
-                                        }
+                                            },
+                                            location.clone(),
+                                            1,
+                                        ),
                                     }
                                 }),
                                 Box::new(Statement {
                                     location: location.clone(),
                                     statement_type: StatementType::Expression {
-                                        expression: Expression {
-                                            location: location.clone(),
-                                            expression_type: ExpressionType::ExpressionLiteral {
+                                        expression: create_expression_with_id(
+                                            ExpressionType::ExpressionLiteral {
                                                 value: Literal::Number(1.0),
-                                            }
-                                        }
+                                            },
+                                            location.clone(),
+                                            2,
+                                        ),
                                     }
                                 }),
                             ],
@@ -2058,23 +2105,25 @@ mod test {
                     Box::new(Statement {
                         location: location.clone(),
                         statement_type: StatementType::Expression {
-                            expression: Expression {
-                                location: location.clone(),
-                                expression_type: ExpressionType::VariableLiteral {
+                            expression: create_expression_with_id(
+                                ExpressionType::VariableLiteral {
                                     identifier: "identifier".to_owned(),
                                 },
-                            },
+                                location.clone(),
+                                2,
+                            ),
                         },
                     }),
                     Box::new(Statement {
                         location: location.clone(),
                         statement_type: StatementType::Expression {
-                            expression: Expression {
-                                location: location.clone(),
-                                expression_type: ExpressionType::ExpressionLiteral {
+                            expression: create_expression_with_id(
+                                ExpressionType::ExpressionLiteral {
                                     value: Literal::Number(1.0),
                                 },
-                            },
+                                location.clone(),
+                                3,
+                            ),
                         },
                     }),
                 ],
@@ -2082,12 +2131,12 @@ mod test {
         };
         let while_statement = Statement {
             statement_type: StatementType::While {
-                condition: Expression {
-                    expression_type: ExpressionType::VariableLiteral {
+                condition: create_expression(
+                    ExpressionType::VariableLiteral {
                         identifier: "argument".to_owned(),
                     },
-                    location: location.clone(),
-                },
+                    location.clone(),
+                ),
                 action: Box::new(Statement {
                     location: location.clone(),
                     statement_type: StatementType::Block {
@@ -2096,12 +2145,13 @@ mod test {
                             Box::new(Statement {
                                 location: location.clone(),
                                 statement_type: StatementType::Expression {
-                                    expression: Expression {
-                                        expression_type: ExpressionType::VariableLiteral {
+                                    expression: create_expression_with_id(
+                                        ExpressionType::VariableLiteral {
                                             identifier: "argument".to_owned(),
                                         },
-                                        location: location.clone(),
-                                    },
+                                        location.clone(),
+                                        1,
+                                    ),
                                 },
                             }),
                         ],
@@ -2159,24 +2209,26 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                location: location.clone(),
-                expression_type: ExpressionType::Binary {
+            create_expression_with_id(
+                ExpressionType::Binary {
                     operator: token_type,
-                    left: Box::new(Expression {
-                        expression_type: ExpressionLiteral {
+                    left: Box::new(create_expression(
+                        ExpressionType::ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    }),
-                    right: Box::new(Expression {
-                        expression_type: ExpressionLiteral {
+                        location.clone(),
+                    )),
+                    right: Box::new(create_expression_with_id(
+                        ExpressionType::ExpressionLiteral {
                             value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                        1,
+                    )),
                 },
-            }
+                location.clone(),
+                2,
+            )
         );
         assert!(parser.content.is_empty());
     }
@@ -2204,18 +2256,19 @@ mod test {
         let result = parser.parse_expression().unwrap();
         assert_eq!(
             result,
-            Expression {
-                location: location.clone(),
-                expression_type: ExpressionType::Unary {
+            create_expression_with_id(
+                ExpressionType::Unary {
                     operator: token_type,
-                    operand: Box::new(Expression {
-                        expression_type: ExpressionLiteral {
-                            value: Literal::Number(1.0)
+                    operand: Box::new(create_expression(
+                        ExpressionType::ExpressionLiteral {
+                            value: Literal::Number(1.0),
                         },
-                        location: location.clone(),
-                    }),
+                        location.clone(),
+                    )),
                 },
-            }
+                location.clone(),
+                1,
+            ),
         );
         assert!(parser.content.is_empty());
     }

@@ -3,6 +3,7 @@ use crate::types::{
     EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation,
     Statement, StatementType, TokenType, Value, ValueError,
 };
+use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -11,9 +12,10 @@ fn div_expressions(
     left: &Expression,
     right: &Expression,
     location: &SourceCodeLocation,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, left_value) = left.evaluate(state)?;
-    let (final_state, right_value) = right.evaluate(s)?;
+    let (s, left_value) = left.evaluate(state, locals)?;
+    let (final_state, right_value) = right.evaluate(s, locals)?;
     match right_value {
         Value::Number { value } if value == 0f32 => {
             Err(right.create_program_error("Division by zero!"))
@@ -30,10 +32,11 @@ fn add_expressions(
     left: &Expression,
     right: &Expression,
     location: &SourceCodeLocation,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, left_value) = left.evaluate(state)?;
+    let (s, left_value) = left.evaluate(state, locals)?;
     if left_value.is_number() {
-        let (final_state, right_value) = right.evaluate(s)?;
+        let (final_state, right_value) = right.evaluate(s, locals)?;
         math_operation(left_value, right_value, f32::add)
             .map(|v| (final_state, v))
             .map_err(|e| e.into_program_error(location))
@@ -41,7 +44,7 @@ fn add_expressions(
         let left_string: String = left_value
             .try_into()
             .map_err(|e: ValueError| e.into_program_error(location))?;
-        let (final_state, right_value) = right.evaluate(s)?;
+        let (final_state, right_value) = right.evaluate(s, locals)?;
         let right_string: String = right_value
             .try_into()
             .map_err(|e: ValueError| e.into_program_error(location))?;
@@ -78,9 +81,10 @@ fn value_math_operation(
     right: &Expression,
     location: &SourceCodeLocation,
     op: fn(f32, f32) -> f32,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, left_value) = left.evaluate(state)?;
-    let (final_state, right_value) = right.evaluate(s)?;
+    let (s, left_value) = left.evaluate(state, locals)?;
+    let (final_state, right_value) = right.evaluate(s, locals)?;
     math_operation(left_value, right_value, op)
         .map(|v| (final_state, v))
         .map_err(|e| e.into_program_error(location))
@@ -92,17 +96,23 @@ fn value_comparison_operation(
     right: &Expression,
     location: &SourceCodeLocation,
     op: fn(f32, f32) -> bool,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, left_value) = left.evaluate(state)?;
-    let (final_state, right_value) = right.evaluate(s)?;
+    let (s, left_value) = left.evaluate(state, locals)?;
+    let (final_state, right_value) = right.evaluate(s, locals)?;
     comparison_operation(left_value, right_value, op)
         .map(|v| (final_state, v))
         .map_err(|e| e.into_program_error(location))
 }
 
-fn eq_expressions(state: State, left: &Expression, right: &Expression) -> EvaluationResult {
-    let (next_state, left_value) = left.evaluate(state)?;
-    let (final_state, right_value) = right.evaluate(next_state)?;
+fn eq_expressions(
+    state: State,
+    left: &Expression,
+    right: &Expression,
+    locals: &HashMap<usize, usize>,
+) -> EvaluationResult {
+    let (next_state, left_value) = left.evaluate(state, locals)?;
+    let (final_state, right_value) = right.evaluate(next_state, locals)?;
     Ok((
         final_state,
         Value::Boolean {
@@ -116,14 +126,15 @@ fn conditional_expression(
     condition: &Expression,
     then_branch: &Expression,
     else_branch: &Expression,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, condition) = condition.evaluate(state)?;
+    let (s, condition) = condition.evaluate(state, locals)?;
     if condition.is_truthy() {
         then_branch
     } else {
         else_branch
     }
-    .evaluate(s)
+    .evaluate(s, locals)
 }
 
 fn boolean_expression(
@@ -131,22 +142,25 @@ fn boolean_expression(
     left: &Expression,
     right: &Expression,
     op: fn(Value, Value) -> Value,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (s, left_value) = left.evaluate(state)?;
-    let (final_state, right_value) = right.evaluate(s)?;
+    let (s, left_value) = left.evaluate(state, locals)?;
+    let (final_state, right_value) = right.evaluate(s, locals)?;
     Ok((final_state, op(left_value, right_value)))
 }
 
 fn variable_assignment(
     state: State,
     name: &str,
+    id: usize,
     expression: &Expression,
     location: &SourceCodeLocation,
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    match state.find(name) {
-        Some(_) => {
-            let (mut s, value) = expression.evaluate(state)?;
-            s.insert(name.to_owned(), value.clone());
+    match locals.get(&id) {
+        Some(env) => {
+            let (s, value) = expression.evaluate(state, locals)?;
+            s.assign_at(*env, name, &value);
             Ok((s, value))
         }
         None => Err(ProgramError {
@@ -160,8 +174,9 @@ fn call_expression(
     state: State,
     callee: &Expression,
     arguments: &[Box<Expression>],
+    locals: &HashMap<usize, usize>,
 ) -> EvaluationResult {
-    let (next_state, function_value) = callee.evaluate(state)?;
+    let (next_state, function_value) = callee.evaluate(state, locals)?;
     match function_value {
         Value::Function(f) if f.arguments.len() != arguments.len() => Err(callee
             .create_program_error(
@@ -173,33 +188,53 @@ fn call_expression(
                 .as_str(),
             )),
         Value::Function(f) => {
-            // TODO: Use environment to have closures!!!
             let mut values = vec![];
             let mut current_state = next_state;
             for e in arguments {
-                let (value_status, value) = e.evaluate(current_state)?;
+                let (value_status, value) = e.evaluate(current_state, locals)?;
                 current_state = value_status;
                 values.push(value);
             }
-            f.eval(&values).map(|v| (current_state, v))
+            f.eval(&values, locals).map(|v| (current_state, v))
         }
         _ => Err(callee.create_program_error("Only functions or classes can be called!")),
     }
 }
 
+fn look_up_variable(
+    expression_id: usize,
+    name: &str,
+    locals: &HashMap<usize, usize>,
+    state: &State,
+) -> Option<Value> {
+    if let Some(env) = locals.get(&expression_id) {
+        state.get_at(name, *env)
+    } else {
+        state.get_global(name)
+    }
+}
+
 pub struct Interpreter {
     content: Vec<Statement>,
+    locals: HashMap<usize, usize>,
 }
 
 impl Interpreter {
     pub fn new(content: Vec<Statement>) -> Interpreter {
-        Interpreter { content }
+        Interpreter {
+            content,
+            locals: HashMap::default(),
+        }
+    }
+
+    pub fn content(&self) -> &[Statement] {
+        &self.content
     }
 
     pub fn run(&self) -> Result<(), ProgramError> {
         let mut current_state = State::default();
         for s in self.content.iter() {
-            match s.evaluate(current_state) {
+            match s.evaluate(current_state, &self.locals) {
                 Ok((next_state, _)) => {
                     current_state = next_state;
                 }
@@ -208,19 +243,22 @@ impl Interpreter {
         }
         Ok(())
     }
+
+    pub fn resolve_variable(&mut self, expression: &Expression, scope_id: usize) {
+        self.locals.insert(expression.id(), scope_id);
+    }
 }
 
 pub trait Evaluable {
-    fn evaluate(&self, state: State) -> EvaluationResult;
+    fn evaluate(&self, state: State, locals: &HashMap<usize, usize>) -> EvaluationResult;
 }
 
 impl Evaluable for Expression {
-    fn evaluate(&self, state: State) -> EvaluationResult {
+    fn evaluate(&self, state: State, locals: &HashMap<usize, usize>) -> EvaluationResult {
         match &self.expression_type {
             ExpressionType::ExpressionLiteral { value } => Ok((state, value.into())),
             ExpressionType::VariableLiteral { identifier } => {
-                let value = state
-                    .find(identifier)
+                let value = look_up_variable(self.id(), identifier, locals, &state)
                     .ok_or_else(|| {
                         self.create_program_error(&format!("Variable `{}` not found!", identifier))
                     })?
@@ -234,12 +272,12 @@ impl Evaluable for Expression {
                     Ok((state, value))
                 }
             }
-            ExpressionType::Grouping { expression } => expression.evaluate(state),
+            ExpressionType::Grouping { expression } => expression.evaluate(state, locals),
             ExpressionType::Unary {
                 operand,
                 operator: TokenType::Minus,
             } => {
-                let (s, v) = operand.evaluate(state)?;
+                let (s, v) = operand.evaluate(state, locals)?;
                 if v.is_number() {
                     Ok((s, -v))
                 } else {
@@ -249,7 +287,7 @@ impl Evaluable for Expression {
             ExpressionType::Unary {
                 operand,
                 operator: TokenType::Bang,
-            } => operand.evaluate(state).map(|(s, v)| (s, !v)),
+            } => operand.evaluate(state, locals).map(|(s, v)| (s, !v)),
             ExpressionType::Unary { .. } => {
                 Err(self.create_program_error("Invalid unary operator"))
             }
@@ -257,87 +295,121 @@ impl Evaluable for Expression {
                 left,
                 right,
                 operator: TokenType::Plus,
-            } => add_expressions(state, left, right, &self.location),
+            } => add_expressions(state, left, right, &self.location, locals),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Minus,
-            } => value_math_operation(state, left, right, &self.location, f32::sub),
+            } => value_math_operation(state, left, right, &self.location, f32::sub, locals),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Slash,
-            } => div_expressions(state, left, right, &self.location),
+            } => div_expressions(state, left, right, &self.location, locals),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Star,
-            } => value_math_operation(state, left, right, &self.location, f32::mul),
+            } => value_math_operation(state, left, right, &self.location, f32::mul, locals),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Greater,
-            } => value_comparison_operation(state, left, right, &self.location, |f1, f2| {
-                f32::gt(&f1, &f2)
-            }),
+            } => value_comparison_operation(
+                state,
+                left,
+                right,
+                &self.location,
+                |f1, f2| f32::gt(&f1, &f2),
+                locals,
+            ),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::GreaterEqual,
-            } => value_comparison_operation(state, left, right, &self.location, |f1, f2| {
-                f32::ge(&f1, &f2)
-            }),
+            } => value_comparison_operation(
+                state,
+                left,
+                right,
+                &self.location,
+                |f1, f2| f32::ge(&f1, &f2),
+                locals,
+            ),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Less,
-            } => value_comparison_operation(state, left, right, &self.location, |f1, f2| {
-                f32::lt(&f1, &f2)
-            }),
+            } => value_comparison_operation(
+                state,
+                left,
+                right,
+                &self.location,
+                |f1, f2| f32::lt(&f1, &f2),
+                locals,
+            ),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::LessEqual,
-            } => value_comparison_operation(state, left, right, &self.location, |f1, f2| {
-                f32::le(&f1, &f2)
-            }),
+            } => value_comparison_operation(
+                state,
+                left,
+                right,
+                &self.location,
+                |f1, f2| f32::le(&f1, &f2),
+                locals,
+            ),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::EqualEqual,
-            } => eq_expressions(state, left, right),
+            } => eq_expressions(state, left, right, locals),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::BangEqual,
-            } => eq_expressions(state, left, right).map(|(s, v)| (s, !v)),
+            } => eq_expressions(state, left, right, locals).map(|(s, v)| (s, !v)),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Comma,
-            } => left.evaluate(state).and_then(|(s, _)| right.evaluate(s)),
+            } => left
+                .evaluate(state, locals)
+                .and_then(|(s, _)| right.evaluate(s, locals)),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::And,
-            } => boolean_expression(state, left, right, |left_value, right_value| {
-                if left_value.is_truthy() {
-                    right_value
-                } else {
-                    left_value
-                }
-            }),
+            } => boolean_expression(
+                state,
+                left,
+                right,
+                |left_value, right_value| {
+                    if left_value.is_truthy() {
+                        right_value
+                    } else {
+                        left_value
+                    }
+                },
+                locals,
+            ),
             ExpressionType::Binary {
                 left,
                 right,
                 operator: TokenType::Or,
-            } => boolean_expression(state, left, right, |left_value, right_value| {
-                if left_value.is_truthy() {
-                    left_value
-                } else {
-                    right_value
-                }
-            }),
+            } => boolean_expression(
+                state,
+                left,
+                right,
+                |left_value, right_value| {
+                    if left_value.is_truthy() {
+                        left_value
+                    } else {
+                        right_value
+                    }
+                },
+                locals,
+            ),
             ExpressionType::Binary { .. } => {
                 Err(self.create_program_error("Invalid binary operator"))
             }
@@ -345,18 +417,31 @@ impl Evaluable for Expression {
                 condition,
                 then_branch,
                 else_branch,
-            } => conditional_expression(state, condition, then_branch, else_branch),
+            } => conditional_expression(state, condition, then_branch, else_branch, locals),
             ExpressionType::VariableAssignment {
                 expression,
                 identifier,
-            } => variable_assignment(state, identifier, expression, &self.location),
-            ExpressionType::Call { callee, arguments } => call_expression(state, callee, arguments),
+            } => variable_assignment(
+                state,
+                identifier,
+                self.id(),
+                expression,
+                &self.location,
+                locals,
+            ),
+            ExpressionType::Call { callee, arguments } => {
+                call_expression(state, callee, arguments, locals)
+            }
         }
     }
 }
 
 impl Evaluable for Statement {
-    fn evaluate(&self, mut state: State) -> Result<(State, Value), ProgramError> {
+    fn evaluate(
+        &self,
+        mut state: State,
+        locals: &HashMap<usize, usize>,
+    ) -> Result<(State, Value), ProgramError> {
         let state = match &self.statement_type {
             StatementType::EOF => state,
             StatementType::If {
@@ -364,20 +449,20 @@ impl Evaluable for Statement {
                 then,
                 otherwise,
             } => {
-                let (s, cond_value) = condition.evaluate(state)?;
+                let (s, cond_value) = condition.evaluate(state, locals)?;
                 if cond_value.is_truthy() {
-                    then.evaluate(s)?.0
+                    then.evaluate(s, locals)?.0
                 } else if let Some(o) = otherwise {
-                    o.evaluate(s)?.0
+                    o.evaluate(s, locals)?.0
                 } else {
                     s
                 }
             }
-            StatementType::Expression { expression } => expression.evaluate(state)?.0,
+            StatementType::Expression { expression } => expression.evaluate(state, locals)?.0,
             StatementType::Block { body } => {
                 state.push();
                 for st in body {
-                    let (s, _) = st.evaluate(state)?;
+                    let (s, _) = st.evaluate(state, locals)?;
                     state = s;
                     if state.broke_loop {
                         break;
@@ -388,7 +473,7 @@ impl Evaluable for Statement {
             }
             StatementType::VariableDeclaration { expression, name } => {
                 let (mut s, v) = if let Some(e) = expression {
-                    e.evaluate(state)?
+                    e.evaluate(state, locals)?
                 } else {
                     (state, Value::Uninitialized)
                 };
@@ -396,7 +481,7 @@ impl Evaluable for Statement {
                 s
             }
             StatementType::PrintStatement { expression } => {
-                let (s, v) = expression.evaluate(state)?;
+                let (s, v) = expression.evaluate(state, locals)?;
                 println!("{}", v);
                 s
             }
@@ -419,7 +504,7 @@ impl Evaluable for Statement {
             StatementType::Return { value } if state.in_function => match value {
                 None => state,
                 Some(e) => {
-                    let (mut s, v) = e.evaluate(state)?;
+                    let (mut s, v) = e.evaluate(state, locals)?;
                     s.add_return_value(v);
                     s
                 }
@@ -433,11 +518,11 @@ impl Evaluable for Statement {
             StatementType::While { condition, action } => {
                 state.loop_count += 1;
                 while {
-                    let (s, v) = condition.evaluate(state)?;
+                    let (s, v) = condition.evaluate(state, locals)?;
                     state = s;
                     state.loop_count > 0 && v.is_truthy()
                 } {
-                    let (s, _) = action.evaluate(state)?;
+                    let (s, _) = action.evaluate(state, locals)?;
                     state = s;
                     if state.broke_loop {
                         break;
@@ -467,9 +552,18 @@ mod test_statement {
     use crate::interpreter::Evaluable;
     use crate::state::State;
     use crate::types::{
-        Expression, ExpressionType, Literal, LoxFunction, ProgramError, SourceCodeLocation,
-        Statement, StatementType, TokenType, Value,
+        Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction, ProgramError,
+        SourceCodeLocation, Statement, StatementType, TokenType, Value,
     };
+    use std::collections::HashMap;
+
+    fn create_expression(
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+    ) -> Expression {
+        let mut factory = ExpressionFactory::new();
+        factory.new_expression(expression_type, location)
+    }
 
     #[test]
     fn test_if_statement() {
@@ -477,6 +571,8 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
         let statement = Statement {
             statement_type: StatementType::If {
                 condition: create_expression_number(1.0, &location),
@@ -495,7 +591,7 @@ mod test_statement {
         };
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 1.0 }));
     }
 
@@ -505,6 +601,8 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
         let statement = Statement {
             statement_type: StatementType::If {
                 condition: create_expression_number(0.0, &location),
@@ -523,7 +621,7 @@ mod test_statement {
         };
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
     }
 
@@ -533,10 +631,12 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
         let statement = create_variable_assignment_statement("identifier", 0.0, &location);
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
     }
 
@@ -546,7 +646,8 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
-
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
         let statement = Statement {
             statement_type: StatementType::Block {
                 body: vec![
@@ -573,7 +674,7 @@ mod test_statement {
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
         state.insert("identifier1".to_owned(), Value::Number { value: 2.0 });
         state.insert("identifier2".to_owned(), Value::Number { value: 0.0 });
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 0.0 }));
         assert_eq!(s.find("identifier1"), Some(Value::Number { value: 1.0 }));
         assert_eq!(s.find("identifier2"), Some(Value::Number { value: 2.0 }));
@@ -585,6 +686,7 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let locals = HashMap::default();
         let statement = Statement {
             statement_type: StatementType::VariableDeclaration {
                 expression: Some(create_expression_number(1.0, &location)),
@@ -593,7 +695,7 @@ mod test_statement {
             location,
         };
         let state = State::default();
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 1.0 }));
     }
 
@@ -603,6 +705,7 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let locals = HashMap::default();
         let statement = Statement {
             statement_type: StatementType::FunctionDeclaration {
                 name: "function".to_string(),
@@ -615,7 +718,7 @@ mod test_statement {
             location: location.clone(),
         };
         let state = State::default();
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         let value = s.find("function").unwrap();
         match value {
             Value::Function(LoxFunction {
@@ -650,9 +753,10 @@ mod test_statement {
             },
             location,
         };
+        let locals = HashMap::default();
         let mut state = State::default();
         state.in_function = true;
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.return_value, Some(Box::new(Value::Number { value: 1.0 })));
     }
 
@@ -662,6 +766,7 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
+        let locals = HashMap::default();
         let statement = Statement {
             statement_type: StatementType::Return {
                 value: Some(create_expression_number(1.0, &location)),
@@ -669,7 +774,7 @@ mod test_statement {
             location: location.clone(),
         };
         let state = State::default();
-        let r = statement.evaluate(state);
+        let r = statement.evaluate(state, &locals);
         assert_eq!(
             r,
             Err(ProgramError {
@@ -689,9 +794,10 @@ mod test_statement {
             statement_type: StatementType::Break,
             location,
         };
+        let locals = HashMap::default();
         let mut state = State::default();
         state.loop_count = 1;
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert!(s.broke_loop);
         assert_eq!(s.loop_count, 1);
     }
@@ -706,8 +812,9 @@ mod test_statement {
             statement_type: StatementType::Break,
             location: location.clone(),
         };
+        let locals = HashMap::default();
         let state = State::default();
-        let r = statement.evaluate(state);
+        let r = statement.evaluate(state, &locals);
         assert_eq!(
             r,
             Err(ProgramError {
@@ -723,38 +830,35 @@ mod test_statement {
             line: 1,
             file: "".to_owned(),
         };
-        let identifier_expression = Expression {
-            expression_type: ExpressionType::VariableLiteral {
-                identifier: "identifier".to_owned(),
-            },
-            location: location.clone(),
-        };
+        let identifier_expression = get_variable("identifier", &location);
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
         let statement = Statement {
             statement_type: StatementType::While {
-                condition: Expression {
-                    expression_type: ExpressionType::Binary {
+                condition: create_expression(
+                    ExpressionType::Binary {
                         operator: TokenType::Less,
                         left: Box::new(identifier_expression.clone()),
                         right: Box::new(create_expression_number(10f32, &location)),
                     },
-                    location: location.clone(),
-                },
+                    location.clone(),
+                ),
                 action: Box::new(Statement {
                     statement_type: StatementType::Expression {
-                        expression: Expression {
-                            expression_type: ExpressionType::VariableAssignment {
+                        expression: create_expression(
+                            ExpressionType::VariableAssignment {
                                 identifier: "identifier".to_owned(),
-                                expression: Box::new(Expression {
-                                    expression_type: ExpressionType::Binary {
+                                expression: Box::new(create_expression(
+                                    ExpressionType::Binary {
                                         operator: TokenType::Plus,
                                         left: Box::new(identifier_expression.clone()),
                                         right: Box::new(create_expression_number(1.0, &location)),
                                     },
-                                    location: location.clone(),
-                                }),
+                                    location.clone(),
+                                )),
                             },
-                            location: location.clone(),
-                        },
+                            location.clone(),
+                        ),
                     },
                     location: location.clone(),
                 }),
@@ -763,7 +867,7 @@ mod test_statement {
         };
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
-        let (s, _) = statement.evaluate(state).unwrap();
+        let (s, _) = statement.evaluate(state, &locals).unwrap();
         assert_eq!(s.find("identifier"), Some(Value::Number { value: 10.0 }));
     }
 
@@ -774,25 +878,34 @@ mod test_statement {
     ) -> Statement {
         Statement {
             statement_type: StatementType::Expression {
-                expression: Expression {
-                    expression_type: ExpressionType::VariableAssignment {
+                expression: create_expression(
+                    ExpressionType::VariableAssignment {
                         identifier: id.to_owned(),
                         expression: Box::new(create_expression_number(value, location)),
                     },
-                    location: location.clone(),
-                },
+                    location.clone(),
+                ),
             },
             location: location.clone(),
         }
     }
 
     fn create_expression_number(value: f32, location: &SourceCodeLocation) -> Expression {
-        Expression {
-            expression_type: ExpressionType::ExpressionLiteral {
+        create_expression(
+            ExpressionType::ExpressionLiteral {
                 value: Literal::Number(value),
             },
-            location: location.clone(),
-        }
+            location.clone(),
+        )
+    }
+
+    fn get_variable(s: &str, location: &SourceCodeLocation) -> Expression {
+        create_expression(
+            ExpressionType::VariableLiteral {
+                identifier: s.to_owned(),
+            },
+            location.clone(),
+        )
     }
 }
 
@@ -801,9 +914,10 @@ mod test_expression {
     use crate::interpreter::Evaluable;
     use crate::state::State;
     use crate::types::{
-        DataKeyword, Expression, ExpressionType, Literal, LoxFunction, SourceCodeLocation,
-        Statement, StatementType, TokenType, Value,
+        DataKeyword, Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction,
+        SourceCodeLocation, Statement, StatementType, TokenType, Value,
     };
+    use std::collections::HashMap;
 
     #[test]
     fn test_expression_literal() {
@@ -811,8 +925,11 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
+        let locals = HashMap::default();
         let state = State::default();
-        let (final_state, got) = get_number(1.0, &location).evaluate(state.clone()).unwrap();
+        let (final_state, got) = get_number(1.0, &location)
+            .evaluate(state.clone(), &locals)
+            .unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
     }
@@ -823,15 +940,11 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::VariableLiteral {
-                identifier: "variable".to_owned(),
-            },
-            location,
-        };
+        let locals = HashMap::default();
+        let expression = get_variable("variable", &location);
         let mut state = State::default();
         state.insert("variable".to_owned(), Value::Number { value: 1.0 });
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
     }
@@ -842,14 +955,15 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Grouping {
+        let expression = create_expression(
+            ExpressionType::Grouping {
                 expression: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
+        let locals = HashMap::default();
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
     }
@@ -860,15 +974,16 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Unary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Unary {
                 operator: TokenType::Minus,
                 operand: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: -1.0 });
     }
@@ -879,15 +994,16 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Unary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Unary {
                 operator: TokenType::Bang,
                 operand: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: false });
     }
@@ -898,16 +1014,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Plus,
                 left: Box::new(get_number(1.0, &location)),
                 right: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 2.0 });
     }
@@ -918,16 +1035,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Plus,
                 left: Box::new(get_string("1", &location)),
                 right: Box::new(get_string("2", &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(
             got,
@@ -943,16 +1061,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Minus,
                 left: Box::new(get_number(1.0, &location)),
                 right: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 0.0 });
     }
@@ -963,16 +1082,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Star,
                 left: Box::new(get_number(2.0, &location)),
                 right: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 2.0 });
     }
@@ -983,16 +1103,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Slash,
                 left: Box::new(get_number(2.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
     }
@@ -1003,16 +1124,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Greater,
                 left: Box::new(get_number(3.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1023,16 +1145,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::GreaterEqual,
                 left: Box::new(get_number(3.0, &location)),
                 right: Box::new(get_number(3.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1043,16 +1166,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::GreaterEqual,
                 left: Box::new(get_number(3.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1063,16 +1187,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Less,
                 left: Box::new(get_number(1.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1083,16 +1208,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::LessEqual,
                 left: Box::new(get_number(3.0, &location)),
                 right: Box::new(get_number(3.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1103,16 +1229,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::LessEqual,
                 left: Box::new(get_number(1.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1123,16 +1250,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::EqualEqual,
                 left: Box::new(get_number(2.0, &location)),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1143,16 +1271,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::BangEqual,
                 left: Box::new(get_number(2.0, &location)),
                 right: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1163,16 +1292,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::And,
                 left: Box::new(get_boolean(true, &location)),
                 right: Box::new(get_boolean(true, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1183,16 +1313,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Or,
                 left: Box::new(get_boolean(true, &location)),
                 right: Box::new(get_boolean(false, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
     }
@@ -1203,23 +1334,25 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Binary {
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
+        let expression = create_expression(
+            ExpressionType::Binary {
                 operator: TokenType::Comma,
-                left: Box::new(Expression {
-                    expression_type: ExpressionType::VariableAssignment {
+                left: Box::new(create_expression(
+                    ExpressionType::VariableAssignment {
                         expression: Box::new(get_number(1.0, &location)),
                         identifier: "identifier".to_owned(),
                     },
-                    location: location.clone(),
-                }),
+                    location.clone(),
+                )),
                 right: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 2.0 });
@@ -1231,16 +1364,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Conditional {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Conditional {
                 condition: Box::new(get_boolean(true, &location)),
                 then_branch: Box::new(get_number(1.0, &location)),
                 else_branch: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
     }
@@ -1251,16 +1385,17 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Conditional {
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Conditional {
                 condition: Box::new(get_boolean(false, &location)),
                 then_branch: Box::new(get_number(1.0, &location)),
                 else_branch: Box::new(get_number(2.0, &location)),
             },
             location,
-        };
+        );
         let state = State::default();
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 2.0 });
     }
@@ -1271,16 +1406,18 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::VariableAssignment {
+        let mut locals = HashMap::default();
+        locals.insert(0, 0);
+        let expression = create_expression(
+            ExpressionType::VariableAssignment {
                 identifier: "identifier".to_owned(),
                 expression: Box::new(get_number(1.0, &location)),
             },
             location,
-        };
+        );
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Number { value: 1.0 });
@@ -1292,18 +1429,14 @@ mod test_expression {
             line: 1,
             file: "".to_owned(),
         };
-        let expression = Expression {
-            expression_type: ExpressionType::Call {
-                callee: Box::new(Expression {
-                    expression_type: ExpressionType::VariableLiteral {
-                        identifier: "function".to_owned(),
-                    },
-                    location: location.clone(),
-                }),
+        let locals = HashMap::default();
+        let expression = create_expression(
+            ExpressionType::Call {
+                callee: Box::new(get_variable("function", &location)),
                 arguments: vec![],
             },
-            location: location.clone(),
-        };
+            location.clone(),
+        );
         let mut state = State::default();
         state.insert("identifier".to_owned(), Value::Number { value: 0.0 });
         state.insert(
@@ -1313,12 +1446,7 @@ mod test_expression {
                 environments: state.get_environments(),
                 body: vec![Statement {
                     statement_type: StatementType::VariableDeclaration {
-                        expression: Some(Expression {
-                            expression_type: ExpressionType::ExpressionLiteral {
-                                value: Literal::Number(1.0),
-                            },
-                            location: location.clone(),
-                        }),
+                        expression: Some(get_number(1.0, &location)),
                         name: "identifier".to_owned(),
                     },
                     location: location.clone(),
@@ -1326,29 +1454,38 @@ mod test_expression {
                 location,
             }),
         );
-        let (final_state, got) = expression.evaluate(state.clone()).unwrap();
+        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         state.last().borrow_mut().remove("function");
         final_state.last().borrow_mut().remove("function");
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Nil);
     }
 
+    fn get_variable(s: &str, location: &SourceCodeLocation) -> Expression {
+        create_expression(
+            ExpressionType::VariableLiteral {
+                identifier: s.to_owned(),
+            },
+            location.clone(),
+        )
+    }
+
     fn get_string(s: &str, location: &SourceCodeLocation) -> Expression {
-        Expression {
-            expression_type: ExpressionType::ExpressionLiteral {
+        create_expression(
+            ExpressionType::ExpressionLiteral {
                 value: Literal::QuotedString(s.to_owned()),
             },
-            location: location.clone(),
-        }
+            location.clone(),
+        )
     }
 
     fn get_number(n: f32, location: &SourceCodeLocation) -> Expression {
-        Expression {
-            expression_type: ExpressionType::ExpressionLiteral {
+        create_expression(
+            ExpressionType::ExpressionLiteral {
                 value: Literal::Number(n),
             },
-            location: location.clone(),
-        }
+            location.clone(),
+        )
     }
 
     fn get_boolean(n: bool, location: &SourceCodeLocation) -> Expression {
@@ -1357,11 +1494,19 @@ mod test_expression {
         } else {
             DataKeyword::False
         };
-        Expression {
-            expression_type: ExpressionType::ExpressionLiteral {
+        create_expression(
+            ExpressionType::ExpressionLiteral {
                 value: Literal::Keyword(keyword),
             },
-            location: location.clone(),
-        }
+            location.clone(),
+        )
+    }
+
+    fn create_expression(
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+    ) -> Expression {
+        let mut factory = ExpressionFactory::new();
+        factory.new_expression(expression_type, location)
     }
 }

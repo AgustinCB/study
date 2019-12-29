@@ -100,6 +100,39 @@ impl Display for ProgramError {
 pub struct Expression {
     pub expression_type: ExpressionType,
     pub location: SourceCodeLocation,
+    id: usize,
+}
+
+impl Expression {
+    pub fn id(&self) -> usize {
+        self.id
+    }
+}
+
+pub struct ExpressionFactory {
+    counter: usize,
+}
+
+impl ExpressionFactory {
+    pub fn new() -> ExpressionFactory {
+        ExpressionFactory { counter: 0 }
+    }
+    pub fn new_starting(counter: usize) -> ExpressionFactory {
+        ExpressionFactory { counter }
+    }
+    pub fn new_expression(
+        &mut self,
+        expression_type: ExpressionType,
+        location: SourceCodeLocation,
+    ) -> Expression {
+        let result = Expression {
+            expression_type,
+            location,
+            id: self.counter,
+        };
+        self.counter += 1;
+        result
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -199,7 +232,11 @@ pub struct LoxFunction {
 }
 
 impl LoxFunction {
-    pub fn eval(&self, values: &[Value]) -> Result<Value, ProgramError> {
+    pub fn eval(
+        &self,
+        values: &[Value],
+        locals: &HashMap<usize, usize>,
+    ) -> Result<Value, ProgramError> {
         if self.arguments.len() != values.len() {
             return Err(ProgramError {
                 message: format!(
@@ -217,7 +254,7 @@ impl LoxFunction {
         }
         current_state.in_function = true;
         for st in self.body.iter() {
-            current_state = st.evaluate(current_state)?.0;
+            current_state = st.evaluate(current_state, locals)?.0;
             if let Some(return_value) = &current_state.return_value {
                 let value = (**return_value).clone();
                 return Ok(value);
