@@ -1,5 +1,7 @@
 use crate::interpreter::Interpreter;
-use crate::types::{Expression, ExpressionType, ProgramError, Statement, StatementType};
+use crate::types::{
+    Expression, ExpressionType, ProgramError, SourceCodeLocation, Statement, StatementType,
+};
 use std::collections::HashMap;
 
 pub struct Resolver<'a> {
@@ -20,10 +22,17 @@ impl<'a> Resolver<'a> {
     fn pop_scope(&mut self) {
         self.scopes.pop();
     }
-    fn declare(&mut self, name: &str) {
+    fn declare(&mut self, name: &str, location: &SourceCodeLocation) -> Result<(), ProgramError> {
         if let Some(s) = self.scopes.last_mut() {
+            if s.contains_key(name) {
+                return Err(ProgramError {
+                    message: format!("Variable `{}` already declared in this scope!", name),
+                    location: location.clone(),
+                });
+            }
             s.insert(name.to_owned(), false);
         }
+        Ok(())
     }
     fn define(&mut self, name: &str) {
         if let Some(s) = self.scopes.last_mut() {
@@ -45,10 +54,11 @@ impl<'a> Resolver<'a> {
         &mut self,
         arguments: &[String],
         body: &[Box<Statement>],
+        location: &SourceCodeLocation,
     ) -> Result<(), ProgramError> {
         self.push_scope(HashMap::default());
         for arg in arguments {
-            self.declare(arg);
+            self.declare(arg, location)?;
             self.define(arg);
         }
         body.iter()
@@ -83,7 +93,7 @@ impl<'a> Pass for Resolver<'a> {
                 self.pop_scope();
             }
             StatementType::VariableDeclaration { expression, name } => {
-                self.declare(&name);
+                self.declare(&name, &statement.location)?;
                 if let Some(e) = expression {
                     self.resolve_expression(e)?;
                 }
@@ -94,9 +104,9 @@ impl<'a> Pass for Resolver<'a> {
                 arguments,
                 body,
             } => {
-                self.declare(name);
+                self.declare(name, &statement.location)?;
                 self.define(name);
-                self.resolve_function(arguments, body)?;
+                self.resolve_function(arguments, body, &statement.location)?;
             }
             StatementType::Expression { expression } => {
                 self.resolve_expression(expression)?;
