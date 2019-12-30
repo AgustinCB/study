@@ -168,6 +168,10 @@ pub enum ExpressionType {
         identifier: String,
         expression: Box<Expression>,
     },
+    AnonymousFunction {
+        arguments: Vec<String>,
+        body: Vec<Statement>,
+    },
 }
 
 impl Expression {

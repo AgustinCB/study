@@ -9,7 +9,6 @@ FOLDER=$(mktemp -d)
 
 trap "rm -fr $FOLDER; exit" EXIT
 
-cargo build
 echo "Running test $TEST"
 cat "$TEST" | ./target/debug/rloxi 1>"$FOLDER/out" 2>"$FOLDER/err"
 

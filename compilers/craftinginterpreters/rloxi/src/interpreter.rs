@@ -214,6 +214,16 @@ fn look_up_variable(
     }
 }
 
+fn anonymous_function(state: State, arguments: &[String], body: &[Statement], location: SourceCodeLocation) -> EvaluationResult {
+    let environments = state.get_environments();
+    Ok((state, Value::Function(LoxFunction {
+        arguments: arguments.to_vec(),
+        body: body.to_vec(),
+        environments,
+        location,
+    })))
+}
+
 pub struct Interpreter {
     content: Vec<Statement>,
     locals: HashMap<usize, usize>,
@@ -432,6 +442,8 @@ impl Evaluable for Expression {
             ExpressionType::Call { callee, arguments } => {
                 call_expression(state, callee, arguments, locals)
             }
+            ExpressionType::AnonymousFunction { arguments, body } =>
+                anonymous_function(state, arguments, body, self.location.clone())
         }
     }
 }

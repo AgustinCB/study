@@ -271,6 +271,30 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         })
     }
 
+    fn parse_anonymous_function(&mut self, location: SourceCodeLocation) -> Result<Expression, ProgramError> {
+        self.content.next();
+        let arguments = self.parse_parameters(&location, Parser::parse_identifier)?;
+        self.consume(
+            TokenType::RightParen,
+            "Expected a parenthesis after parameters!",
+            &location,
+        )?;
+        let body = if let StatementType::Block { body } =
+        self.parse_block_statement(location.clone())?.statement_type
+        {
+            body.into_iter().map(|b| *b).collect::<Vec<Statement>>()
+        } else {
+            panic!("Can't happen")
+        };
+        Ok(self.expression_factory.new_expression(
+            ExpressionType::AnonymousFunction {
+                arguments,
+                body,
+            },
+            location,
+        ))
+    }
+
     fn parse_fun_statement(
         &mut self,
         location: &SourceCodeLocation,
@@ -682,6 +706,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn parse_primary(&mut self) -> Result<Expression, ProgramError> {
         match self.content.next() {
+            Some(Token {
+                token_type: TokenType::Fun,
+                location,
+                ..
+             }) => self.parse_anonymous_function(location),
             Some(Token {
                 token_type: TokenType::TokenLiteral { value },
                 location,

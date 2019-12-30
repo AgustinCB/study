@@ -43,15 +43,6 @@ impl State {
         self.environments[0].borrow().get(identifier).cloned()
     }
 
-    pub fn find(&self, identifier: &str) -> Option<Value> {
-        self.environments
-            .iter()
-            .rev()
-            .map(|env| env.borrow().get(identifier).cloned())
-            .find(|v| v.is_some())
-            .flatten()
-    }
-
     pub fn push(&mut self) {
         self.environments
             .push(Rc::new(RefCell::new(HashMap::default())));

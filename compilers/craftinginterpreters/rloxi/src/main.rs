@@ -1,5 +1,4 @@
 #![feature(exact_size_is_empty)]
-#![feature(option_flattening)]
 use crate::interpreter::Interpreter;
 use crate::resolver::Resolver;
 use crate::types::ProgramError;

@@ -178,6 +178,9 @@ impl<'a> Pass for Resolver<'a> {
                 self.resolve_expression(operand)?;
             }
             ExpressionType::ExpressionLiteral { .. } => {}
+            ExpressionType::AnonymousFunction { arguments, body } => {
+                self.resolve_function(arguments, &body.iter().map(|s| Box::new(s.clone())).collect::<Vec<Box<Statement>>>(), &expression.location)?;
+            }
         };
         Ok(())
     }
