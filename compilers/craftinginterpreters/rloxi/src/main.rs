@@ -27,14 +27,14 @@ fn main() -> io::Result<()> {
         })
         .and_then(|ss| {
             let mut interpreter = Interpreter::new(ss);
+            let ss = interpreter.content().to_vec();
             let mut resolver = Resolver::new(&mut interpreter);
             let passes: Vec<&mut dyn resolver::Pass> = vec![&mut resolver];
             passes
                 .into_iter()
-                .map(|p| p.run())
-                .collect::<Result<Vec<()>, ProgramError>>()
+                .map(|p| p.run(&ss))
+                .collect::<Result<Vec<()>, Vec<ProgramError>>>()
                 .map(|_| interpreter)
-                .map_err(|e| vec![e])
         })
         .and_then(|interpreter| interpreter.run().map_err(|e| vec![e]));
     match result {

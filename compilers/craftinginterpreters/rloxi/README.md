@@ -71,6 +71,7 @@ unary           → ( "!" | "-" ) unary
 call            → primary ( "(" arguments? ")" )* ;
 arguments       → ternary ( "," ternary )* ;
 primary         → NUMBER | STRING | "false" | "true" | "nil"
+                | "fun" "(" parameters? ")" block
                 | "(" expression ")"
                 | ( "!=" | "==" ) equality
                 | ( ">" | ">=" | "<" | "<=" ) comparison

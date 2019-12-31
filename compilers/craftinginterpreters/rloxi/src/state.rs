@@ -69,6 +69,15 @@ impl State {
         self.insert_top(identifier, value);
     }
 
+    pub fn find(&self, identifier: &str) -> Option<Value> {
+        self.environments
+            .iter()
+            .rev()
+            .map(|env| env.borrow().get(identifier).cloned())
+            .find(|v| v.is_some())
+            .flatten()
+    }
+
     pub fn add_return_value(&mut self, v: Value) {
         self.return_value = Some(Box::new(v));
     }
