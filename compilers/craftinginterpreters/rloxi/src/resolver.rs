@@ -178,6 +178,10 @@ impl<'a> Pass<'a> for Resolver<'a> {
             ExpressionType::Get { callee, .. } => {
                 self.resolve_expression(callee)?;
             }
+            ExpressionType::Set { callee, value, .. } => {
+                self.resolve_expression(callee)?;
+                self.resolve_expression(value)?;
+            }
             ExpressionType::VariableLiteral { identifier } => {
                 self.resolve_local(expression, identifier);
             }

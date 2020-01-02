@@ -1,0 +1,11 @@
+class DevonshireCream {
+  serveOn() {
+    return "Scones";
+  }
+}
+
+var c = DevonshireCream();
+c.test = 1;
+print c.test;
+var a = 1;
+a.test = 1;

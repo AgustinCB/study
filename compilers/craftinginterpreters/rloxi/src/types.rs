@@ -175,11 +175,16 @@ pub enum ExpressionType {
     Get {
         callee: Box<Expression>,
         property: String,
+    },
+    Set {
+        callee: Box<Expression>,
+        property: String,
+        value: Box<Expression>,
     }
 }
 
 impl Expression {
-    pub fn create_program_error(&self, message: &str) -> ProgramError {
+pub fn create_program_error(&self, message: &str) -> ProgramError {
         ProgramError {
             location: self.location.clone(),
             message: message.to_owned(),
@@ -244,19 +249,23 @@ pub struct LoxClass {
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoxObject {
     class: LoxClass,
-    properties: HashMap<String, Value>,
+    properties: Rc<RefCell<HashMap<String, Value>>>,
 }
 
 impl LoxObject {
     pub fn new(class: LoxClass) -> LoxObject {
         LoxObject {
-            properties: HashMap::default(),
+            properties: Rc::new(RefCell::new(HashMap::default())),
             class,
         }
     }
 
-    pub fn get(&self, name: &str) -> Option<&Value> {
-        self.properties.get(name)
+    pub fn get(&self, name: &str) -> Option<Value> {
+        self.properties.borrow().get(name).cloned()
+    }
+
+    pub fn set(&mut self, name: String, value: Value) {
+        self.properties.borrow_mut().insert(name, value);
     }
 }
 

@@ -63,7 +63,7 @@ primary         → "true" | "false" | "nil" | "this"
                 | IDENTIFIER ;
 
 expression      → assignment ;
-assignment      → IDENTIFIER "=" (assignment | commaExpression) ;
+assignment      → ( call "." )? IDENTIFIER "=" (assignment | commaExpression) ;
 commaExpression → ternary ( "," ternary )* ;
 ternary         → logicOr ( "?" expression <- ternary )? ;
 logicOr         → logicAnd ( "or" logicAnd )* ;

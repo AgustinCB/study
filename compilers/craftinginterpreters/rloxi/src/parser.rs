@@ -553,6 +553,14 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                             },
                             location,
                         )),
+                        Expression {
+                            expression_type: ExpressionType::Get { callee, property },
+                            location,
+                            ..
+                        } => Ok(self.expression_factory.new_expression(
+                            ExpressionType::Set { callee, property, value: Box::new(expression) },
+                            location,
+                        )),
                         _ => Err(ProgramError {
                             location,
                             message: "Invalid assignment target".to_owned(),

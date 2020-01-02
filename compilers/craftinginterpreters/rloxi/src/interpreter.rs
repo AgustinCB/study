@@ -271,12 +271,24 @@ pub trait Evaluable {
 impl Evaluable for Expression {
     fn evaluate(&self, state: State, locals: &HashMap<usize, usize>) -> EvaluationResult {
         match &self.expression_type {
+            ExpressionType::Set {
+                callee, property, value
+            } => {
+                let (ts, object) = callee.evaluate(state, locals)?;
+                if let Value::Object(mut instance) = object {
+                    let (final_state, value) = value.evaluate(ts, locals)?;
+                    instance.set(property.clone(), value.clone());
+                    Ok((final_state, value))
+                } else {
+                    Err(callee.create_program_error("Only instances have properties"))
+                }
+            }
             ExpressionType::Get {
                 callee, property,
             } => {
                 let (next_state, object) = callee.evaluate(state, locals)?;
                 if let Value::Object(instance) = object {
-                    if let Some(v) = instance.get(property).cloned() {
+                    if let Some(v) = instance.get(property) {
                         Ok((next_state, v))
                     } else {
                         Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
