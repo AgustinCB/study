@@ -682,11 +682,17 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_call(&mut self) -> Result<Expression, ProgramError> {
-        let callee = self.parse_primary()?;
-        match self.content.peek().map(|t| t.token_type.clone()) {
-            Some(TokenType::LeftParen) => self.parse_call_function(callee),
-            Some(TokenType::Dot) => self.parse_call_property(callee),
-            _ => Ok(callee)
+        let mut callee = self.parse_primary()?;
+        loop {
+            match self.content.peek().map(|t| t.token_type.clone()) {
+                Some(TokenType::LeftParen) => {
+                    callee = self.parse_call_function(callee)?;
+                },
+                Some(TokenType::Dot) => {
+                    callee = self.parse_call_property(callee)?;
+                },
+                _ => return Ok(callee),
+            }
         }
     }
 

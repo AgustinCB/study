@@ -7,5 +7,9 @@ class DevonshireCream {
 var c = DevonshireCream();
 c.test = 1;
 print c.test;
+c.testFunction = fun () {
+    print "Scones!";
+};
+c.testFunction();
 var a = 1;
 a.test = 1;
