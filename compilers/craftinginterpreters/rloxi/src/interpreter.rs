@@ -532,11 +532,11 @@ impl Evaluable for Statement {
                 name,
                 methods: method_statements,
             } => {
-                let mut methods = vec![];
+                let mut methods = HashMap::default();
                 for ms in method_statements {
                     match &ms.statement_type {
-                        StatementType::FunctionDeclaration { arguments, body, .. } => {
-                            methods.push(LoxFunction {
+                        StatementType::FunctionDeclaration { arguments, body, name, } => {
+                            methods.insert(name.clone(), LoxFunction {
                                 arguments: arguments.clone(),
                                 environments: state.get_environments(),
                                 body: body.iter().map(|s| (**s).clone()).collect(),

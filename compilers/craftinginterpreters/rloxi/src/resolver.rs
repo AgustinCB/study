@@ -128,8 +128,9 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 }
                 self.define(&name);
             }
-            StatementType::Class { name, .. } => {
+            StatementType::Class { name, methods, .. } => {
                 self.declare(name, &statement.location).map_err(|e| vec![e])?;
+                methods.iter().map(|s| self.resolve(s)).collect::<Result<_, Vec<ProgramError>>>()?;
                 self.define(&name);
             }
             StatementType::FunctionDeclaration {

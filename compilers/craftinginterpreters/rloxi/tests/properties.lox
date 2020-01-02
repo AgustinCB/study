@@ -11,5 +11,6 @@ c.testFunction = fun () {
     print "Scones!";
 };
 c.testFunction();
+print c.serveOn();
 var a = 1;
 a.test = 1;

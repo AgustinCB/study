@@ -242,21 +242,25 @@ pub type EvaluationResult = Result<(State, Value), ProgramError>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoxClass {
-    pub methods: Vec<LoxFunction>,
+    pub methods: HashMap<String, LoxFunction>,
     pub name: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoxObject {
-    class: LoxClass,
     properties: Rc<RefCell<HashMap<String, Value>>>,
+    class_name: String,
 }
 
 impl LoxObject {
     pub fn new(class: LoxClass) -> LoxObject {
+        let mut properties = HashMap::default();
+        for (name, f) in class.methods {
+            properties.insert(name, Value::Function(f));
+        }
         LoxObject {
-            properties: Rc::new(RefCell::new(HashMap::default())),
-            class,
+            properties: Rc::new(RefCell::new(properties)),
+            class_name: class.name,
         }
     }
 
@@ -447,7 +451,7 @@ impl Display for Value {
             Value::Nil => f.write_str("Nil"),
             Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
             Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
-            Value::Object(c) => f.write_str(format!("{} instance", c.class.name).as_str()),
+            Value::Object(c) => f.write_str(format!("{} instance", c.class_name).as_str()),
         }
     }
 }
