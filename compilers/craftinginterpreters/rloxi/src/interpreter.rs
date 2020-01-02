@@ -175,6 +175,14 @@ fn call_expression(
 ) -> EvaluationResult {
     let (next_state, function_value) = callee.evaluate(state, locals)?;
     match function_value {
+        Value::Class(c) if arguments.len() == 0 => {
+            Ok((next_state, Value::Object(c)))
+        }
+        Value::Class(_) => Err(callee
+            .create_program_error(
+                "Cannot pass arguments to class call",
+            )
+        ),
         Value::Function(f) if f.arguments.len() != arguments.len() => Err(callee
             .create_program_error(
                 format!(

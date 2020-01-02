@@ -5,3 +5,5 @@ class DevonshireCream {
 }
 
 print DevonshireCream;
+print DevonshireCream();
+print DevonshireCream(1);

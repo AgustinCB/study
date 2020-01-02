@@ -302,6 +302,7 @@ pub enum Value {
     String { value: String },
     Function(LoxFunction),
     Class(LoxClass),
+    Object(LoxClass),
 }
 
 impl Value {
@@ -414,6 +415,7 @@ impl Display for Value {
             Value::Nil => f.write_str("Nil"),
             Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
             Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
+            Value::Object(c) => f.write_str(format!("{} instance", c.name).as_str()),
         }
     }
 }
