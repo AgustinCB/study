@@ -175,6 +175,9 @@ impl<'a> Pass<'a> for Resolver<'a> {
 
     fn resolve_expression(&mut self, expression: &'a Expression) -> Result<(), Vec<ProgramError>> {
         match &expression.expression_type {
+            ExpressionType::Get { callee, .. } => {
+                self.resolve_expression(callee)?;
+            }
             ExpressionType::VariableLiteral { identifier } => {
                 self.resolve_local(expression, identifier);
             }

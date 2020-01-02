@@ -1,5 +1,5 @@
 use crate::state::State;
-use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, Value, ValueError, LoxClass};
+use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, Value, ValueError, LoxClass, LoxObject};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
@@ -176,7 +176,7 @@ fn call_expression(
     let (next_state, function_value) = callee.evaluate(state, locals)?;
     match function_value {
         Value::Class(c) if arguments.len() == 0 => {
-            Ok((next_state, Value::Object(c)))
+            Ok((next_state, Value::Object(LoxObject::new(c))))
         }
         Value::Class(_) => Err(callee
             .create_program_error(
@@ -271,6 +271,20 @@ pub trait Evaluable {
 impl Evaluable for Expression {
     fn evaluate(&self, state: State, locals: &HashMap<usize, usize>) -> EvaluationResult {
         match &self.expression_type {
+            ExpressionType::Get {
+                callee, property,
+            } => {
+                let (next_state, object) = callee.evaluate(state, locals)?;
+                if let Value::Object(instance) = object {
+                    if let Some(v) = instance.get(property).cloned() {
+                        Ok((next_state, v))
+                    } else {
+                        Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+                    }
+                } else {
+                    Err(callee.create_program_error("Only instances have properties"))
+                }
+            }
             ExpressionType::ExpressionLiteral { value } => Ok((state, value.into())),
             ExpressionType::VariableLiteral { identifier } => {
                 let value = look_up_variable(self.id(), identifier, locals, &state)

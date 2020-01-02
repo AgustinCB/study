@@ -74,7 +74,7 @@ addition        → multiplication ( ( "-" | "+" ) multiplication )* ;
 multiplication  → unary ( ( "/" | "*" ) unary )* ;
 unary           → ( "!" | "-" ) unary
                 | primary ;
-call            → primary ( "(" arguments? ")" )* ;
+call            → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
 arguments       → ternary ( "," ternary )* ;
 primary         → NUMBER | STRING | "false" | "true" | "nil"
                 | "fun" "(" parameters? ")" block

@@ -172,6 +172,10 @@ pub enum ExpressionType {
         arguments: Vec<String>,
         body: Vec<Statement>,
     },
+    Get {
+        callee: Box<Expression>,
+        property: String,
+    }
 }
 
 impl Expression {
@@ -235,6 +239,25 @@ pub type EvaluationResult = Result<(State, Value), ProgramError>;
 pub struct LoxClass {
     pub methods: Vec<LoxFunction>,
     pub name: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoxObject {
+    class: LoxClass,
+    properties: HashMap<String, Value>,
+}
+
+impl LoxObject {
+    pub fn new(class: LoxClass) -> LoxObject {
+        LoxObject {
+            properties: HashMap::default(),
+            class,
+        }
+    }
+
+    pub fn get(&self, name: &str) -> Option<&Value> {
+        self.properties.get(name)
+    }
 }
 
 #[derive(Clone, PartialEq)]
@@ -302,7 +325,7 @@ pub enum Value {
     String { value: String },
     Function(LoxFunction),
     Class(LoxClass),
-    Object(LoxClass),
+    Object(LoxObject),
 }
 
 impl Value {
@@ -415,7 +438,7 @@ impl Display for Value {
             Value::Nil => f.write_str("Nil"),
             Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
             Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
-            Value::Object(c) => f.write_str(format!("{} instance", c.name).as_str()),
+            Value::Object(c) => f.write_str(format!("{} instance", c.class.name).as_str()),
         }
     }
 }

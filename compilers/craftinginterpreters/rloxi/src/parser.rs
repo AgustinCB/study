@@ -675,32 +675,55 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
     fn parse_call(&mut self) -> Result<Expression, ProgramError> {
         let callee = self.parse_primary()?;
-        if self
-            .content
-            .peek()
-            .map(|t| t.token_type == TokenType::LeftParen)
-            .unwrap_or(false)
-        {
-            self.content.next();
-            let args = self.parse_parameters(&callee.location, Parser::parse_ternary)?;
-            if self.content.peek().is_some() {
-                self.content.next();
-                let location = callee.location.clone();
-                Ok(self.expression_factory.new_expression(
-                    ExpressionType::Call {
-                        callee: Box::new(callee),
-                        arguments: args.into_iter().map(Box::new).collect(),
-                    },
-                    location,
-                ))
-            } else {
-                Err(ProgramError {
-                    location: callee.location.clone(),
-                    message: "Expecting right parenthesis".to_owned(),
-                })
-            }
+        match self.content.peek().map(|t| t.token_type.clone()) {
+            Some(TokenType::LeftParen) => self.parse_call_function(callee),
+            Some(TokenType::Dot) => self.parse_call_property(callee),
+            _ => Ok(callee)
+        }
+    }
+
+    fn parse_call_property(&mut self, callee: Expression) -> Result<Expression, ProgramError> {
+        self.consume(
+            TokenType::Dot,
+            "Expected '.' on property call expression",
+            &callee.location,
+        )?;
+        if let Some(TokenType::Identifier { name }) = self.content.next().map(|t| t.token_type) {
+            let location = callee.location.clone();
+            Ok(self.expression_factory.new_expression(
+                ExpressionType::Get {
+                    callee: Box::new(callee),
+                    property: name.to_owned(),
+                },
+                location,
+            ))
         } else {
-            Ok(callee)
+            Err(callee.create_program_error("Expected property name after '.'"))
+        }
+    }
+
+    fn parse_call_function(&mut self, callee: Expression) -> Result<Expression, ProgramError> {
+        self.consume(
+            TokenType::LeftParen,
+            "Expected '(' on function call expression",
+            &callee.location,
+        )?;
+        let args = self.parse_parameters(&callee.location, Parser::parse_ternary)?;
+        if self.content.peek().is_some() {
+            self.content.next();
+            let location = callee.location.clone();
+            Ok(self.expression_factory.new_expression(
+                ExpressionType::Call {
+                    callee: Box::new(callee),
+                    arguments: args.into_iter().map(Box::new).collect(),
+                },
+                location,
+            ))
+        } else {
+            Err(ProgramError {
+                location: callee.location.clone(),
+                message: "Expecting right parenthesis".to_owned(),
+            })
         }
     }
 
