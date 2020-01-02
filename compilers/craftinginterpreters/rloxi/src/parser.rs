@@ -41,6 +41,11 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     pub(crate) fn parse_statement(&mut self) -> Result<Statement, ProgramError> {
         match self.content.peek().cloned() {
             Some(Token {
+                     location,
+                     token_type: TokenType::Class,
+                     ..
+                 }) => self.parse_class_statement(&location),
+            Some(Token {
                 location,
                 token_type: TokenType::If,
                 ..
@@ -138,6 +143,46 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     statement_type: StatementType::Expression { expression },
                 })
             }
+        }
+    }
+
+    fn parse_class_statement(
+        &mut self,
+        location: &SourceCodeLocation,
+    ) -> Result<Statement, ProgramError> {
+        self.content.next();
+        if let Some(Token {
+            token_type: TokenType::Identifier { name },
+            location,
+            ..
+        }) = self.content.next() {
+            self.consume(
+                TokenType::LeftBrace,
+                "Expected '{' before class body",
+                &location,
+            )?;
+            let mut methods = vec![];
+            while !self.peek(TokenType::RightBrace) {
+                methods.push(Box::new(self.parse_function(&location)?));
+            }
+            self.consume(
+                TokenType::RightBrace,
+                "Expected '}' after class body",
+                &location,
+            )?;
+
+            Ok(Statement {
+                statement_type: StatementType::Class {
+                    name,
+                    methods,
+                },
+                location,
+            })
+        } else {
+            Err(ProgramError {
+                message: "Expected name in class definition".to_owned(),
+                location: location.clone(),
+            })
         }
     }
 
@@ -300,12 +345,15 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         location: &SourceCodeLocation,
     ) -> Result<Statement, ProgramError> {
         self.content.next();
+        self.parse_function(location)
+    }
+
+    fn parse_function(&mut self, location: &SourceCodeLocation) -> Result<Statement, ProgramError> {
         if let Some(Token {
             token_type: TokenType::Identifier { name },
             location,
             ..
-        }) = self.content.next()
-        {
+        }) = self.content.next() {
             self.consume(
                 TokenType::LeftParen,
                 "Expected a parenthesis after name!",
@@ -318,7 +366,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 &location,
             )?;
             let body = if let StatementType::Block { body } =
-                self.parse_block_statement(location.clone())?.statement_type
+            self.parse_block_statement(location.clone())?.statement_type
             {
                 body
             } else {

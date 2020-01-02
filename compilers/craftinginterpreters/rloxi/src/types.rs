@@ -197,6 +197,10 @@ pub enum StatementType {
     PrintStatement {
         expression: Expression,
     },
+    Class {
+        name: String,
+        methods: Vec<Box<Statement>>,
+    },
     VariableDeclaration {
         expression: Option<Expression>,
         name: String,
@@ -226,6 +230,12 @@ pub enum StatementType {
 }
 
 pub type EvaluationResult = Result<(State, Value), ProgramError>;
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct LoxClass {
+    pub methods: Vec<LoxFunction>,
+    pub name: String,
+}
 
 #[derive(Clone, PartialEq)]
 pub struct LoxFunction {
@@ -291,6 +301,7 @@ pub enum Value {
     Number { value: f32 },
     String { value: String },
     Function(LoxFunction),
+    Class(LoxClass),
 }
 
 impl Value {
@@ -402,6 +413,7 @@ impl Display for Value {
             Value::Uninitialized => f.write_str("Uninitialized"),
             Value::Nil => f.write_str("Nil"),
             Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
+            Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
         }
     }
 }

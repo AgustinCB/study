@@ -11,6 +11,12 @@ program         → declaration* EOF ;
 declaration     → varDecl
                 | funDecl
                 | statement ;
+declaration → classDecl
+            | funDecl
+	    | varDecl
+           | statement ;
+
+classDecl   → "class" IDENTIFIER "{" function* "}" ;
 
 declWithBreak   → varDecl
                 | statementWithBreak ;

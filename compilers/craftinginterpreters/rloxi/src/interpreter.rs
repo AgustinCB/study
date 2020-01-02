@@ -1,8 +1,5 @@
 use crate::state::State;
-use crate::types::{
-    EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation,
-    Statement, StatementType, TokenType, Value, ValueError,
-};
+use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, Value, ValueError, LoxClass};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
@@ -496,6 +493,30 @@ impl Evaluable for Statement {
                 let (s, v) = expression.evaluate(state, locals)?;
                 println!("{}", v);
                 s
+            }
+            StatementType::Class {
+                name,
+                methods: method_statements,
+            } => {
+                let mut methods = vec![];
+                for ms in method_statements {
+                    match &ms.statement_type {
+                        StatementType::FunctionDeclaration { arguments, body, .. } => {
+                            methods.push(LoxFunction {
+                                arguments: arguments.clone(),
+                                environments: state.get_environments(),
+                                body: body.iter().map(|s| (**s).clone()).collect(),
+                                location: ms.location.clone(),
+                            });
+                        }
+                        _ => panic!("Unexpected method"),
+                    }
+                }
+                state.insert_top(name.to_owned(), Value::Class(LoxClass {
+                    name: name.to_owned(),
+                    methods
+                }));
+                state
             }
             StatementType::FunctionDeclaration {
                 name,
