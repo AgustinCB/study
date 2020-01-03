@@ -175,14 +175,18 @@ fn call_expression(
 ) -> EvaluationResult {
     let (next_state, function_value) = callee.evaluate(state, locals)?;
     match function_value {
-        Value::Class(c) if arguments.len() == 0 => {
-            Ok((next_state, Value::Object(LoxObject::new(c))))
+        Value::Class(c) => {
+            let instance = LoxObject::new(c);
+            let mut values = vec![];
+            let mut current_state = next_state;
+            for e in arguments {
+                let (value_status, value) = e.evaluate(current_state, locals)?;
+                current_state = value_status;
+                values.push(value);
+            }
+            instance.init(&values, locals, &callee.location)?;
+            Ok((current_state, Value::Object(instance)))
         }
-        Value::Class(_) => Err(callee
-            .create_program_error(
-                "Cannot pass arguments to class call",
-            )
-        ),
         Value::Function(f) if f.arguments.len() != arguments.len() => Err(callee
             .create_program_error(
                 format!(

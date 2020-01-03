@@ -265,6 +265,29 @@ impl LoxObject {
         object
     }
 
+    pub fn init(
+        &self,
+        values: &[Value],
+        locals: &HashMap<usize, usize>,
+        location: &SourceCodeLocation,
+    ) -> Result<(), ProgramError> {
+        if let Some(Value::Function(f)) = self.properties.borrow().get("init") {
+            f.eval(values, locals)?;
+            Ok(())
+        } else if values.len() != 0 {
+            Err(ProgramError {
+                message: format!(
+                    "Wrong number of arguments: Received {}, expected {}",
+                    values.len(),
+                    0,
+                ),
+                location: location.clone(),
+            })
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn get(&self, name: &str) -> Option<Value> {
         self.properties.borrow().get(name).cloned()
     }
