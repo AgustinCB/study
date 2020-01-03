@@ -61,7 +61,6 @@ pub enum TokenType {
     Question,
     Return,
     Super,
-    This,
     Var,
     While,
     Comment,
@@ -254,14 +253,16 @@ pub struct LoxObject {
 
 impl LoxObject {
     pub fn new(class: LoxClass) -> LoxObject {
-        let mut properties = HashMap::default();
-        for (name, f) in class.methods {
-            properties.insert(name, Value::Function(f));
-        }
-        LoxObject {
-            properties: Rc::new(RefCell::new(properties)),
+        let properties = Rc::new(RefCell::new(HashMap::default()));
+        let object = LoxObject {
+            properties: properties.clone(),
             class_name: class.name,
+        };
+        for (name, mut f) in class.methods {
+            f.bind(object.clone());
+            properties.borrow_mut().insert(name, Value::Function(f));
         }
+        object
     }
 
     pub fn get(&self, name: &str) -> Option<Value> {
@@ -311,6 +312,12 @@ impl LoxFunction {
             }
         }
         Ok(Value::Nil)
+    }
+
+    fn bind(&mut self, instance: LoxObject) {
+        let mut new_scope = HashMap::default();
+        new_scope.insert("this".to_owned(), Value::Object(instance));
+        self.environments.push(Rc::new(RefCell::new(new_scope)));
     }
 }
 

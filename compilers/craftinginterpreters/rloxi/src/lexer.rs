@@ -120,7 +120,6 @@ impl Lexer {
                         "print" => Some(self.create_token(TokenType::Print, "print")),
                         "return" => Some(self.create_token(TokenType::Return, "return")),
                         "super" => Some(self.create_token(TokenType::Super, "super")),
-                        "this" => Some(self.create_token(TokenType::This, "this")),
                         "var" => Some(self.create_token(TokenType::Var, "var")),
                         "while" => Some(self.create_token(TokenType::While, "while")),
                         "true" => Some(self.create_token(
@@ -219,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_lexer_with_no_error() {
-        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;super;this;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil";
+        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;super;;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil";
         let mut lexer = Lexer::new(s.to_owned(), "file".to_owned());
         let expected = Ok(vec![
             Token {
@@ -577,14 +576,6 @@ mod tests {
             Token {
                 token_type: TokenType::Semicolon,
                 lexeme: ";".to_owned(),
-                location: SourceCodeLocation {
-                    file: "file".to_owned(),
-                    line: 0,
-                },
-            },
-            Token {
-                token_type: TokenType::This,
-                lexeme: "this".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
                     line: 0,

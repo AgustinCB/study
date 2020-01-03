@@ -130,7 +130,18 @@ impl<'a> Pass<'a> for Resolver<'a> {
             }
             StatementType::Class { name, methods, .. } => {
                 self.declare(name, &statement.location).map_err(|e| vec![e])?;
-                methods.iter().map(|s| self.resolve(s)).collect::<Result<_, Vec<ProgramError>>>()?;
+                self.push_scope(HashMap::default());
+                self.declare("this", &statement.location).map_err(|e| vec![e])?;
+                self.define("this");
+                self.uses.last_mut().unwrap().insert("this", 1);
+                methods.iter().map(|s| {
+                    let r = self.resolve(s);
+                    if let StatementType::FunctionDeclaration { name, .. } = &s.statement_type {
+                        self.uses.last_mut().unwrap().insert(name, 1);
+                    }
+                    r
+                }).collect::<Result<_, Vec<ProgramError>>>()?;
+                self.pop_scope()?;
                 self.define(&name);
             }
             StatementType::FunctionDeclaration {
