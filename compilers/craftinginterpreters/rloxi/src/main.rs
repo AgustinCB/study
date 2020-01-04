@@ -10,6 +10,7 @@ mod parser;
 mod resolver;
 mod state;
 mod types;
+mod value;
 
 fn main() -> io::Result<()> {
     let mut buffer = String::new();

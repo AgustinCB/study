@@ -1,5 +1,6 @@
 use crate::state::State;
-use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, Value, ValueError, LoxClass, LoxObject};
+use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, LoxClass, LoxObject};
+use crate::value::{Value, ValueError};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
@@ -621,8 +622,9 @@ mod test_statement {
     use crate::state::State;
     use crate::types::{
         Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction, ProgramError,
-        SourceCodeLocation, Statement, StatementType, TokenType, Value,
+        SourceCodeLocation, Statement, StatementType, TokenType,
     };
+    use crate::value::Value;
     use std::collections::HashMap;
 
     fn create_expression(
@@ -983,8 +985,9 @@ mod test_expression {
     use crate::state::State;
     use crate::types::{
         DataKeyword, Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction,
-        SourceCodeLocation, Statement, StatementType, TokenType, Value,
+        SourceCodeLocation, Statement, StatementType, TokenType,
     };
+    use crate::value::Value;
     use std::collections::HashMap;
 
     #[test]
