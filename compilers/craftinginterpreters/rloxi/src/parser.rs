@@ -162,8 +162,16 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 &location,
             )?;
             let mut methods = vec![];
+            let mut static_methods = vec![];
             while !self.peek(TokenType::RightBrace) {
-                methods.push(Box::new(self.parse_function(&location)?));
+                let vector = if self.peek(TokenType::Class) {
+                    self.content.next();
+                    &mut static_methods
+                } else {
+                    &mut methods
+                };
+                let f = Box::new(self.parse_function(&location)?);
+                vector.push(f);
             }
             self.consume(
                 TokenType::RightBrace,
@@ -175,6 +183,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 statement_type: StatementType::Class {
                     name,
                     methods,
+                    static_methods,
                 },
                 location,
             })

@@ -2,6 +2,9 @@ class DevonshireCream {
   serveOn() {
     return "Scones";
   }
+  echo(a) {
+    return a;
+  }
 }
 
 var c = DevonshireCream();
@@ -12,5 +15,6 @@ c.testFunction = fun () {
 };
 c.testFunction();
 print c.serveOn();
+print c.echo("hola");
 var a = 1;
 a.test = 1;

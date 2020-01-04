@@ -208,6 +208,7 @@ pub enum StatementType {
     Class {
         name: String,
         methods: Vec<Box<Statement>>,
+        static_methods: Vec<Box<Statement>>,
     },
     VariableDeclaration {
         expression: Option<Expression>,
@@ -241,8 +242,47 @@ pub type EvaluationResult = Result<(State, Value), ProgramError>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoxClass {
-    pub methods: HashMap<String, LoxFunction>,
-    pub name: String,
+    methods: HashMap<String, LoxFunction>,
+    name: String,
+    pub static_instance: LoxObject,
+}
+
+impl LoxClass {
+    pub fn new(name: String, static_method_list: &[&Statement], method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) -> LoxClass {
+        let mut methods = HashMap::default();
+        for ms in method_list {
+            match &ms.statement_type {
+                StatementType::FunctionDeclaration { arguments, body, name, } => {
+                    methods.insert(name.clone(), LoxClass::function_declaration_to_lox_funxtion(arguments, body, &ms.location, &environments));
+                }
+                _ => panic!("Unexpected method"),
+            }
+        }
+        let mut static_methods = vec![];
+        for ms in static_method_list {
+            match &ms.statement_type {
+                StatementType::FunctionDeclaration { arguments, body, name, } => {
+                    static_methods.push((name.clone(), LoxClass::function_declaration_to_lox_funxtion(arguments, body, &ms.location, &environments)));
+                }
+                _ => panic!("Unexpected method"),
+            }
+        }
+        let static_instance = LoxObject::new_static(name.clone(), &static_methods);
+        LoxClass {
+            methods,
+            name,
+            static_instance,
+        }
+    }
+
+    fn function_declaration_to_lox_funxtion(arguments: &[String], body: &[Box<Statement>], location: &SourceCodeLocation, environments: &[Rc<RefCell<HashMap<String, Value>>>]) -> LoxFunction {
+        LoxFunction {
+            arguments: arguments.to_vec(),
+            body: body.iter().map(|s| (**s).clone()).collect(),
+            environments: environments.to_vec(),
+            location: location.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -263,6 +303,17 @@ impl LoxObject {
             properties.borrow_mut().insert(name, Value::Function(f));
         }
         object
+    }
+
+    fn new_static(class_name: String, methods: &[(String, LoxFunction)]) -> LoxObject {
+        let properties = Rc::new(RefCell::new(HashMap::default()));
+        for (name, function) in methods {
+            properties.borrow_mut().insert(name.clone(), Value::Function(function.clone()));
+        }
+        LoxObject {
+            class_name,
+            properties
+        }
     }
 
     pub fn init(

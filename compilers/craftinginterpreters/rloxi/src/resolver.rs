@@ -80,6 +80,16 @@ impl<'a> Resolver<'a> {
             self.interpreter.resolve_variable(expression, i);
         }
     }
+    fn resolve_functions(&mut self, methods: &'a [Box<Statement>]) -> Result<(), Vec<ProgramError>> {
+        methods.iter().map(|s| {
+            let r = self.resolve(s);
+            if let StatementType::FunctionDeclaration { name, .. } = &s.statement_type {
+                self.uses.last_mut().unwrap().insert(name, 1);
+            }
+            r
+        }).collect::<Result<_, Vec<ProgramError>>>()?;
+        Ok(())
+    }
     fn resolve_function<'b>(
         &mut self,
         arguments: &'a [String],
@@ -128,20 +138,15 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 }
                 self.define(&name);
             }
-            StatementType::Class { name, methods, .. } => {
+            StatementType::Class { name, methods, static_methods } => {
                 self.declare(name, &statement.location).map_err(|e| vec![e])?;
                 self.push_scope(HashMap::default());
                 self.declare("this", &statement.location).map_err(|e| vec![e])?;
                 self.define("this");
                 self.uses.last_mut().unwrap().insert("this", 1);
-                methods.iter().map(|s| {
-                    let r = self.resolve(s);
-                    if let StatementType::FunctionDeclaration { name, .. } = &s.statement_type {
-                        self.uses.last_mut().unwrap().insert(name, 1);
-                    }
-                    r
-                }).collect::<Result<_, Vec<ProgramError>>>()?;
+                self.resolve_functions(methods)?;
                 self.pop_scope()?;
+                self.resolve_functions(static_methods)?;
                 self.define(&name);
             }
             StatementType::FunctionDeclaration {

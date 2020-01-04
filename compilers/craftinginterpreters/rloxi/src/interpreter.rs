@@ -291,14 +291,22 @@ impl Evaluable for Expression {
                 callee, property,
             } => {
                 let (next_state, object) = callee.evaluate(state, locals)?;
-                if let Value::Object(instance) = object {
-                    if let Some(v) = instance.get(property) {
-                        Ok((next_state, v))
-                    } else {
-                        Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+                match object {
+                    Value::Object(instance) => {
+                        if let Some(v) = instance.get(property) {
+                            Ok((next_state, v))
+                        } else {
+                            Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+                        }
                     }
-                } else {
-                    Err(callee.create_program_error("Only instances have properties"))
+                    Value::Class(c) => {
+                        if let Some(v) = c.static_instance.get(property) {
+                            Ok((next_state, v))
+                        } else {
+                            Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+                        }
+                    }
+                    _ => Err(callee.create_program_error("Only instances have properties")),
                 }
             }
             ExpressionType::ExpressionLiteral { value } => Ok((state, value.into())),
@@ -534,26 +542,15 @@ impl Evaluable for Statement {
             }
             StatementType::Class {
                 name,
-                methods: method_statements,
+                methods,
+                static_methods,
             } => {
-                let mut methods = HashMap::default();
-                for ms in method_statements {
-                    match &ms.statement_type {
-                        StatementType::FunctionDeclaration { arguments, body, name, } => {
-                            methods.insert(name.clone(), LoxFunction {
-                                arguments: arguments.clone(),
-                                environments: state.get_environments(),
-                                body: body.iter().map(|s| (**s).clone()).collect(),
-                                location: ms.location.clone(),
-                            });
-                        }
-                        _ => panic!("Unexpected method"),
-                    }
-                }
-                state.insert_top(name.to_owned(), Value::Class(LoxClass {
-                    name: name.to_owned(),
-                    methods
-                }));
+                state.insert_top(name.to_owned(), Value::Class(LoxClass::new(
+                    name.to_owned(),
+                    &static_methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
+                    &methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
+                    state.get_environments()
+                )));
                 state
             }
             StatementType::FunctionDeclaration {
