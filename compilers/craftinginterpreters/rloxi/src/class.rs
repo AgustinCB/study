@@ -128,6 +128,9 @@ impl LoxObject {
         locals: &HashMap<usize, usize>,
         location: &SourceCodeLocation,
     ) -> Result<(), ProgramError> {
+        if let Some(s) = &self.superclass {
+            s.init(values, locals, location)?;
+        }
         if let Some(Value::Function(f)) = self.properties.borrow().get("init") {
             f.eval(values, locals)?;
             Ok(())
