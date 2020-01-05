@@ -143,8 +143,19 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 }
                 self.define(&name);
             }
-            StatementType::Class { name, methods, static_methods, setters, getters } => {
+            StatementType::Class { name, methods, static_methods, setters, getters, superclass} => {
                 self.declare(name, &statement.location).map_err(|e| vec![e])?;
+                if let Some(e) = superclass {
+                    if let ExpressionType::VariableLiteral { identifier} = &e.expression_type {
+                        if identifier == name {
+                            return Err(vec![ProgramError {
+                                message: "A class cannot inherit from itself.".to_owned(),
+                                location: statement.location.clone(),
+                            }]);
+                        }
+                        self.resolve_local(e, identifier);
+                    }
+                }
                 self.push_scope(HashMap::default());
                 self.declare("this", &statement.location).map_err(|e| vec![e])?;
                 self.define("this");

@@ -13,7 +13,8 @@ declaration → classDecl
 	        | varDecl
             | statement ;
 
-classDecl   → "class" IDENTIFIER "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
+classDecl   → "class" IDENTIFIER ( "<" IDENTIFIER )?
+              "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
 
 declWithBreak   → varDecl
                 | statementWithBreak ;

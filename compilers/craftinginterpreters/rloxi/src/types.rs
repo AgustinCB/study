@@ -209,6 +209,7 @@ pub enum StatementType {
     },
     Class {
         name: String,
+        superclass: Option<Expression>,
         methods: Vec<Box<Statement>>,
         static_methods: Vec<Box<Statement>>,
         getters: Vec<Box<Statement>>,

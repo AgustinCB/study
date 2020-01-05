@@ -156,6 +156,21 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             location,
             ..
         }) = self.content.next() {
+            let superclass = if self.peek(TokenType::Less) {
+                self.content.next();
+                if let Some(TokenType::Identifier { name }) = self.content.next().map(|t| t.token_type) {
+                    Some(self.expression_factory.new_expression(ExpressionType::VariableLiteral {
+                        identifier: name,
+                    }, location.clone()))
+                } else {
+                    return Err(ProgramError {
+                        message: "Expect superclass name.".to_owned(),
+                        location: location.clone(),
+                    });
+                }
+            } else {
+                None
+            };
             self.consume(
                 TokenType::LeftBrace,
                 "Expected '{' before class body",
@@ -214,6 +229,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                     methods,
                     setters,
                     static_methods,
+                    superclass,
                 },
                 location,
             })

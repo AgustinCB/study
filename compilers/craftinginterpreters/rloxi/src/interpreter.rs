@@ -561,14 +561,29 @@ impl Evaluable for Statement {
                 methods,
                 setters,
                 static_methods,
+                superclass,
             } => {
+                let (mut state, superclass) = if let Some(e) = superclass {
+                    let (s, superclass) = e.evaluate(state, locals)?;
+                    if let Value::Class(c) = superclass {
+                        (s, Some(c))
+                    } else {
+                        return Err(ProgramError {
+                            message: "Superclass must be a class".to_owned(),
+                            location: self.location.clone(),
+                        });
+                    }
+                } else {
+                    (state, None)
+                };
                 state.insert_top(name.to_owned(), Value::Class(LoxClass::new(
                     name.to_owned(),
                     &static_methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
                     &methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
                     &getters.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
                     &setters.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
-                    state.get_environments()
+                    superclass,
+                    state.get_environments(),
                 )));
                 state
             }
