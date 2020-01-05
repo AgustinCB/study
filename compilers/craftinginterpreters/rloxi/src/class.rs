@@ -88,18 +88,24 @@ impl LoxObject {
             getters: HashMap::default(),
             properties: properties.clone(),
             setters: HashMap::default(),
-            superclass,
+            superclass: superclass.clone(),
         };
+        let mut variables = vec!["this"];
+        let mut instances = vec![object.clone()];
+        if let Some(box obj) = &superclass {
+            variables.push("super");
+            instances.push(obj.clone());
+        }
         for (name, mut f) in class.methods {
-            f.bind(object.clone());
+            f.bind(&instances, &variables);
             properties.borrow_mut().insert(name, Value::Function(f));
         }
         for (name, mut f) in class.getters {
-            f.bind(object.clone());
+            f.bind(&instances, &variables);
             object.getters.insert(name, f);
         }
         for (name, mut f) in class.setters {
-            f.bind(object.clone());
+            f.bind(&instances, &variables);
             object.setters.insert(name, f);
         }
         object

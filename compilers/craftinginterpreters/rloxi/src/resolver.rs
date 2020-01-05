@@ -160,6 +160,11 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 self.declare("this", &statement.location).map_err(|e| vec![e])?;
                 self.define("this");
                 self.uses.last_mut().unwrap().insert("this", 1);
+                if superclass.is_some() {
+                    self.declare("super", &statement.location).map_err(|e| vec![e])?;
+                    self.define("super");
+                    self.uses.last_mut().unwrap().insert("super", 1);
+                }
                 self.resolve_functions(methods, true)?;
                 self.resolve_functions(getters, false)?;
                 self.resolve_functions(setters, false)?;

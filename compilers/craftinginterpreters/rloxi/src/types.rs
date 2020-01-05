@@ -60,7 +60,6 @@ pub enum TokenType {
     Print,
     Question,
     Return,
-    Super,
     Var,
     While,
     Comment,
@@ -285,9 +284,11 @@ impl LoxFunction {
         Ok(Value::Nil)
     }
 
-    pub(crate) fn bind(&mut self, instance: LoxObject) {
+    pub(crate) fn bind(&mut self, instances: &[LoxObject], variables: &[&str]) {
         let mut new_scope = HashMap::default();
-        new_scope.insert("this".to_owned(), Value::Object(instance));
+        for (variable, obj) in variables.into_iter().zip(instances.into_iter()) {
+            new_scope.insert((*variable).to_owned(), Value::Object(obj.clone()));
+        }
         self.environments.push(Rc::new(RefCell::new(new_scope)));
     }
 }

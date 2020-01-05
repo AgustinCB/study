@@ -1,4 +1,6 @@
 #![feature(exact_size_is_empty)]
+#![feature(box_patterns)]
+
 use crate::interpreter::Interpreter;
 use crate::resolver::Resolver;
 use crate::types::ProgramError;
