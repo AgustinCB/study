@@ -8,13 +8,10 @@ using Rust.
 ```$xslt
 program         → declaration* EOF ;
 
-declaration     → varDecl
-                | funDecl
-                | statement ;
 declaration → classDecl
             | funDecl
-	    | varDecl
-           | statement ;
+	        | varDecl
+            | statement ;
 
 classDecl   → "class" IDENTIFIER "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
 
