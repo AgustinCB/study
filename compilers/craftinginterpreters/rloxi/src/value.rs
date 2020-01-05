@@ -1,4 +1,5 @@
-use crate::types::{LoxFunction, LoxClass, LoxObject, SourceCodeLocation, ProgramError, Literal, DataKeyword};
+use crate::class::{LoxClass, LoxObject};
+use crate::types::{LoxFunction, SourceCodeLocation, ProgramError, Literal, DataKeyword};
 use std::ops::{Not, Neg};
 use std::convert::TryInto;
 use std::fmt::{Display, Error, Formatter};

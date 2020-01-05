@@ -1,5 +1,6 @@
+use crate::class::{LoxObject, LoxClass};
 use crate::state::State;
-use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, LoxClass, LoxObject};
+use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType };
 use crate::value::{Value, ValueError};
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -234,6 +235,46 @@ fn anonymous_function(state: State, arguments: &[String], body: &[Statement], lo
     })))
 }
 
+fn get_property(state: State, locals: &HashMap<usize, usize>, callee: &Expression, property: &String) -> EvaluationResult {
+    let (next_state, object) = callee.evaluate(state, locals)?;
+    match object {
+        Value::Object(instance) => {
+            if let Some(v) = instance.get(property) {
+                Ok((next_state, v))
+            } else {
+                if let Some(v) = instance.get_getter(property) {
+                    v.eval(&[], locals).map(|v| (next_state, v))
+                } else {
+                    Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+                }
+            }
+        }
+        Value::Class(c) => {
+            if let Some(v) = c.static_instance.get(property) {
+                Ok((next_state, v))
+            } else {
+                Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
+            }
+        }
+        _ => Err(callee.create_program_error("Only instances have properties")),
+    }
+}
+
+fn set_property(state: State, locals: &HashMap<usize, usize>, callee: &Expression, property: &String, value: &Expression) -> EvaluationResult {
+    let (ts, object) = callee.evaluate(state, locals)?;
+    if let Value::Object(mut instance) = object {
+        let (final_state, value) = value.evaluate(ts, locals)?;
+        if let Some(f) = instance.get_setter(property) {
+            f.eval(&[value], locals).map(|v| (final_state, v))
+        } else {
+            instance.set(property.clone(), value.clone());
+            Ok((final_state, value))
+        }
+    } else {
+        Err(callee.create_program_error("Only instances have properties"))
+    }
+}
+
 pub struct Interpreter {
     content: Vec<Statement>,
     locals: HashMap<usize, usize>,
@@ -278,38 +319,10 @@ impl Evaluable for Expression {
         match &self.expression_type {
             ExpressionType::Set {
                 callee, property, value
-            } => {
-                let (ts, object) = callee.evaluate(state, locals)?;
-                if let Value::Object(mut instance) = object {
-                    let (final_state, value) = value.evaluate(ts, locals)?;
-                    instance.set(property.clone(), value.clone());
-                    Ok((final_state, value))
-                } else {
-                    Err(callee.create_program_error("Only instances have properties"))
-                }
-            }
+            } => set_property(state, locals, callee, property, value),
             ExpressionType::Get {
                 callee, property,
-            } => {
-                let (next_state, object) = callee.evaluate(state, locals)?;
-                match object {
-                    Value::Object(instance) => {
-                        if let Some(v) = instance.get(property) {
-                            Ok((next_state, v))
-                        } else {
-                            Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
-                        }
-                    }
-                    Value::Class(c) => {
-                        if let Some(v) = c.static_instance.get(property) {
-                            Ok((next_state, v))
-                        } else {
-                            Err(callee.create_program_error(format!("Undefined property {}.", property).as_str()))
-                        }
-                    }
-                    _ => Err(callee.create_program_error("Only instances have properties")),
-                }
-            }
+            } => get_property(state, locals, callee, property),
             ExpressionType::ExpressionLiteral { value } => Ok((state, value.into())),
             ExpressionType::VariableLiteral { identifier } => {
                 let value = look_up_variable(self.id(), identifier, locals, &state)
@@ -492,6 +505,7 @@ impl Evaluable for Expression {
     }
 }
 
+
 impl Evaluable for Statement {
     fn evaluate(
         &self,
@@ -542,14 +556,18 @@ impl Evaluable for Statement {
                 s
             }
             StatementType::Class {
+                getters,
                 name,
                 methods,
+                setters,
                 static_methods,
             } => {
                 state.insert_top(name.to_owned(), Value::Class(LoxClass::new(
                     name.to_owned(),
                     &static_methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
                     &methods.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
+                    &getters.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
+                    &setters.iter().map(|s| s.as_ref()).collect::<Vec<&Statement>>(),
                     state.get_environments()
                 )));
                 state

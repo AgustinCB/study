@@ -16,7 +16,7 @@ declaration → classDecl
 	    | varDecl
            | statement ;
 
-classDecl   → "class" IDENTIFIER "{" function* "}" ;
+classDecl   → "class" IDENTIFIER "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
 
 declWithBreak   → varDecl
                 | statementWithBreak ;

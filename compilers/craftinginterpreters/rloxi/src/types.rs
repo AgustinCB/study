@@ -5,6 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Display, Error, Formatter};
 use std::rc::Rc;
+use crate::class::LoxObject;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SourceCodeLocation {
@@ -64,6 +65,8 @@ pub enum TokenType {
     While,
     Comment,
     EOF,
+    Setter,
+    Getter,
     Identifier { name: String },
     TokenLiteral { value: Literal },
 }
@@ -208,6 +211,8 @@ pub enum StatementType {
         name: String,
         methods: Vec<Box<Statement>>,
         static_methods: Vec<Box<Statement>>,
+        getters: Vec<Box<Statement>>,
+        setters: Vec<Box<Statement>>,
     },
     VariableDeclaration {
         expression: Option<Expression>,
@@ -238,114 +243,6 @@ pub enum StatementType {
 }
 
 pub type EvaluationResult = Result<(State, Value), ProgramError>;
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct LoxClass {
-    methods: HashMap<String, LoxFunction>,
-    pub name: String,
-    pub static_instance: LoxObject,
-}
-
-impl LoxClass {
-    pub fn new(name: String, static_method_list: &[&Statement], method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) -> LoxClass {
-        let mut methods = HashMap::default();
-        for ms in method_list {
-            match &ms.statement_type {
-                StatementType::FunctionDeclaration { arguments, body, name, } => {
-                    methods.insert(name.clone(), LoxClass::function_declaration_to_lox_funxtion(arguments, body, &ms.location, &environments));
-                }
-                _ => panic!("Unexpected method"),
-            }
-        }
-        let mut static_methods = vec![];
-        for ms in static_method_list {
-            match &ms.statement_type {
-                StatementType::FunctionDeclaration { arguments, body, name, } => {
-                    static_methods.push((name.clone(), LoxClass::function_declaration_to_lox_funxtion(arguments, body, &ms.location, &environments)));
-                }
-                _ => panic!("Unexpected method"),
-            }
-        }
-        let static_instance = LoxObject::new_static(name.clone(), &static_methods);
-        LoxClass {
-            methods,
-            name,
-            static_instance,
-        }
-    }
-
-    fn function_declaration_to_lox_funxtion(arguments: &[String], body: &[Box<Statement>], location: &SourceCodeLocation, environments: &[Rc<RefCell<HashMap<String, Value>>>]) -> LoxFunction {
-        LoxFunction {
-            arguments: arguments.to_vec(),
-            body: body.iter().map(|s| (**s).clone()).collect(),
-            environments: environments.to_vec(),
-            location: location.clone(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct LoxObject {
-    properties: Rc<RefCell<HashMap<String, Value>>>,
-    pub class_name: String,
-}
-
-impl LoxObject {
-    pub fn new(class: LoxClass) -> LoxObject {
-        let properties = Rc::new(RefCell::new(HashMap::default()));
-        let object = LoxObject {
-            properties: properties.clone(),
-            class_name: class.name,
-        };
-        for (name, mut f) in class.methods {
-            f.bind(object.clone());
-            properties.borrow_mut().insert(name, Value::Function(f));
-        }
-        object
-    }
-
-    fn new_static(class_name: String, methods: &[(String, LoxFunction)]) -> LoxObject {
-        let properties = Rc::new(RefCell::new(HashMap::default()));
-        for (name, function) in methods {
-            properties.borrow_mut().insert(name.clone(), Value::Function(function.clone()));
-        }
-        LoxObject {
-            class_name,
-            properties
-        }
-    }
-
-    pub fn init(
-        &self,
-        values: &[Value],
-        locals: &HashMap<usize, usize>,
-        location: &SourceCodeLocation,
-    ) -> Result<(), ProgramError> {
-        if let Some(Value::Function(f)) = self.properties.borrow().get("init") {
-            f.eval(values, locals)?;
-            Ok(())
-        } else if values.len() != 0 {
-            Err(ProgramError {
-                message: format!(
-                    "Wrong number of arguments: Received {}, expected {}",
-                    values.len(),
-                    0,
-                ),
-                location: location.clone(),
-            })
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn get(&self, name: &str) -> Option<Value> {
-        self.properties.borrow().get(name).cloned()
-    }
-
-    pub fn set(&mut self, name: String, value: Value) {
-        self.properties.borrow_mut().insert(name, value);
-    }
-}
 
 #[derive(Clone, PartialEq)]
 pub struct LoxFunction {
@@ -387,7 +284,7 @@ impl LoxFunction {
         Ok(Value::Nil)
     }
 
-    fn bind(&mut self, instance: LoxObject) {
+    pub(crate) fn bind(&mut self, instance: LoxObject) {
         let mut new_scope = HashMap::default();
         new_scope.insert("this".to_owned(), Value::Object(instance));
         self.environments.push(Rc::new(RefCell::new(new_scope)));

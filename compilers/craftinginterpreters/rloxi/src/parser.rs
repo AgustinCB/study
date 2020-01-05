@@ -163,15 +163,43 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             )?;
             let mut methods = vec![];
             let mut static_methods = vec![];
+            let mut setters = vec![];
+            let mut getters = vec![];
             while !self.peek(TokenType::RightBrace) {
                 let vector = if self.peek(TokenType::Class) {
                     self.content.next();
                     &mut static_methods
+                } else if self.peek(TokenType::Getter) {
+                    self.content.next();
+                    &mut getters
+                } else if self.peek(TokenType::Setter) {
+                    self.content.next();
+                    &mut setters
                 } else {
                     &mut methods
                 };
                 let f = Box::new(self.parse_function(&location)?);
                 vector.push(f);
+            }
+            for getter in getters.iter() {
+                if let StatementType::FunctionDeclaration { arguments, .. } = &getter.statement_type {
+                    if !arguments.is_empty() {
+                        return Err(ProgramError {
+                            message: "Getter function should take no arguments".to_owned(),
+                            location: getter.location.clone(),
+                        });
+                    }
+                }
+            }
+            for setter in setters.iter() {
+                if let StatementType::FunctionDeclaration { arguments, .. } = &setter.statement_type {
+                    if arguments.len() != 1 {
+                        return Err(ProgramError {
+                            message: "Setter function should take one argument".to_owned(),
+                            location: setter.location.clone(),
+                        });
+                    }
+                }
             }
             self.consume(
                 TokenType::RightBrace,
@@ -181,8 +209,10 @@ impl<I: Iterator<Item = Token>> Parser<I> {
 
             Ok(Statement {
                 statement_type: StatementType::Class {
+                    getters,
                     name,
                     methods,
+                    setters,
                     static_methods,
                 },
                 location,

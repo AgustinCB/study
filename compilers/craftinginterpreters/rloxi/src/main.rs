@@ -4,6 +4,7 @@ use crate::resolver::Resolver;
 use crate::types::ProgramError;
 use std::io::{self, Read};
 
+mod class;
 mod interpreter;
 mod lexer;
 mod parser;

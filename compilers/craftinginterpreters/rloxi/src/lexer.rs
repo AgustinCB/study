@@ -122,6 +122,8 @@ impl Lexer {
                         "super" => Some(self.create_token(TokenType::Super, "super")),
                         "var" => Some(self.create_token(TokenType::Var, "var")),
                         "while" => Some(self.create_token(TokenType::While, "while")),
+                        "setter" => Some(self.create_token(TokenType::Setter, "setter")),
+                        "getter" => Some(self.create_token(TokenType::Getter, "getter")),
                         "true" => Some(self.create_token(
                             TokenType::TokenLiteral {
                                 value: Literal::Keyword(DataKeyword::True),
@@ -218,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_lexer_with_no_error() {
-        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;super;;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil";
+        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;super;;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil;setter;getter";
         let mut lexer = Lexer::new(s.to_owned(), "file".to_owned());
         let expected = Ok(vec![
             Token {
@@ -692,6 +694,38 @@ mod tests {
                     value: Literal::Keyword(DataKeyword::Nil),
                 },
                 lexeme: "nil".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::Setter,
+                lexeme: "setter".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::Semicolon,
+                lexeme: ";".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::Getter,
+                lexeme: "getter".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
                     line: 5,
