@@ -112,6 +112,12 @@ impl<'a> Resolver<'a> {
         self.pop_scope()?;
         Ok(())
     }
+    fn define_and_use(&mut self, variable: &'a str, location: &'a SourceCodeLocation) -> Result<(), Vec<ProgramError>> {
+        self.declare(variable, location).map_err(|e| vec![e])?;
+        self.define(variable);
+        self.uses.last_mut().unwrap().insert(variable, 1);
+        Ok(())
+    }
 }
 
 pub trait Pass<'a> {
@@ -157,13 +163,9 @@ impl<'a> Pass<'a> for Resolver<'a> {
                     }
                 }
                 self.push_scope(HashMap::default());
-                self.declare("this", &statement.location).map_err(|e| vec![e])?;
-                self.define("this");
-                self.uses.last_mut().unwrap().insert("this", 1);
+                self.define_and_use("this", &statement.location)?;
                 if superclass.is_some() {
-                    self.declare("super", &statement.location).map_err(|e| vec![e])?;
-                    self.define("super");
-                    self.uses.last_mut().unwrap().insert("super", 1);
+                    self.define_and_use("super", &statement.location)?;
                 }
                 self.resolve_functions(methods, true)?;
                 self.resolve_functions(getters, false)?;
