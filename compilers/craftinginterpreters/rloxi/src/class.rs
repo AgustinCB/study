@@ -28,9 +28,9 @@ fn statement_list_to_function_hash_map(statements: &[&Statement], environments: 
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LoxClass {
-    methods: HashMap<String, LoxFunction>,
-    getters: HashMap<String, LoxFunction>,
-    setters: HashMap<String, LoxFunction>,
+    methods: Rc<RefCell<HashMap<String, LoxFunction>>>,
+    getters: Rc<RefCell<HashMap<String, LoxFunction>>>,
+    setters: Rc<RefCell<HashMap<String, LoxFunction>>>,
     superclass: Option<Box<LoxClass>>,
     pub name: String,
     pub static_instance: LoxObject,
@@ -46,9 +46,9 @@ impl LoxClass {
         superclass: Option<LoxClass>,
         environments: Vec<Rc<RefCell<HashMap<String, Value>>>>,
     ) -> LoxClass {
-        let methods = statement_list_to_function_hash_map(method_list, &environments);
-        let getters = statement_list_to_function_hash_map(getters, &environments);
-        let setters = statement_list_to_function_hash_map(setters, &environments);
+        let methods = Rc::new(RefCell::new(statement_list_to_function_hash_map(method_list, &environments)));
+        let getters = Rc::new(RefCell::new(statement_list_to_function_hash_map(getters, &environments)));
+        let setters = Rc::new(RefCell::new(statement_list_to_function_hash_map(setters, &environments)));
         let mut static_methods = vec![];
         for ms in static_method_list {
             match &ms.statement_type {
@@ -67,6 +67,25 @@ impl LoxClass {
             static_instance,
             superclass: superclass.map(Box::new),
         }
+    }
+
+    pub fn append_methods(&self, method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) {
+        let methods = statement_list_to_function_hash_map(method_list, &environments);
+        self.methods.borrow_mut().extend(methods);
+    }
+
+    pub fn append_static_methods(&self, method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) {
+        self.static_instance.append_methods(method_list, environments);
+    }
+
+    pub fn append_getters(&self, method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) {
+        let getters = statement_list_to_function_hash_map(method_list, &environments);
+        self.getters.borrow_mut().extend(getters);
+    }
+
+    pub fn append_setters(&self, method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) {
+        let setters = statement_list_to_function_hash_map(method_list, &environments);
+        self.setters.borrow_mut().extend(setters);
     }
 }
 
@@ -96,17 +115,20 @@ impl LoxObject {
             variables.push("super");
             instances.push(obj.clone());
         }
-        for (name, mut f) in class.methods {
+        for (name, f) in class.methods.borrow().iter() {
+            let mut f = f.clone();
             f.bind(&instances, &variables);
-            properties.borrow_mut().insert(name, Value::Function(f));
+            properties.borrow_mut().insert(name.clone(), Value::Function(f));
         }
-        for (name, mut f) in class.getters {
+        for (name, f) in class.getters.borrow().iter() {
+            let mut f = f.clone();
             f.bind(&instances, &variables);
-            object.getters.insert(name, f);
+            object.getters.insert(name.clone(), f);
         }
-        for (name, mut f) in class.setters {
+        for (name, f) in class.setters.borrow().iter() {
+            let mut f = f.clone();
             f.bind(&instances, &variables);
-            object.setters.insert(name, f);
+            object.setters.insert(name.clone(), f);
         }
         object
     }
@@ -117,7 +139,7 @@ impl LoxObject {
             properties.borrow_mut().insert(name.clone(), Value::Function(function.clone()));
         }
         let superclass = superclass.map(|c|
-            LoxObject::new_static(c.name.clone(), &c.methods.clone().into_iter().collect::<Vec<(String, LoxFunction)>>(), c.superclass.map(|c| *c))
+            LoxObject::new_static(c.name.clone(), &c.methods.borrow().clone().into_iter().collect::<Vec<(String, LoxFunction)>>(), c.superclass.map(|c| *c))
         ).map(Box::new);
         LoxObject {
             getters: HashMap::new(),
@@ -173,5 +195,19 @@ impl LoxObject {
 
     pub fn set(&mut self, name: String, value: Value) {
         self.properties.borrow_mut().insert(name, value);
+    }
+
+    pub fn append_methods(&self, method_list: &[&Statement], environments: Vec<Rc<RefCell<HashMap<String, Value>>>>) {
+        let mut methods = statement_list_to_function_hash_map(method_list, &environments);
+        let mut variables = vec!["this"];
+        let mut instances = vec![self.clone()];
+        if let Some(box obj) = &self.superclass {
+            variables.push("super");
+            instances.push(obj.clone());
+        }
+        for f in methods.values_mut() {
+            f.bind(&instances, &variables);
+        }
+        self.properties.borrow_mut().extend(methods.into_iter().map(|(s, f)| (s, Value::Function(f))));
     }
 }

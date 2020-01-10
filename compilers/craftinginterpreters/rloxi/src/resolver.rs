@@ -149,7 +149,7 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 }
                 self.define(&name);
             }
-            StatementType::Class { name, methods, static_methods, setters, getters, superclass} => {
+            StatementType::ClassDeclaration { name, methods, static_methods, setters, getters, superclass} => {
                 self.declare(name, &statement.location).map_err(|e| vec![e])?;
                 if let Some(e) = superclass {
                     if let ExpressionType::VariableLiteral { identifier} = &e.expression_type {
@@ -174,6 +174,22 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 self.resolve_functions(static_methods, true)?;
                 self.define(&name);
             }
+            StatementType::TraitDeclaration { name, .. } => {
+                self.declare(name, &statement.location).map_err(|e| vec![e])?;
+                self.define(name);
+            }
+            StatementType::TraitImplementation { class_name, trait_name, methods, static_methods, setters, getters, .. } => {
+                self.resolve_expression(class_name)?;
+                self.resolve_expression(trait_name)?;
+                self.push_scope(HashMap::default());
+                self.define_and_use("this", &statement.location)?;
+                self.define_and_use("super", &statement.location)?;
+                self.resolve_functions(methods, true)?;
+                self.resolve_functions(getters, false)?;
+                self.resolve_functions(setters, false)?;
+                self.pop_scope()?;
+                self.resolve_functions(static_methods, true)?;
+            },
             StatementType::FunctionDeclaration {
                 name,
                 arguments,

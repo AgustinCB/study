@@ -26,7 +26,7 @@ fn main() -> io::Result<()> {
     let result = lexer
         .parse()
         .and_then(|ts| {
-            let mut parser = parser::Parser::new(ts.into_iter().peekable());
+            let parser = parser::Parser::new(ts.into_iter().peekable());
             parser.parse()
         })
         .and_then(|ss| {

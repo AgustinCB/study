@@ -9,11 +9,19 @@ using Rust.
 program         → declaration* EOF ;
 
 declaration → classDecl
+            | traitDecl
+            | traitImpl
             | funDecl
 	        | varDecl
             | statement ;
 
 classDecl   → "class" IDENTIFIER ( "<" IDENTIFIER )?
+              "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
+
+traitDecl   → "trait" IDENTIFIER
+              "{" ( ( "class" | "setter" | "getter" )? functionHeader )* "}" ;
+
+traitImpl   → "trait" IDENTIFIER "for" IDENTIFIER
               "{" ( ( "class" | "setter" | "getter" )? function )* "}" ;
 
 declWithBreak   → varDecl
@@ -52,7 +60,8 @@ returnStmt      → "return" expression? ";" ;
 varDecl         → "var" IDENTIFIER ( "=" expression )? ";" ;
 
 funDecl         → "fun" function ;
-function        → IDENTIFIER "(" parameters? ")" block ;
+functionHeader  → IDENTIFIER "(" parameters? ")" ;
+function        → functionHeader block ;
 parameters      → IDENTIFIER ( "," IDENTIFIER )* ;
 
 primary         → "true" | "false" | "nil" | "this"

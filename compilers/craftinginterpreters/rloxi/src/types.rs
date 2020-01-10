@@ -66,6 +66,7 @@ pub enum TokenType {
     EOF,
     Setter,
     Getter,
+    Trait,
     Identifier { name: String },
     TokenLiteral { value: Literal },
 }
@@ -77,7 +78,7 @@ pub struct Token {
     pub location: SourceCodeLocation,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ProgramError {
     pub location: SourceCodeLocation,
     pub message: String,
@@ -198,6 +199,12 @@ pub struct Statement {
     pub statement_type: StatementType,
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct FunctionHeader {
+    pub name: String,
+    pub arity: usize,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum StatementType {
     Expression {
@@ -206,7 +213,22 @@ pub enum StatementType {
     PrintStatement {
         expression: Expression,
     },
-    Class {
+    TraitDeclaration {
+        name: String,
+        methods: Vec<FunctionHeader>,
+        getters: Vec<FunctionHeader>,
+        setters: Vec<FunctionHeader>,
+        static_methods: Vec<FunctionHeader>,
+    },
+    TraitImplementation {
+        trait_name: Expression,
+        class_name: Expression,
+        methods: Vec<Box<Statement>>,
+        static_methods: Vec<Box<Statement>>,
+        getters: Vec<Box<Statement>>,
+        setters: Vec<Box<Statement>>,
+    },
+    ClassDeclaration {
         name: String,
         superclass: Option<Expression>,
         methods: Vec<Box<Statement>>,

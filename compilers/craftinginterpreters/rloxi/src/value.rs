@@ -1,5 +1,5 @@
 use crate::class::{LoxClass, LoxObject};
-use crate::types::{LoxFunction, SourceCodeLocation, ProgramError, Literal, DataKeyword};
+use crate::types::{LoxFunction, SourceCodeLocation, ProgramError, Literal, DataKeyword, FunctionHeader};
 use std::ops::{Not, Neg};
 use std::convert::TryInto;
 use std::fmt::{Display, Error, Formatter};
@@ -14,12 +14,33 @@ pub enum Value {
     Function(LoxFunction),
     Class(LoxClass),
     Object(LoxObject),
+    Trait {
+        name: String,
+        methods: Vec<FunctionHeader>,
+        getters: Vec<FunctionHeader>,
+        setters: Vec<FunctionHeader>,
+        static_methods: Vec<FunctionHeader>,
+    },
 }
 
 impl Value {
     pub fn is_number(&self) -> bool {
         match self {
             Value::Number { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_class(&self) -> bool {
+        match self {
+            Value::Class { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_trait(&self) -> bool {
+        match self {
+            Value::Trait { .. } => true,
             _ => false,
         }
     }
@@ -127,6 +148,7 @@ impl Display for Value {
             Value::Function(lf) => f.write_str(format!("{:?}", *lf).as_str()),
             Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
             Value::Object(c) => f.write_str(format!("{} instance", c.class_name).as_str()),
+            Value::Trait { name, .. } => f.write_str(name),
         }
     }
 }

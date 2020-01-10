@@ -1,10 +1,11 @@
 use crate::class::{LoxObject, LoxClass};
 use crate::state::State;
-use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType };
+use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, FunctionHeader};
 use crate::value::{Value, ValueError};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
+use std::iter::FromIterator;
 
 fn div_expressions(
     state: State,
@@ -272,6 +273,46 @@ fn set_property(state: State, locals: &HashMap<usize, usize>, callee: &Expressio
         }
     } else {
         Err(callee.create_program_error("Only instances have properties"))
+    }
+}
+
+fn statements_to_hash_set(statements: &[&Statement]) -> HashSet<FunctionHeader> {
+    let mut map = HashSet::new();
+    for s in statements {
+        if let StatementType::FunctionDeclaration { name, arguments, .. } = &s.statement_type {
+            map.insert(FunctionHeader {
+                name: name.clone(),
+                arity: arguments.len(),
+            });
+        } else {
+            panic!("Unexpected statement");
+        }
+    }
+    map
+}
+
+fn check_trait_methods(impl_methods: &[&Statement], trait_methods: &[FunctionHeader], location: &SourceCodeLocation) -> Result<(), Vec<ProgramError>> {
+    let trait_methods_hash = HashSet::from_iter(trait_methods.iter().cloned());
+    let impl_methods_hash = statements_to_hash_set(impl_methods);
+    let missed_methods = trait_methods_hash.difference(&impl_methods_hash);
+    let extra_methods = impl_methods_hash.difference(&trait_methods_hash);
+    let mut errors = vec![];
+    for missed_method in missed_methods {
+        errors.push(ProgramError {
+            location: location.clone(),
+            message: format!("Missing method {} of arity {}, in trait implementation", missed_method.name, missed_method.arity),
+        });
+    }
+    for extra_method in extra_methods {
+        errors.push(ProgramError {
+            location: location.clone(),
+            message: format!("Method {} of arity {} is not in trait declaration", extra_method.name, extra_method.arity),
+        });
+    }
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors)
     }
 }
 
@@ -555,7 +596,58 @@ impl Evaluable for Statement {
                 println!("{}", v);
                 s
             }
-            StatementType::Class {
+            StatementType::TraitDeclaration { name, methods, static_methods, setters, getters} => {
+                state.insert_top(name.clone(), Value::Trait {
+                    name: name.clone(),
+                    methods: methods.clone(),
+                    static_methods: static_methods.clone(),
+                    setters: setters.clone(),
+                    getters: getters.clone(),
+                });
+                state
+            }
+            StatementType::TraitImplementation {
+                class_name,
+                getters,
+                methods,
+                setters,
+                static_methods,
+                trait_name,
+            } => {
+                if let (state, Value::Class(class)) = class_name.evaluate(state, locals)? {
+                    if let (ns, Value::Trait {
+                        methods: trait_methods,
+                        static_methods: trait_static_methods,
+                        getters: trait_getters,
+                        setters: trait_setters,
+                        ..
+                    }) = trait_name.evaluate(state, locals)? {
+                        let methods = &methods.iter().map(|s| s.as_ref()).collect::<Vec<&_>>();
+                        let static_methods = &static_methods.iter().map(|s| s.as_ref()).collect::<Vec<&_>>();
+                        let getters = &getters.iter().map(|s| s.as_ref()).collect::<Vec<&_>>();
+                        let setters = &setters.iter().map(|s| s.as_ref()).collect::<Vec<&_>>();
+                        let envs = ns.get_environments();
+                        check_trait_methods(methods, &trait_methods, &self.location)
+                            .map_err(|ee| ee[0].clone())?;
+                        class.append_methods(methods, envs.clone());
+                        check_trait_methods(static_methods, &trait_static_methods, &self.location)
+                            .map_err(|ee| ee[0].clone())?;
+                        class.append_static_methods(static_methods, envs.clone());
+                        check_trait_methods(getters, &trait_getters, &self.location)
+                            .map_err(|ee| ee[0].clone())?;
+                        class.append_methods(getters, envs.clone());
+                        check_trait_methods(setters, &trait_setters, &self.location)
+                            .map_err(|ee| ee[0].clone())?;
+                        class.append_methods(setters, envs.clone());
+                        ns
+                    } else {
+                        return Err(class_name.create_program_error("You can implement traits only on classes"));
+                    }
+                } else {
+                    return Err(class_name.create_program_error("You can implement traits only on classes"));
+                }
+            }
+            StatementType::ClassDeclaration {
                 getters,
                 name,
                 methods,
