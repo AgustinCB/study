@@ -64,14 +64,8 @@ functionHeader  → IDENTIFIER "(" parameters? ")" ;
 function        → functionHeader block ;
 parameters      → IDENTIFIER ( "," IDENTIFIER )* ;
 
-primary         → "true" | "false" | "nil" | "this"
-                | NUMBER | STRING
-                | "(" expression ")"
-                | IDENTIFIER ;
-
 expression      → assignment ;
-assignment      → ( call "." )? IDENTIFIER "=" (assignment | commaExpression) ;
-commaExpression → ternary ( "," ternary )* ;
+assignment      → ( call "." )? IDENTIFIER ( "[" NUMBER "]" )? "=" (assignment | ternary) ;
 ternary         → logicOr ( "?" expression <- ternary )? ;
 logicOr         → logicAnd ( "or" logicAnd )* ;
 logicAnd        → equality ( "and" logicAnd )* ;
@@ -80,10 +74,13 @@ comparison      → addition ( ( ">" | ">=" | "<" | "<=" ) addition )* ;
 addition        → multiplication ( ( "-" | "+" ) multiplication )* ;
 multiplication  → unary ( ( "/" | "*" ) unary )* ;
 unary           → ( "!" | "-" ) unary
-                | primary ;
-call            → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
+                | arrayElement ;
+call            → arrayElement ( "(" arguments? ")" | "." IDENTIFIER )* ;
 arguments       → ternary ( "," ternary )* ;
+arrayElement    → primary ( "[" expression "]" )?
 primary         → NUMBER | STRING | "false" | "true" | "nil"
+                | "[" expression ";" expression "]"
+                | "[" ( expression "," ) ? expression "]"
                 | "fun" "(" parameters? ")" block
                 | "(" expression ")"
                 | ( "!=" | "==" ) equality

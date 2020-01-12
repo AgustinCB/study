@@ -69,6 +69,7 @@ impl State {
         self.insert_top(identifier, value);
     }
 
+    #[cfg(test)]
     pub fn find(&self, identifier: &str) -> Option<Value> {
         self.environments
             .iter()

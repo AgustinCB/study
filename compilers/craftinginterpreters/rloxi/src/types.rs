@@ -33,6 +33,8 @@ pub enum TokenType {
     RightParen,
     LeftBrace,
     RightBrace,
+    LeftSquareBrace,
+    RightSquareBrace,
     Colon,
     Comma,
     Dot,
@@ -118,6 +120,7 @@ impl ExpressionFactory {
     pub fn new() -> ExpressionFactory {
         ExpressionFactory { counter: 0 }
     }
+    #[cfg(test)]
     pub fn new_starting(counter: usize) -> ExpressionFactory {
         ExpressionFactory { counter }
     }
@@ -180,6 +183,22 @@ pub enum ExpressionType {
     Set {
         callee: Box<Expression>,
         property: String,
+        value: Box<Expression>,
+    },
+    Array {
+        elements: Vec<Box<Expression>>,
+    },
+    RepeatedElementArray {
+        element: Box<Expression>,
+        length: Box<Expression>,
+    },
+    ArrayElement {
+        array: Box<Expression>,
+        index: Box<Expression>,
+    },
+    ArrayElementSet {
+        array: Box<Expression>,
+        index: Box<Expression>,
         value: Box<Expression>,
     }
 }

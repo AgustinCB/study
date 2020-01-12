@@ -3,6 +3,8 @@ use crate::types::{LoxFunction, SourceCodeLocation, ProgramError, Literal, DataK
 use std::ops::{Not, Neg};
 use std::convert::TryInto;
 use std::fmt::{Display, Error, Formatter};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Value {
@@ -21,6 +23,10 @@ pub enum Value {
         setters: Vec<FunctionHeader>,
         static_methods: Vec<FunctionHeader>,
     },
+    Array {
+        capacity: usize,
+        elements: Rc<RefCell<Vec<Box<Value>>>>,
+    }
 }
 
 impl Value {
@@ -149,6 +155,13 @@ impl Display for Value {
             Value::Class(c) => f.write_str(format!("{}", c.name).as_str()),
             Value::Object(c) => f.write_str(format!("{} instance", c.class_name).as_str()),
             Value::Trait { name, .. } => f.write_str(name),
+            Value::Array { elements, .. } => {
+                f.write_str("[ ")?;
+                for e in elements.borrow().iter() {
+                    f.write_str(format!("{}, ", e).as_str())?;
+                }
+                f.write_str("]")
+            },
         }
     }
 }

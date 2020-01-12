@@ -281,6 +281,24 @@ impl<'a> Pass<'a> for Resolver<'a> {
                 let body = body.iter().collect::<Vec<&'a Statement>>();
                 self.resolve_function(arguments, &body, &expression.location)?;
             }
+            ExpressionType::RepeatedElementArray { element, length } => {
+                self.resolve_expression(length)?;
+                self.resolve_expression(element)?;
+            }
+            ExpressionType::Array { elements } => {
+                for element in elements {
+                    self.resolve_expression(element)?;
+                }
+            }
+            ExpressionType::ArrayElement { array, index } => {
+                self.resolve_expression(array)?;
+                self.resolve_expression(index)?;
+            }
+            ExpressionType::ArrayElementSet { array, index, value } => {
+                self.resolve_expression(array)?;
+                self.resolve_expression(index)?;
+                self.resolve_expression(value)?;
+            }
         };
         Ok(())
     }

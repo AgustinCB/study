@@ -166,6 +166,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         self.content.borrow_mut().next()
     }
 
+    #[cfg(test)]
     #[inline]
     fn is_empty(&self) -> bool {
         self.content.borrow_mut().peek().is_none()
@@ -740,7 +741,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_assignment(&self) -> Result<Expression, ProgramError> {
-        let variable = self.parse_comma()?;
+        let variable = self.parse_ternary()?;
         match self.dry_next() {
             Some(Token {
                 token_type: TokenType::Equal,
@@ -770,6 +771,18 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                             ExpressionType::Set { callee, property, value: Box::new(expression) },
                             location,
                         )),
+                        Expression {
+                            expression_type: ExpressionType::ArrayElement { array, index },
+                            location,
+                            ..
+                        } => Ok(self.expression_factory.borrow_mut().new_expression(
+                            ExpressionType::ArrayElementSet {
+                                array,
+                                index,
+                                value: Box::new(expression),
+                            },
+                            location,
+                        )),
                         _ => Err(ProgramError {
                             location,
                             message: "Invalid assignment target".to_owned(),
@@ -784,14 +797,6 @@ impl<I: Iterator<Item = Token>> Parser<I> {
             }
             _ => Ok(variable),
         }
-    }
-
-    fn parse_comma(&self) -> Result<Expression, ProgramError> {
-        self.parse_binary(
-            Parser::parse_ternary,
-            Parser::parse_comma,
-            &[TokenType::Comma],
-        )
     }
 
     fn parse_ternary(&self) -> Result<Expression, ProgramError> {
@@ -887,7 +892,7 @@ impl<I: Iterator<Item = Token>> Parser<I> {
     }
 
     fn parse_call(&self) -> Result<Expression, ProgramError> {
-        let mut callee = self.parse_primary()?;
+        let mut callee = self.parse_array_element()?;
         loop {
             match self.dry_next().map(|t| t.token_type) {
                 Some(TokenType::LeftParen) => {
@@ -986,8 +991,32 @@ impl<I: Iterator<Item = Token>> Parser<I> {
         }
     }
 
+    fn parse_array_element(&self) -> Result<Expression, ProgramError> {
+        let array = self.parse_primary()?;
+        if self.peek(TokenType::LeftSquareBrace) {
+            self.next();
+            let index = Box::new(self.parse_expression()?);
+            self.consume(TokenType::RightSquareBrace, "Expected `]` at the end of array indexing", &index.location)?;
+            let location = array.location.clone();
+            Ok(self.expression_factory.borrow_mut().new_expression(
+                ExpressionType::ArrayElement {
+                    array: Box::new(array),
+                    index,
+                },
+                location,
+            ))
+        } else {
+            Ok(array)
+        }
+    }
+
     fn parse_primary(&self) -> Result<Expression, ProgramError> {
         match self.next() {
+            Some(Token {
+                token_type: TokenType::LeftSquareBrace,
+                location,
+                ..
+            }) => self.parse_array(location),
             Some(Token {
                 token_type: TokenType::Fun,
                 location,
@@ -1026,6 +1055,80 @@ impl<I: Iterator<Item = Token>> Parser<I> {
                 location,
                 lexeme,
             }) => self.parse_left_side_missing(token_type, location, lexeme),
+        }
+    }
+
+    fn parse_array(
+        &self,
+        location: SourceCodeLocation,
+    ) -> Result<Expression, ProgramError> {
+        if self.peek(TokenType::RightSquareBrace) {
+            self.next();
+            return Ok(self.expression_factory.borrow_mut().new_expression(
+                ExpressionType::Array {
+                    elements: vec![],
+                },
+                location,
+            ))
+        }
+        let element = Box::new(self.parse_expression()?);
+        match self.next() {
+            Some(Token {
+                token_type: TokenType::Semicolon,
+                ..
+            }) => {
+                let length = Box::new(self.parse_expression()?);
+                self.consume(TokenType::RightSquareBrace, "Expected `]` at the end of array literal", &length.location)?;
+                Ok(self.expression_factory.borrow_mut().new_expression(
+                    ExpressionType::RepeatedElementArray {
+                        element, length
+                    },
+                    location,
+                ))
+            },
+            Some(Token {
+                token_type: TokenType::Comma,
+                ..
+            }) => {
+                let mut last_location = element.location.clone();
+                let mut elements = vec![element, Box::new(self.parse_expression()?)];
+                while !self.peek(TokenType::RightSquareBrace) {
+                    self.consume(TokenType::Comma, "Expected `,` between array elements", &last_location)?;
+                    let last_element = Box::new(self.parse_expression()?);
+                    last_location = last_element.location.clone();
+                    elements.push(last_element);
+                }
+                self.consume(TokenType::RightSquareBrace, "Expected `]` at the end of array literal", &last_location)?;
+                Ok(self.expression_factory.borrow_mut().new_expression(
+                    ExpressionType::Array {
+                        elements,
+                    },
+                    location,
+                ))
+            }
+            Some(Token {
+                token_type: TokenType::RightSquareBrace,
+                ..
+            }) => {
+                Ok(self.expression_factory.borrow_mut().new_expression(
+                    ExpressionType::Array {
+                        elements: vec![element],
+                    },
+                    location
+                ))
+            }
+            Some(Token { location, lexeme, .. }) => {
+                Err(ProgramError {
+                    message: format!("Unexpected token `{}`", lexeme),
+                    location
+                })
+            },
+            None => {
+                Err(ProgramError {
+                    message: "Unexpected end of file".to_owned(),
+                    location
+                })
+            }
         }
     }
 
@@ -1687,11 +1790,6 @@ mod test {
             )
         );
         assert!(parser.is_empty());
-    }
-
-    #[test]
-    fn parse_comma() {
-        test_binary(TokenType::Comma);
     }
 
     #[test]

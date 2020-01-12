@@ -6,6 +6,69 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::ops::{Add, Div, Mul, Sub};
 use std::iter::FromIterator;
+use std::rc::Rc;
+use std::cell::RefCell;
+
+fn array_element_expression_set(
+    array: &Expression,
+    index: &Expression,
+    value: &Expression,
+    state: State,
+    locals: &HashMap<usize, usize>,
+) -> EvaluationResult {
+    let (ns, array_value) = array.evaluate(state, locals)?;
+    if let Value::Array { elements, capacity } = array_value {
+        let (ns, index_value) = index.evaluate(ns, locals)?;
+        if let Value::Number { value: index_value } = index_value {
+            if index_value - index_value as usize as f32 == 0f32 {
+                if (index_value as usize) < capacity {
+                    let (ns, value) = value.evaluate(ns, locals)?;
+                    elements.borrow_mut()[index_value as usize] = Box::new(value.clone());
+                    Ok((ns, value))
+                } else {
+                    Err(index.create_program_error(
+                        format!("You can't access element {} in an array of {} elements", index_value, capacity).as_str()
+                    ))
+                }
+            } else {
+                Err(index.create_program_error("You can only index with integers"))
+            }
+        } else {
+            Err(index.create_program_error("You can only index with numbers"))
+        }
+    } else {
+        Err(array.create_program_error("You can only index arrays"))
+    }
+}
+
+fn array_element_expression(
+    array: &Expression,
+    index: &Expression,
+    state: State,
+    locals: &HashMap<usize, usize>,
+) -> EvaluationResult {
+    let (ns, array_value) = array.evaluate(state, locals)?;
+    if let Value::Array { elements, capacity } = array_value {
+        let (ns, index_value) = index.evaluate(ns, locals)?;
+        if let Value::Number { value: index_value } = index_value {
+            if index_value - index_value as usize as f32 == 0f32 {
+                if (index_value as usize) < capacity {
+                    Ok((ns, *elements.borrow()[index_value as usize].clone()))
+                } else {
+                    Err(index.create_program_error(
+                        format!("You can't access element {} in an array of {} elements", index_value, capacity).as_str()
+                    ))
+                }
+            } else {
+                Err(index.create_program_error("You can only index with integers"))
+            }
+        } else {
+            Err(index.create_program_error("You can only index with numbers"))
+        }
+    } else {
+        Err(array.create_program_error("You can only index arrays"))
+    }
+}
 
 fn div_expressions(
     state: State,
@@ -358,6 +421,45 @@ pub trait Evaluable {
 impl Evaluable for Expression {
     fn evaluate(&self, state: State, locals: &HashMap<usize, usize>) -> EvaluationResult {
         match &self.expression_type {
+            ExpressionType::ArrayElementSet {
+                array,
+                index,
+                value,
+            } => array_element_expression_set(array, index, value, state, locals),
+            ExpressionType::ArrayElement {
+                array,
+                index,
+            } => array_element_expression(array, index, state, locals),
+            ExpressionType::RepeatedElementArray {
+                element,
+                length
+            } => {
+                let (ns, element) = element.evaluate(state, locals)?;
+                let (ns, length) = length.evaluate(ns, locals)?;
+                if let Value::Number { value: length } = length {
+                    let elements = Rc::new(RefCell::new(vec![Box::new(element); length as _]));
+                    Ok((ns, Value::Array { elements, capacity: length as _ }))
+                } else {
+                    Err(
+                        self.create_program_error("Array length should be a number")
+                    )
+                }
+            }
+            ExpressionType::Array {
+                elements,
+            } => {
+                let (next_state, elements) = elements.iter()
+                    .try_fold((state, vec![]), |(s, mut elements), e| {
+                        let (ns, e) = e.evaluate(s, locals)?;
+                        elements.push(Box::new(e));
+                        Ok((ns, elements))
+                    })?;
+                let elements = Rc::new(RefCell::new(elements));
+                Ok((next_state, Value::Array {
+                    capacity: elements.clone().borrow().len(),
+                    elements: elements.clone(),
+                }))
+            }
             ExpressionType::Set {
                 callee, property, value
             } => set_property(state, locals, callee, property, value),
@@ -477,13 +579,6 @@ impl Evaluable for Expression {
                 right,
                 operator: TokenType::BangEqual,
             } => eq_expressions(state, left, right, locals).map(|(s, v)| (s, !v)),
-            ExpressionType::Binary {
-                left,
-                right,
-                operator: TokenType::Comma,
-            } => left
-                .evaluate(state, locals)
-                .and_then(|(s, _)| right.evaluate(s, locals)),
             ExpressionType::Binary {
                 left,
                 right,
@@ -1522,36 +1617,6 @@ mod test_expression {
         let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
         assert_eq!(state, final_state);
         assert_eq!(got, Value::Boolean { value: true });
-    }
-
-    #[test]
-    fn test_comma() {
-        let location = SourceCodeLocation {
-            line: 1,
-            file: "".to_owned(),
-        };
-        let mut locals = HashMap::default();
-        locals.insert(0, 0);
-        let expression = create_expression(
-            ExpressionType::Binary {
-                operator: TokenType::Comma,
-                left: Box::new(create_expression(
-                    ExpressionType::VariableAssignment {
-                        expression: Box::new(get_number(1.0, &location)),
-                        identifier: "identifier".to_owned(),
-                    },
-                    location.clone(),
-                )),
-                right: Box::new(get_number(2.0, &location)),
-            },
-            location,
-        );
-        let mut state = State::default();
-        state.insert("identifier".to_owned(), Value::Number { value: 2.0 });
-        let (final_state, got) = expression.evaluate(state.clone(), &locals).unwrap();
-        state.insert("identifier".to_owned(), Value::Number { value: 1.0 });
-        assert_eq!(state, final_state);
-        assert_eq!(got, Value::Number { value: 2.0 });
     }
 
     #[test]

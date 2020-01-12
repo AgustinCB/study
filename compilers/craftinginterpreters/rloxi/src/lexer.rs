@@ -29,6 +29,8 @@ impl Lexer {
                 (')', _) => Some(self.create_token(TokenType::RightParen, ")")),
                 ('{', _) => Some(self.create_token(TokenType::LeftBrace, "{")),
                 ('}', _) => Some(self.create_token(TokenType::RightBrace, "}")),
+                ('[', _) => Some(self.create_token(TokenType::LeftSquareBrace, "[")),
+                (']', _) => Some(self.create_token(TokenType::RightSquareBrace, "]")),
                 (':', _) => Some(self.create_token(TokenType::Colon, ":")),
                 (',', _) => Some(self.create_token(TokenType::Comma, ",")),
                 ('.', _) => Some(self.create_token(TokenType::Dot, ".")),
@@ -220,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_lexer_with_no_error() {
-        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil;setter;getter;trait";
+        let s = "(){}:,.-+;/!*!=;=;==>>=<<=;and;class;else;fun;for;break;if;or;print?return;;var;while\n// comment\nidentifier\n\"string\"\n123.123\ntrue;false;nil;setter;getter;trait[]";
         let mut lexer = Lexer::new(s.to_owned(), "file".to_owned());
         let expected = Ok(vec![
             Token {
@@ -726,6 +728,22 @@ mod tests {
             Token {
                 token_type: TokenType::Trait,
                 lexeme: "trait".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::LeftSquareBrace,
+                lexeme: "[".to_owned(),
+                location: SourceCodeLocation {
+                    file: "file".to_owned(),
+                    line: 5,
+                },
+            },
+            Token {
+                token_type: TokenType::RightSquareBrace,
+                lexeme: "]".to_owned(),
                 location: SourceCodeLocation {
                     file: "file".to_owned(),
                     line: 5,
