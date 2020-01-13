@@ -1,6 +1,7 @@
 use crate::class::{LoxObject, LoxClass};
+use crate::function::LoxFunction;
 use crate::state::State;
-use crate::types::{EvaluationResult, Expression, ExpressionType, LoxFunction, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, FunctionHeader};
+use crate::types::{EvaluationResult, Expression, ExpressionType, ProgramError, SourceCodeLocation, Statement, StatementType, TokenType, FunctionHeader};
 use crate::value::{Value, ValueError};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -838,10 +839,11 @@ impl Evaluable for Statement {
 
 #[cfg(test)]
 mod test_statement {
+    use crate::function::LoxFunction;
     use crate::interpreter::Evaluable;
     use crate::state::State;
     use crate::types::{
-        Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction, ProgramError,
+        Expression, ExpressionFactory, ExpressionType, Literal, ProgramError,
         SourceCodeLocation, Statement, StatementType, TokenType,
     };
     use crate::value::Value;
@@ -1201,10 +1203,11 @@ mod test_statement {
 
 #[cfg(test)]
 mod test_expression {
+    use crate::function::LoxFunction;
     use crate::interpreter::Evaluable;
     use crate::state::State;
     use crate::types::{
-        DataKeyword, Expression, ExpressionFactory, ExpressionType, Literal, LoxFunction,
+        DataKeyword, Expression, ExpressionFactory, ExpressionType, Literal,
         SourceCodeLocation, Statement, StatementType, TokenType,
     };
     use crate::value::Value;

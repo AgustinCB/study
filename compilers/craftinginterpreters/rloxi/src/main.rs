@@ -7,6 +7,7 @@ use crate::types::ProgramError;
 use std::io::{self, Read};
 
 mod class;
+mod function;
 mod interpreter;
 mod lexer;
 mod parser;

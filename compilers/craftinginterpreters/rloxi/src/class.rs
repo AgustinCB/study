@@ -1,4 +1,5 @@
-use crate::types::{LoxFunction, Statement, StatementType, SourceCodeLocation, ProgramError};
+use crate::function::LoxFunction;
+use crate::types::{Statement, StatementType, SourceCodeLocation, ProgramError};
 use crate::value::Value;
 use std::collections::HashMap;
 use std::cell::RefCell;
